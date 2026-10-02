@@ -1,0 +1,27 @@
+{
+  "title": "Indian Railways AC Traction Manual (ACTM) Volume II (Part I) - Power Block Regulations",
+  "publisher": "Electrical Directorate, Railway Board, Ministry of Railways",
+  "scope": "25 kV AC 50 Hz Single Phase Traction Overhead Equipment (OHE) Power Block Regulations",
+  "regulations": [
+    {
+      "para": "20600",
+      "title": "Power Block Definition",
+      "text": "Power Block means blocking of a section of 25 kV AC line to electric traffic by switching off the power supply and earthing the OHE to permit maintenance, construction, or inspection safely."
+    },
+    {
+      "para": "20601",
+      "title": "Types of Power Block",
+      "text": "Power Blocks are classified as: (a) Emergency Power Block, arranged immediately on breakdown; (b) Pre-arranged (Planned) Power Block, scheduled in advance with operating department; (c) Local Power Block."
+    },
+    {
+      "para": "20603",
+      "title": "Permit to Work (PTW)",
+      "text": "No person shall work within 2 meters of any 25 kV live OHE equipment without a valid Permit to Work (PTW) issued by an authorized traction official after verifying isolation and earthing on both sides."
+    },
+    {
+      "para": "20610",
+      "title": "Combined Traffic and Power Block",
+      "text": "When track machines (BCM, TRT, CSM tamping), rail cranes, or major civil engineering works are executed under 25 kV AC OHE, a simultaneous Traffic Block and Power Block must be granted."
+    }
+  ]
+}

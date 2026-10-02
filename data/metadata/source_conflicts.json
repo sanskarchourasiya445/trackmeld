@@ -1,0 +1,52 @@
+{
+  "source_conflicts": [
+    {
+      "conflict_id": "CONF-01-STN-PRYJ",
+      "source_a": "TAG 2023-24 Table 1",
+      "source_b": "Legacy General Rules & Indian Railway Code (Pre-2020)",
+      "conflicting_field": "Station Name and Code for Allahabad / Prayagraj",
+      "value_source_a": "Prayagraj Jn. (PRYJ)",
+      "value_source_b": "Allahabad Jn. (ALD)",
+      "document_dates": {
+        "source_a": "2023-10-01",
+        "source_b": "2019 or earlier"
+      },
+      "reason": "Official gazette renaming of Allahabad to Prayagraj and subsequent Indian Railways station code migration from ALD to PRYJ.",
+      "resolution_status": "RESOLVED_SUPERSEDED",
+      "adopted_value": "Prayagraj Jn. (PRYJ)",
+      "resolution_rationale": "Source A is the newer official Railway Board publication reflecting current operational reality."
+    },
+    {
+      "conflict_id": "CONF-02-STN-DDU",
+      "source_a": "TAG 2023-24 Table 1",
+      "source_b": "Legacy Operating Manuals & Historic WTT",
+      "conflicting_field": "Station Name and Code for Mughalsarai",
+      "value_source_a": "Pt. Deen Dayal Upadhyaya Jn. (DDU)",
+      "value_source_b": "Mughalsarai Jn. (MGS)",
+      "document_dates": {
+        "source_a": "2023-10-01",
+        "source_b": "2018 or earlier"
+      },
+      "reason": "Official renaming of Mughalsarai Junction to Pt. Deen Dayal Upadhyaya Junction and code change from MGS to DDU.",
+      "resolution_status": "RESOLVED_SUPERSEDED",
+      "adopted_value": "Pt. Deen Dayal Upadhyaya Jn. (DDU)",
+      "resolution_rationale": "Source A reflects current operational coding across all CRIS and IR systems."
+    },
+    {
+      "conflict_id": "CONF-03-RBP-MANDATE",
+      "source_a": "The Gazette of India G.S.R. 870(E) (Nov 2023)",
+      "source_b": "Indian Railways General Rules 1976 (Original)",
+      "conflicting_field": "Mandate of 52-week advance planning for maintenance blocks",
+      "value_source_a": "Mandatory under Rule 15.02(c) with rolling weekly reviews",
+      "value_source_b": "Ad-hoc block requisition by engineering official without 52-week forward planning",
+      "document_dates": {
+        "source_a": "2023-11-29",
+        "source_b": "1976"
+      },
+      "reason": "Statutory amendment to the General Rules enacted following safety reviews to eliminate unplanned, scattered maintenance blocks.",
+      "resolution_status": "RESOLVED_AMENDED",
+      "adopted_value": "Mandatory 52-week Rolling Block Programme under Rule 15.02(c)",
+      "resolution_rationale": "Statutory gazette amendment legally amends the principal General Rules."
+    }
+  ]
+}

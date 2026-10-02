@@ -1,0 +1,39 @@
+{
+  "data_gaps": [
+    {
+      "dataset": "actual_operational_possession_records",
+      "status": "NOT_PUBLICLY_AVAILABLE",
+      "searched_sources": [
+        "Ministry of Railways portal (indianrailways.gov.in)",
+        "CRIS public portals (cris.org.in)",
+        "Open Government Data Platform India (data.gov.in)",
+        "Railway Board Civil Engineering circulars"
+      ],
+      "reason": "Live maintenance possession requisitions and divisional block grant logs reside within internal Indian Railways intranet systems (BDMS - Block Demand & Management System, TMS - Track Management System, and COA - Control Office Application). Public access to live control office block registers is restricted for operational safety and security.",
+      "impact_on_trackmeld": "TrackMeld will model real operational possession windows deterministically using the real timetables and statutory rules extracted in Phase 0. Actual historical possession logs for calibration must be synthetic or user-provided under lawful agreement.",
+      "replacement": "Deterministic possession window derivation from scheduled train headways + synthetic possession requests adhering to IRPWM/ACTM rules."
+    },
+    {
+      "dataset": "real_time_block_occupancy_telemetry",
+      "status": "NOT_PUBLICLY_AVAILABLE",
+      "searched_sources": [
+        "NTES public enquiry",
+        "CRIS applications"
+      ],
+      "reason": "Real-time block section axle-counter occupancy and signal aspects are confidential internal train control data streamed to Divisional Control Offices and not exposed via public APIs.",
+      "impact_on_trackmeld": "TrackMeld uses published timetable schedules as the baseline for train passes. Real-time deviation/delay models will be simulated in subsequent phases.",
+      "replacement": "Scheduled timetable movements as extracted from official Railway Board TAG publication."
+    },
+    {
+      "dataset": "detailed_track_geometry_usfd_flaw_logs",
+      "status": "NOT_PUBLICLY_AVAILABLE",
+      "searched_sources": [
+        "RDSO TMM Directorate",
+        "IRICEN"
+      ],
+      "reason": "Ultrasonic Flaw Detection (USFD) defect registers and Track Recording Car (TRC) raw sensor runs are internal engineering records of divisional P-Way offices.",
+      "impact_on_trackmeld": "Maintenance task urgency scores will be generated from realistic engineering condition models rather than actual defect logs.",
+      "replacement": "Synthetic task feature generation mapped to real extracted block sections."
+    }
+  ]
+}

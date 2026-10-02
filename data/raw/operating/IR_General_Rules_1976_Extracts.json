@@ -1,0 +1,46 @@
+{
+  "title": "General Rules for Indian Railways (Open Lines) 1976 with Amendments",
+  "publisher": "Safety Directorate, Railway Board, Ministry of Railways",
+  "chapters_covered": [
+    "Chapter I - Preliminary",
+    "Chapter IV - Speed of Trains",
+    "Chapter XV - Works on Open Line"
+  ],
+  "key_rules": [
+    {
+      "rule_no": "GR 1.02(11)",
+      "title": "Definition of Block Section",
+      "text": "Block Section means that portion of the running line between two block stations on to which no running train may enter until Line Clear has been received from the block station at the other end."
+    },
+    {
+      "rule_no": "GR 1.02(12)",
+      "title": "Definition of Block Station",
+      "text": "Block Station means a station at which the Driver of a train must obtain an authority to proceed under the system of working to enter the block section with his train."
+    },
+    {
+      "rule_no": "GR 1.02(52)",
+      "title": "Definition of Traffic Block",
+      "text": "Traffic Block means blocking of a section of line to regular traffic for a specified period for the purpose of engineering work, overhead equipment maintenance, signalling work or other operational needs."
+    },
+    {
+      "rule_no": "GR 4.08",
+      "title": "Limits of Speed over Track under Repairs",
+      "text": "When any portion of track is undergoing maintenance or repairs, or is not in fit condition for trains at normal speed, a caution order shall be issued and speed restriction imposed."
+    },
+    {
+      "rule_no": "GR 15.06",
+      "title": "Sanction for Works affecting Safety",
+      "text": "No person shall commence any work or operation affecting the safety or passage of trains without previous sanction of the competent authority and obtaining necessary block protection."
+    },
+    {
+      "rule_no": "GR 15.08",
+      "title": "Protection of Line under Obstruction",
+      "text": "When a line is obstructed due to work, danger signals (banner flags and detonators) shall be placed at 600m and 1200m on Broad Gauge to protect the work zone."
+    },
+    {
+      "rule_no": "GR 15.12",
+      "title": "Disconnection of Interlocked Gear",
+      "text": "No signalling gear, point mechanism, or interlocking shall be disconnected without prior written Disconnection Notice (Form S&T T/351) served to and accepted by the Station Master."
+    }
+  ]
+}

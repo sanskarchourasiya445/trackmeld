@@ -1,0 +1,106 @@
+{
+  "electrification": {
+    "system": "25 kV AC 50 Hz Single Phase Overhead Catenary (OHE)",
+    "coverage": "High Density Network (HDN) routes: Delhi-Howrah, Delhi-Mumbai, Delhi-Chennai are 100% electrified.",
+    "source_id": "SRC-MOR-ACTM-VOL2",
+    "classification": "REAL"
+  },
+  "track_gauge": {
+    "gauge_type": "BROAD_GAUGE",
+    "dimension_mm": 1676,
+    "rail_standards": "60 kg/m UIC rails on PSC (Prestressed Concrete) sleepers, 1660 sleepers/km",
+    "source_id": "SRC-MOR-IRWM-2026",
+    "classification": "REAL"
+  },
+  "signalling_and_interlocking": {
+    "type": "Electronic Interlocking (EI) / Route Relay Interlocking (RRI) with Multi-Aspect Colour Light Signals (MACLS)",
+    "block_working": "Continuous Track Circuiting / Axle Counter Block Proving (BPAC)",
+    "safety_system": "Automatic Train Protection (ATP) - KAVACH deployment on Golden Quadrilateral",
+    "source_id": "SRC-MOR-GR-1976",
+    "classification": "REAL"
+  },
+  "monitored_corridors": [
+    {
+      "corridor_id": "CORR-NDLS-HWH",
+      "name": "Delhi - Kanpur - Prayagraj - Varanasi - Howrah Mainline & Grand Chord",
+      "length_km": 1445.0,
+      "zones": [
+        "NR",
+        "NCR",
+        "ECR",
+        "ER"
+      ],
+      "divisions": [
+        "Delhi",
+        "Prayagraj",
+        "Pt. Deen Dayal Upadhyaya",
+        "Danapur",
+        "Dhanbad",
+        "Asansol",
+        "Howrah"
+      ],
+      "primary_table": "Table 1 (TAG 2023-24)"
+    },
+    {
+      "corridor_id": "CORR-NDLS-CSMT",
+      "name": "Delhi - Agra - Bhopal - Bhusaval - Mumbai CSMT Central Route",
+      "length_km": 1544.0,
+      "zones": [
+        "NR",
+        "NCR",
+        "WCR",
+        "CR"
+      ],
+      "divisions": [
+        "Delhi",
+        "Agra",
+        "Jhansi",
+        "Bhopal",
+        "Bhusaval",
+        "Mumbai CR"
+      ],
+      "primary_table": "Table 2 (TAG 2023-24)"
+    },
+    {
+      "corridor_id": "CORR-NDLS-BCT",
+      "name": "Delhi - Kota - Vadodara - Mumbai Central Western Route",
+      "length_km": 1384.0,
+      "zones": [
+        "NR",
+        "WCR",
+        "WR"
+      ],
+      "divisions": [
+        "Delhi",
+        "Kota",
+        "Ratlam",
+        "Vadodara",
+        "Mumbai WR"
+      ],
+      "primary_table": "Table 3 (TAG 2023-24)"
+    },
+    {
+      "corridor_id": "CORR-NDLS-MAS",
+      "name": "Delhi - Bhopal - Nagpur - Vijayawada - Chennai Central Grand Trunk",
+      "length_km": 2180.0,
+      "zones": [
+        "NR",
+        "NCR",
+        "WCR",
+        "CR",
+        "SCR",
+        "SR"
+      ],
+      "divisions": [
+        "Delhi",
+        "Jhansi",
+        "Bhopal",
+        "Nagpur",
+        "Secunderabad",
+        "Vijayawada",
+        "Chennai"
+      ],
+      "primary_table": "Table 8 (TAG 2023-24)"
+    }
+  ]
+}

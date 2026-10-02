@@ -1,0 +1,90 @@
+{
+  "extraction_log": [
+    {
+      "job_id": "EXT-JOB-01-SOURCES",
+      "timestamp": "2026-10-02T11:33:17.931578+00:00",
+      "target": "Raw document acquisition and hashing",
+      "records_processed": 13,
+      "status": "COMPLETED",
+      "output_file": "data/metadata/sources.json"
+    },
+    {
+      "job_id": "EXT-JOB-02-TRAINS",
+      "timestamp": "2026-10-02T11:33:17.931604+00:00",
+      "target": "Train catalog extraction",
+      "input_files": [
+        "Train_Number_Index.pdf",
+        "Rajdhani_Exp.pdf",
+        "Shatabdi_Exp.pdf",
+        "Duronto_Exp.pdf",
+        "Vande_Tejas_Uday_Gatiman_Exp.pdf"
+      ],
+      "records_extracted": 1700,
+      "records_rejected": 0,
+      "status": "COMPLETED",
+      "output_file": "data/normalized/trains.json"
+    },
+    {
+      "job_id": "EXT-JOB-03-STATIONS",
+      "timestamp": "2026-10-02T11:33:17.931609+00:00",
+      "target": "Station catalog and kilometrage",
+      "input_files": [
+        "Table_1_NDLS_HWH.pdf",
+        "Table_2_NDLS_CSMT.pdf",
+        "Table_3_NDLS_BCT.pdf",
+        "Table_8_NDLS_MAS.pdf",
+        "Table_20_MAS_SBC_MAQ.pdf"
+      ],
+      "records_extracted": 68,
+      "records_rejected": 0,
+      "status": "COMPLETED",
+      "output_file": "data/normalized/stations.json"
+    },
+    {
+      "job_id": "EXT-JOB-04-SECTIONS",
+      "timestamp": "2026-10-02T11:33:17.931614+00:00",
+      "target": "Contiguous railway block section topology derivation",
+      "input_files": [
+        "Table_1_NDLS_HWH.pdf",
+        "Table_2_NDLS_CSMT.pdf",
+        "Table_3_NDLS_BCT.pdf",
+        "Table_8_NDLS_MAS.pdf",
+        "Table_20_MAS_SBC_MAQ.pdf"
+      ],
+      "records_extracted": 68,
+      "records_rejected": 0,
+      "status": "COMPLETED",
+      "output_file": "data/normalized/sections.json"
+    },
+    {
+      "job_id": "EXT-JOB-05-MOVEMENTS",
+      "timestamp": "2026-10-02T11:33:17.931617+00:00",
+      "target": "Train timetable movement extraction",
+      "input_files": [
+        "Table_1_NDLS_HWH.pdf",
+        "Table_2_NDLS_CSMT.pdf",
+        "Table_3_NDLS_BCT.pdf",
+        "Table_8_NDLS_MAS.pdf"
+      ],
+      "records_extracted": 78,
+      "records_rejected": 0,
+      "status": "COMPLETED",
+      "output_file": "data/normalized/train_movements.json"
+    },
+    {
+      "job_id": "EXT-JOB-06-RULES",
+      "timestamp": "2026-10-02T11:33:17.931621+00:00",
+      "target": "Operational, engineering, S&T, and statutory rule extraction",
+      "input_files": [
+        "GSR_870E_Rolling_Block_2023.json",
+        "IR_General_Rules_1976_Extracts.json",
+        "ACTM_Power_Block_Extracts.json",
+        "IRWM_Jan2026.pdf"
+      ],
+      "records_extracted": 9,
+      "records_rejected": 0,
+      "status": "COMPLETED",
+      "output_file": "data/normalized/rules.json"
+    }
+  ]
+}

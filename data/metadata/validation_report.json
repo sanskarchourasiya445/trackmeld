@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-10-02T17:05:25.567601",
+  "total_checks": 11228,
+  "checks_passed": 11228,
+  "checks_failed": 0,
+  "pass_rate_percentage": 100.0,
+  "status": "PASSED",
+  "dataset_record_counts": {
+    "sources": 18,
+    "stations": 68,
+    "trains": 3429,
+    "sections": 66,
+    "movements": 82,
+    "rules": 9
+  },
+  "issues_detected": []
+}
