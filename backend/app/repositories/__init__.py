@@ -20,6 +20,15 @@ from backend.app.repositories.planning_run_repo import (
     IllegalStateTransitionError,
     PlanningRunNotFoundError,
 )
+from backend.app.repositories.plan_version_repo import (
+    PlanVersionRepository,
+    PlanVersionNotFoundError,
+    InvalidPlanVersionTransitionError,
+    PlanVersionAlreadyExistsError,
+    PlanVersionApprovalBlockedError,
+    PlanFingerprintMismatchError,
+    PlanVersionImmutableError,
+)
 
 __all__ = [
     "BaseRepository",
@@ -39,4 +48,12 @@ __all__ = [
     "TaskResourceRequirementRepository",
     "PlanningRunRepository",
     "IllegalStateTransitionError",
+    "PlanningRunNotFoundError",
+    "PlanVersionRepository",
+    "PlanVersionNotFoundError",
+    "InvalidPlanVersionTransitionError",
+    "PlanVersionAlreadyExistsError",
+    "PlanVersionApprovalBlockedError",
+    "PlanFingerprintMismatchError",
+    "PlanVersionImmutableError",
 ]

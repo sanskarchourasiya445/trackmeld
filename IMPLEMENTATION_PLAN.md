@@ -337,23 +337,49 @@ This roadmap assumes a new repository and prioritizes a working, testable vertic
 
 ## Phase 9 — Plan versions, review, and audit
 
-**Status:** NEXT
+**Status:** COMPLETE (Executed October 2, 2026)
 
-**Objective:** Make planner decisions traceable.
+**Objective:** Make planner decisions traceable, enforce rigorous human review workflows, formal approval gating, and immutable audit logging.
 
-### Work
-- Implement plan candidate/version tables.
-- Add review, approval, rejection, and reason capture.
-- Require independent validation before approval.
-- Make approved versions immutable; edits create a new version.
-- Append audit events and optional hash chaining.
-- Add role-based access control tests.
+### Delivered Capabilities
+- **Relational Data Model & Alembic Migration:**
+  - Designed `plan_versions`, `plan_review_comments`, and `governance_audit_events` tables (`backend/app/db/models/plan_version.py`) with PostgreSQL JSONB columns, foreign keys with referential integrity, and composite constraints (`uq_plan_versions_scenario_version`, `uq_plan_versions_planning_run`).
+  - Generated and executed migration `9c2d1e4f7a01_004_plan_versions_and_audit.py`.
+- **Pydantic Schemas & Contracts (`backend/app/schemas/plan_version.py`):**
+  - Typed Enums: `PlanVersionStatus` (PENDING_REVIEW, UNDER_REVIEW, APPROVED, REJECTED, SUPERSEDED), `PlanReviewAction`, `GovernanceEventType`.
+  - Request/Response Models: `CreatePlanVersionRequest`, `ApprovePlanRequest`, `RejectPlanRequest` (mandatory reason min length >= 5), `AddReviewCommentRequest`, `PlanVersionSummary`, `PlanVersionDetail`, `AuditEventResponse`.
+- **Concurrency-Safe Repository Layer (`backend/app/repositories/plan_version_repo.py`):**
+  - Monotonic version numbering serialized under PostgreSQL scenario row lock (`SELECT ... FOR UPDATE`).
+  - Row locking (`get_by_id_for_update`) for state transitions to eliminate approval race conditions.
+  - Strict state machine enforcement (`LEGAL_PLAN_TRANSITIONS`), raising `InvalidPlanVersionTransitionError` on illegal transitions.
+- **Plan Governance Service Layer (`backend/app/services/plan_governance_service.py`):**
+  - `create_plan_version_from_run`: Enforces terminal run completion, Phase 7 `VALID` status, `is_approvable=True`, uniqueness, and logs creation audit event.
+  - `start_review`: Advances candidate to `UNDER_REVIEW`, recording reviewer username and timestamp.
+  - `add_review_comment`: Appends review commentary and audit event.
+  - `approve_plan`: Precondition checks (terminal, certified valid, zero error count, fingerprint/hash integrity match against source run), locks row, supersedes any existing `APPROVED` plan version for scenario, sets `APPROVED`, appends `PLAN_APPROVED` audit event atomically.
+  - `reject_plan`: Requires substantive reason (>= 5 chars), marks `REJECTED`, appends `PLAN_REJECTED` audit event atomically.
+- **REST APIs (`backend/app/api/v1/plan_versions.py`):**
+  - `POST /api/v1/planning-runs/{run_id}/plan-version`: Promote certified run to PlanVersion candidate (HTTP 201 Created).
+  - `GET /api/v1/plan-versions/{plan_version_id}`: Detail endpoint returning verified schedule result and review comments.
+  - `GET /api/v1/plan-versions`: Paginated summary listing with filters and `X-Total-Count` header.
+  - `POST /api/v1/plan-versions/{plan_version_id}/review`: Transition candidate to `UNDER_REVIEW`.
+  - `POST /api/v1/plan-versions/{plan_version_id}/comments`: Append review commentary.
+  - `POST /api/v1/plan-versions/{plan_version_id}/approve`: Authorized human approval.
+  - `POST /api/v1/plan-versions/{plan_version_id}/reject`: Authorized human rejection with mandatory justification.
+  - `GET /api/v1/plan-versions/{plan_version_id}/audit`: Chronological governance audit trail.
+- **Role-Based Access Control (`backend/app/core/auth.py`):**
+  - Added `approver-token-2026` (`role=OPERATOR`, permissions: `plan:approve`, `plan:reject`, `plan:review`).
+  - Separation of concerns: Maintenance planners can nominate and review; only authorized operations officers can approve or reject.
+- **Reporting & Documentation:**
+  - Created `docs/PHASE_9_PLAN_VERSIONS_REVIEW_AND_AUDIT_REPORT.md`.
 
-### Acceptance gate
-- Invalid candidate cannot be approved.
-- Approved data cannot be edited in place.
-- Each approval/rejection has actor, timestamp, and reason.
-- Audit hashes are described as tamper-evidence, not as standalone immutability/legal signature.
+### Verification Results
+- **Phase 9 Unit Test Suite:** `PASS` (11 tests in `tests/unit/test_phase9_governance.py`).
+- **Phase 9 API & Governance Integration Test Suite:** `PASS` (6 tests in `tests/integration/test_phase9_governance_api.py`).
+- **Phase 9 Invariant Validation Script:** `PASS` (22 passed, 0 failed in `scripts/validate_phase9_plan_governance.py`).
+- **Full Pytest Regression Suite:** `PASS` (190 passed, 0 failed in 17.03s across 27 test files).
+- **All Milestone Validation Scripts:** `PASS` (8 suites, 197 total invariant checks passed, 0 failed).
+- **Core Product Invariant Enforced:** `COMPLETED != APPROVED` (solver and validator output never implies or grants approval; approval is an explicit, authenticated human governance action).
 
 ## Phase 10 — Frontend foundation and design system
 

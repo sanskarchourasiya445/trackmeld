@@ -44,11 +44,17 @@ KNOWN_CREDENTIALS = {
         role=UserRole.ADMIN,
         permissions=["*"],
     ),
+    "approver-token-2026": AuthUser(
+        user_id="USR-APPR-01",
+        username="divisional_operations_manager",
+        role=UserRole.OPERATOR,
+        permissions=["read:reference", "read:operational", "plan:review", "plan:approve", "plan:reject"],
+    ),
     "planner-token-2026": AuthUser(
         user_id="USR-PLAN-01",
         username="senior_planner_dli",
         role=UserRole.MAINTENANCE_PLANNER,
-        permissions=["read:reference", "read:operational", "write:operational"],
+        permissions=["read:reference", "read:operational", "write:operational", "plan:review"],
     ),
     "viewer-token-2026": AuthUser(
         user_id="USR-VIEW-01",

@@ -7,6 +7,11 @@ from sqlalchemy.pool import NullPool
 
 from backend.app.services.planning_worker import PlanningRunWorker
 from backend.app.db.models.planning_run import PlanningRunModel
+from backend.app.db.models.plan_version import (
+    PlanVersionModel,
+    PlanReviewCommentModel,
+    GovernanceAuditEventModel,
+)
 from backend.app.repositories.planning_run_repo import PlanningRunRepository
 from backend.app.config import get_settings
 
@@ -23,9 +28,15 @@ async def test_session_factory():
 
 @pytest_asyncio.fixture(autouse=True)
 async def clean_planning_runs(db_session: AsyncSession):
+    await db_session.execute(delete(GovernanceAuditEventModel))
+    await db_session.execute(delete(PlanReviewCommentModel))
+    await db_session.execute(delete(PlanVersionModel))
     await db_session.execute(delete(PlanningRunModel))
     await db_session.commit()
     yield
+    await db_session.execute(delete(GovernanceAuditEventModel))
+    await db_session.execute(delete(PlanReviewCommentModel))
+    await db_session.execute(delete(PlanVersionModel))
     await db_session.execute(delete(PlanningRunModel))
     await db_session.commit()
 
