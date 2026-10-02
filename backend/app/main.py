@@ -74,5 +74,20 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch unhandled exceptions, log the stack trace, and return a clean JSON payload."""
+    logger.exception("Unhandled server exception: %s", exc)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "error": {
+                "code": "INTERNAL_SERVER_ERROR",
+                "message": "An unexpected internal server error occurred.",
+            }
+        },
+    )
+
+
 # Mount routes
 app.include_router(api_router)

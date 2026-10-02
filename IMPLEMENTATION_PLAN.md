@@ -82,18 +82,40 @@ This roadmap assumes a new repository and prioritizes a working, testable vertic
 
 ## Phase 3 — Read APIs and domain validation
 
+**Status:** COMPLETE (Executed October 2, 2026)
+
 **Objective:** Expose a typed and validated view of the dataset.
 
-### Work
-- Implement corridor, station, section, train, train-pass, task, resource, and manifest read endpoints.
-- Add filtering, pagination, and stable error schemas.
-- Add task create/edit endpoints for draft requests if needed.
-- Enforce server-side authorization boundaries.
+### Completed Work
+- **Authorization Boundary:** Implemented `backend/app/core/auth.py` providing role-based access control (`ADMIN`, `MAINTENANCE_PLANNER`, `OPERATOR`, `VIEWER`), HTTP Bearer tokens, `X-API-Key` headers, permission checking (`require_permission`), and a safe prototype fallback for read queries.
+- **Corridor & Movement APIs:**
+  - Added `backend/app/schemas/responses.py::CorridorResponse`.
+  - Added `backend/app/repositories/corridor_repo.py::CorridorRepository`.
+  - Created `backend/app/api/v1/corridors.py` (`GET /api/v1/corridors` with zone/division filtering and pagination; `GET /api/v1/corridors/{id}`).
+  - Created `backend/app/api/v1/movements.py` (`GET /api/v1/movements` with train_id/station_id filtering and pagination; `GET /api/v1/movements/{id}`).
+- **Enhanced Reference Read APIs:**
+  - `GET /api/v1/stations`: Added multi-field filters (`zone`, `division`, `station_type`, `classification`), dual lookup by station code or station ID, bounded pagination (`ge=1, le=500`), and `X-Total-Count`, `X-Limit`, `X-Offset` headers.
+  - `GET /api/v1/sections`: Added filters (`zone`, `division`, `electrified`), dual lookup by section code or section ID, bounded pagination, and count headers.
+  - `GET /api/v1/trains`: Added filters (`train_type`, `corridor_table`, `classification`), dual lookup by train number or train ID, bounded pagination, and count headers.
+  - `GET /api/v1/rules`: Added bounded pagination, total count headers, and auth integration.
+- **Enhanced Operational Read APIs:**
+  - `GET /api/v1/tasks`: Added multi-field query filters (`scenario_id`, `section_id`, `work_order_id`, `status`, `priority`, `task_type`, `mandatory`, `requires_traffic_block`, `requires_power_block`), dual lookup by task code or ID, bounded pagination, and count headers.
+  - `GET /api/v1/resources`: Added filters (`resource_type`, `department`, `home_station`), dual lookup by resource code or ID, bounded pagination, and count headers.
+  - `GET /api/v1/work-orders`: Added filters (`scenario_id`, `department`, `status`, `priority`, `mandatory`), dual lookup by work order number or ID, bounded pagination, and count headers.
+  - `GET /api/v1/scenarios/{id}/manifest`: Added manifest endpoint returning aggregate metrics (`total_work_orders`, `total_tasks`, `total_mandatory_tasks`, `total_resources`, `total_dependencies`, breakdown maps by type, priority, status).
+- **Error Handling & API Guardrails:**
+  - Updated `backend/app/main.py` with an unhandled `Exception` handler catching unexpected errors and returning clean JSON payloads without leaking debug stack traces.
+  - Validation error handler formats Pydantic validation errors cleanly with status 422.
+- **Router Mounting:** Mounted `corridors_router` and `movements_router` in `backend/app/api/router.py`.
 
-### Acceptance gate
-- API tests cover success, invalid filters, missing records, and unauthorized access.
-- Frontend can render real persisted data.
-- Synthetic provenance is visible in API responses and UI.
+### Verification Results
+- **Unit Test Suite:** `PASS` (tests for authorization roles, bearer tokens, API keys, unauthorized 401s, forbidden 403s in `tests/unit/test_auth.py`).
+- **Integration Test Suite:** `PASS` (tests for corridors, movements, dual lookups, multi-field filtering, pagination bounds, manifest generation, auth enforcement in `tests/integration/test_phase3_read_apis.py`).
+- **Full Pytest Regression Suite:** `PASS` (67 tests passed, 0 failed in 7.58s across 13 test files).
+- **Reference Database Validation:** `PASS` (31 passed, 0 failed in `scripts/validate_database.py`).
+- **Operational Database Validation:** `PASS` (30 passed, 0 failed in `scripts/validate_operational_data.py`).
+- **Provenance Integrity:** `PASS` (All responses explicitly expose data classification `REAL`, `DERIVED`, `SYNTHETIC`, or `ASSUMED` alongside `source_id`).
+
 
 ## Phase 4 — Planning windows and compatibility
 

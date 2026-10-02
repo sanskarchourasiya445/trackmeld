@@ -3,6 +3,20 @@ from pydantic import BaseModel
 from backend.app.domain.enums import DataClass, RuleClass, SourceClass
 
 
+
+class CorridorResponse(BaseModel):
+    corridor_id: str
+    name: str
+    length_km: float
+    zones: List[str]
+    divisions: List[str]
+    primary_table: str
+    classification: DataClass
+    source_id: str
+
+    model_config = {"from_attributes": True}
+
+
 class StationResponse(BaseModel):
     station_id: str
     station_code: str

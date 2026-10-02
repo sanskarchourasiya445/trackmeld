@@ -1,7 +1,7 @@
 from typing import Optional, Sequence
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from backend.app.db.models.resource import (
     MaintenanceResourceModel,
     ResourceAvailabilityModel,
@@ -20,6 +20,12 @@ class ResourceRepository(BaseRepository[MaintenanceResourceModel]):
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
+    async def get_by_id_or_code(self, identifier: str) -> Optional[MaintenanceResourceModel]:
+        res = await self.get_by_code(identifier)
+        if res:
+            return res
+        return await self.get_by_id(identifier)
+
     async def list_by_type(self, resource_type: ResourceType) -> Sequence[MaintenanceResourceModel]:
         stmt = select(MaintenanceResourceModel).where(MaintenanceResourceModel.resource_type == resource_type)
         result = await self.session.execute(stmt)
@@ -34,6 +40,41 @@ class ResourceRepository(BaseRepository[MaintenanceResourceModel]):
         stmt = select(MaintenanceResourceModel).where(MaintenanceResourceModel.home_station == home_station)
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def filter_resources(
+        self,
+        resource_type: Optional[ResourceType] = None,
+        department: Optional[WorkDepartment] = None,
+        home_station: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Sequence[MaintenanceResourceModel]:
+        stmt = select(MaintenanceResourceModel)
+        if resource_type:
+            stmt = stmt.where(MaintenanceResourceModel.resource_type == resource_type)
+        if department:
+            stmt = stmt.where(MaintenanceResourceModel.department == department)
+        if home_station:
+            stmt = stmt.where(MaintenanceResourceModel.home_station == home_station)
+        stmt = stmt.order_by(MaintenanceResourceModel.resource_code).offset(offset).limit(limit)
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def count_resources(
+        self,
+        resource_type: Optional[ResourceType] = None,
+        department: Optional[WorkDepartment] = None,
+        home_station: Optional[str] = None,
+    ) -> int:
+        stmt = select(func.count()).select_from(MaintenanceResourceModel)
+        if resource_type:
+            stmt = stmt.where(MaintenanceResourceModel.resource_type == resource_type)
+        if department:
+            stmt = stmt.where(MaintenanceResourceModel.department == department)
+        if home_station:
+            stmt = stmt.where(MaintenanceResourceModel.home_station == home_station)
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0
 
     async def upsert(self, resource: MaintenanceResourceModel) -> MaintenanceResourceModel:
         existing = await self.get_by_id(resource.resource_id)

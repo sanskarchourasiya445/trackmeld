@@ -1,8 +1,8 @@
 from typing import Optional, Sequence
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from backend.app.db.models.work_order import WorkOrderModel
-from backend.app.domain.enums import WorkOrderStatus, WorkDepartment
+from backend.app.domain.enums import WorkOrderStatus, WorkDepartment, TaskPriority
 from backend.app.repositories.base import BaseRepository
 
 
@@ -14,6 +14,12 @@ class WorkOrderRepository(BaseRepository[WorkOrderModel]):
         stmt = select(WorkOrderModel).where(WorkOrderModel.work_order_number == work_order_number)
         result = await self.session.execute(stmt)
         return result.scalars().first()
+
+    async def get_by_id_or_number(self, identifier: str) -> Optional[WorkOrderModel]:
+        wo = await self.get_by_number(identifier)
+        if wo:
+            return wo
+        return await self.get_by_id(identifier)
 
     async def list_by_scenario(self, scenario_id: str) -> Sequence[WorkOrderModel]:
         stmt = select(WorkOrderModel).where(WorkOrderModel.scenario_id == scenario_id).order_by(WorkOrderModel.work_order_number)
@@ -33,6 +39,53 @@ class WorkOrderRepository(BaseRepository[WorkOrderModel]):
             stmt = stmt.where(WorkOrderModel.scenario_id == scenario_id)
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def filter_work_orders(
+        self,
+        scenario_id: Optional[str] = None,
+        department: Optional[WorkDepartment] = None,
+        status: Optional[WorkOrderStatus] = None,
+        priority: Optional[TaskPriority] = None,
+        mandatory: Optional[bool] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Sequence[WorkOrderModel]:
+        stmt = select(WorkOrderModel)
+        if scenario_id:
+            stmt = stmt.where(WorkOrderModel.scenario_id == scenario_id)
+        if department:
+            stmt = stmt.where(WorkOrderModel.department == department)
+        if status:
+            stmt = stmt.where(WorkOrderModel.status == status)
+        if priority:
+            stmt = stmt.where(WorkOrderModel.priority == priority)
+        if mandatory is not None:
+            stmt = stmt.where(WorkOrderModel.mandatory == mandatory)
+        stmt = stmt.order_by(WorkOrderModel.work_order_number).offset(offset).limit(limit)
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def count_work_orders(
+        self,
+        scenario_id: Optional[str] = None,
+        department: Optional[WorkDepartment] = None,
+        status: Optional[WorkOrderStatus] = None,
+        priority: Optional[TaskPriority] = None,
+        mandatory: Optional[bool] = None,
+    ) -> int:
+        stmt = select(func.count()).select_from(WorkOrderModel)
+        if scenario_id:
+            stmt = stmt.where(WorkOrderModel.scenario_id == scenario_id)
+        if department:
+            stmt = stmt.where(WorkOrderModel.department == department)
+        if status:
+            stmt = stmt.where(WorkOrderModel.status == status)
+        if priority:
+            stmt = stmt.where(WorkOrderModel.priority == priority)
+        if mandatory is not None:
+            stmt = stmt.where(WorkOrderModel.mandatory == mandatory)
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0
 
     async def upsert(self, work_order: WorkOrderModel) -> WorkOrderModel:
         existing = await self.get_by_id(work_order.work_order_id)

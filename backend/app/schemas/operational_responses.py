@@ -28,6 +28,29 @@ class OperationalScenarioResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ScenarioManifestResponse(BaseModel):
+    scenario_id: str
+    scenario_code: str
+    name: str
+    description: str
+    planning_start: datetime
+    planning_end: datetime
+    generation_seed: int
+    dataset_version: str
+    classification: DataClass
+    total_work_orders: int
+    total_tasks: int
+    total_mandatory_tasks: int
+    total_resources: int
+    total_dependencies: int
+    tasks_by_type: Dict[str, int]
+    tasks_by_priority: Dict[str, int]
+    tasks_by_status: Dict[str, int]
+
+    model_config = {"from_attributes": True}
+
+
+
 class WorkOrderResponse(BaseModel):
     work_order_id: str
     work_order_number: str

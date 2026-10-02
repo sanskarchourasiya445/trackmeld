@@ -20,3 +20,10 @@ class BaseRepository(Generic[ModelType]):
         stmt = select(self.model).offset(offset).limit(limit)
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def count(self) -> int:
+        from sqlalchemy import func
+        stmt = select(func.count()).select_from(self.model)
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0
+

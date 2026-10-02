@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.db.session import get_db_session
 from backend.app.repositories.resource_repo import (
@@ -12,29 +12,41 @@ from backend.app.schemas.operational_responses import (
 )
 from backend.app.schemas.common import ErrorResponse
 from backend.app.domain.enums import ResourceType, WorkDepartment
+from backend.app.core.auth import get_current_user, AuthUser
 
 router = APIRouter(prefix="/resources", tags=["Maintenance Resources"])
 
 
 @router.get("", response_model=List[MaintenanceResourceResponse])
 async def list_resources(
+    response: Response,
     resource_type: Optional[ResourceType] = Query(None, description="Filter by resource type"),
     department: Optional[WorkDepartment] = Query(None, description="Filter by department"),
     home_station: Optional[str] = Query(None, description="Filter by home station code/id"),
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of items to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> List[MaintenanceResourceResponse]:
-    """List maintenance resources with optional filtering."""
+    """List maintenance resources with filtering and pagination metadata."""
     repo = ResourceRepository(session)
-    if resource_type:
-        resources = await repo.list_by_type(resource_type)
-    elif department:
-        resources = await repo.list_by_department(department)
-    elif home_station:
-        resources = await repo.list_by_home_station(home_station)
-    else:
-        resources = await repo.list_all(limit=limit, offset=offset)
+    resources = await repo.filter_resources(
+        resource_type=resource_type,
+        department=department,
+        home_station=home_station,
+        limit=limit,
+        offset=offset,
+    )
+    total_count = await repo.count_resources(
+        resource_type=resource_type,
+        department=department,
+        home_station=home_station,
+    )
+
+    response.headers["X-Total-Count"] = str(total_count)
+    response.headers["X-Limit"] = str(limit)
+    response.headers["X-Offset"] = str(offset)
+
     return [MaintenanceResourceResponse.model_validate(r) for r in resources]
 
 
@@ -46,12 +58,11 @@ async def list_resources(
 async def get_resource(
     resource_id: str,
     session: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> MaintenanceResourceResponse:
     """Retrieve maintenance resource by ID or resource code."""
     repo = ResourceRepository(session)
-    resource = await repo.get_by_id(resource_id)
-    if not resource:
-        resource = await repo.get_by_code(resource_id)
+    resource = await repo.get_by_id_or_code(resource_id)
     if not resource:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -74,12 +85,11 @@ async def get_resource_availability(
     resource_id: str,
     scenario_id: Optional[str] = Query(None, description="Filter by scenario ID"),
     session: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> List[ResourceAvailabilityResponse]:
     """Retrieve availability intervals for a specific resource."""
     res_repo = ResourceRepository(session)
-    resource = await res_repo.get_by_id(resource_id)
-    if not resource:
-        resource = await res_repo.get_by_code(resource_id)
+    resource = await res_repo.get_by_id_or_code(resource_id)
     if not resource:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

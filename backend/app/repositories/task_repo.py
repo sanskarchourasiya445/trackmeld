@@ -1,7 +1,7 @@
 from typing import Optional, Sequence
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, or_, func
 from sqlalchemy.orm import selectinload
 from backend.app.db.models.task import (
     MaintenanceTaskModel,
@@ -22,10 +22,21 @@ class MaintenanceTaskRepository(BaseRepository[MaintenanceTaskModel]):
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
-    async def get_with_relations(self, task_id: str) -> Optional[MaintenanceTaskModel]:
+    async def get_by_id_or_code(self, identifier: str) -> Optional[MaintenanceTaskModel]:
+        task = await self.get_by_code(identifier)
+        if task:
+            return task
+        return await self.get_by_id(identifier)
+
+    async def get_with_relations(self, identifier: str) -> Optional[MaintenanceTaskModel]:
         stmt = (
             select(MaintenanceTaskModel)
-            .where(MaintenanceTaskModel.task_id == task_id)
+            .where(
+                or_(
+                    MaintenanceTaskModel.task_id == identifier,
+                    MaintenanceTaskModel.task_code == identifier,
+                )
+            )
             .options(
                 selectinload(MaintenanceTaskModel.resource_requirements),
                 selectinload(MaintenanceTaskModel.affected_sections),
@@ -85,6 +96,77 @@ class MaintenanceTaskRepository(BaseRepository[MaintenanceTaskModel]):
         ).order_by(MaintenanceTaskModel.window_start)
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def filter_tasks(
+        self,
+        scenario_id: Optional[str] = None,
+        section_id: Optional[str] = None,
+        work_order_id: Optional[str] = None,
+        status: Optional[TaskStatus] = None,
+        priority: Optional[TaskPriority] = None,
+        task_type: Optional[TaskType] = None,
+        mandatory: Optional[bool] = None,
+        requires_traffic_block: Optional[bool] = None,
+        requires_power_block: Optional[bool] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Sequence[MaintenanceTaskModel]:
+        stmt = select(MaintenanceTaskModel)
+        if scenario_id:
+            stmt = stmt.where(MaintenanceTaskModel.scenario_id == scenario_id)
+        if section_id:
+            stmt = stmt.where(MaintenanceTaskModel.section_id == section_id)
+        if work_order_id:
+            stmt = stmt.where(MaintenanceTaskModel.work_order_id == work_order_id)
+        if status:
+            stmt = stmt.where(MaintenanceTaskModel.status == status)
+        if priority:
+            stmt = stmt.where(MaintenanceTaskModel.priority == priority)
+        if task_type:
+            stmt = stmt.where(MaintenanceTaskModel.task_type == task_type)
+        if mandatory is not None:
+            stmt = stmt.where(MaintenanceTaskModel.mandatory == mandatory)
+        if requires_traffic_block is not None:
+            stmt = stmt.where(MaintenanceTaskModel.requires_traffic_block == requires_traffic_block)
+        if requires_power_block is not None:
+            stmt = stmt.where(MaintenanceTaskModel.requires_power_block == requires_power_block)
+        stmt = stmt.order_by(MaintenanceTaskModel.window_start, MaintenanceTaskModel.task_code).offset(offset).limit(limit)
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def count_tasks(
+        self,
+        scenario_id: Optional[str] = None,
+        section_id: Optional[str] = None,
+        work_order_id: Optional[str] = None,
+        status: Optional[TaskStatus] = None,
+        priority: Optional[TaskPriority] = None,
+        task_type: Optional[TaskType] = None,
+        mandatory: Optional[bool] = None,
+        requires_traffic_block: Optional[bool] = None,
+        requires_power_block: Optional[bool] = None,
+    ) -> int:
+        stmt = select(func.count()).select_from(MaintenanceTaskModel)
+        if scenario_id:
+            stmt = stmt.where(MaintenanceTaskModel.scenario_id == scenario_id)
+        if section_id:
+            stmt = stmt.where(MaintenanceTaskModel.section_id == section_id)
+        if work_order_id:
+            stmt = stmt.where(MaintenanceTaskModel.work_order_id == work_order_id)
+        if status:
+            stmt = stmt.where(MaintenanceTaskModel.status == status)
+        if priority:
+            stmt = stmt.where(MaintenanceTaskModel.priority == priority)
+        if task_type:
+            stmt = stmt.where(MaintenanceTaskModel.task_type == task_type)
+        if mandatory is not None:
+            stmt = stmt.where(MaintenanceTaskModel.mandatory == mandatory)
+        if requires_traffic_block is not None:
+            stmt = stmt.where(MaintenanceTaskModel.requires_traffic_block == requires_traffic_block)
+        if requires_power_block is not None:
+            stmt = stmt.where(MaintenanceTaskModel.requires_power_block == requires_power_block)
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0
 
     async def upsert(self, task: MaintenanceTaskModel) -> MaintenanceTaskModel:
         existing = await self.get_by_id(task.task_id)

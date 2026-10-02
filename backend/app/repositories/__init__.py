@@ -6,6 +6,7 @@ from backend.app.repositories.train_repo import TrainRepository
 from backend.app.repositories.movement_repo import TrainMovementRepository
 from backend.app.repositories.rule_repo import RailwayRuleRepository
 from backend.app.repositories.infrastructure_repo import InfrastructureRepository
+from backend.app.repositories.corridor_repo import CorridorRepository
 from backend.app.repositories.scenario_repo import ScenarioRepository
 from backend.app.repositories.work_order_repo import WorkOrderRepository
 from backend.app.repositories.task_repo import MaintenanceTaskRepository
@@ -24,6 +25,7 @@ __all__ = [
     "TrainMovementRepository",
     "RailwayRuleRepository",
     "InfrastructureRepository",
+    "CorridorRepository",
     "ScenarioRepository",
     "WorkOrderRepository",
     "MaintenanceTaskRepository",
