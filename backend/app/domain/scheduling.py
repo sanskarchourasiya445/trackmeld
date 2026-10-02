@@ -111,8 +111,8 @@ class ScheduledTaskResult(BaseModel):
         description="Effective corridor block with safety buffers [start - buf_before, end + buf_after)"
     )
     duration_minutes: int
-    affected_sections: List[str]
-    assigned_resources: List[str]
+    affected_sections: List[str] = Field(default_factory=list)
+    assigned_resources: List[str] = Field(default_factory=list)
     priority_score: Optional[float] = None
     priority_breakdown: Optional[Dict[str, float]] = None
     sequence_order: int = Field(..., description="1-indexed sequence order in which task was scheduled")
@@ -190,6 +190,10 @@ class ScheduleResult(BaseModel):
     solver_diagnostics: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Diagnostic metrics and metadata from mathematical optimizer"
+    )
+    validation: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Independent post-solve validation result and safety audit certification"
     )
 
 

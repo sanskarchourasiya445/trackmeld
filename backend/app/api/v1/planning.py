@@ -15,11 +15,17 @@ from backend.app.schemas.planning_requests import (
     BaselineScheduleRequest,
     BenchmarkComparisonRequest,
     OptimizeScheduleRequest,
+    ValidateScheduleRequest,
+    ScheduleDiagnosticsRequest,
 )
 from backend.app.domain.scheduling import (
     SchedulerConfig,
     ScheduleResult,
     BenchmarkComparisonResult,
+)
+from backend.app.services.validation.models import (
+    ScheduleValidationResult,
+    DiagnosticsReport,
 )
 from backend.app.services.baseline_service import BaselinePlanningService
 
@@ -168,6 +174,7 @@ async def execute_optimization_schedule(
         result = await service.run_optimizer(
             scenario_id=request.scenario_id,
             config=config,
+            validate_after_solve=request.validate_after_solve,
         )
     except ValueError as e:
         raise HTTPException(
@@ -187,4 +194,92 @@ async def execute_optimization_schedule(
         )
 
     return result
+
+
+@router.post(
+    "/validate",
+    response_model=ScheduleValidationResult,
+    responses={
+        404: {"model": ErrorResponse},
+        400: {"model": ErrorResponse},
+    },
+)
+async def validate_schedule_endpoint(
+    request: ValidateScheduleRequest,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+) -> ScheduleValidationResult:
+    """Independently audit a schedule against all hard constraints without mutating schedule state."""
+    from backend.app.services.planning_service import PlanningScenarioService
+    from backend.app.domain.planning_snapshot import PlanningSnapshot
+    from backend.app.services.validation import validate_schedule
+
+    scenario_service = PlanningScenarioService(session)
+    bundle = await scenario_service.get_planning_bundle(request.scenario_id)
+    if not bundle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": {
+                    "code": "SCENARIO_NOT_FOUND",
+                    "message": f"Operational scenario '{request.scenario_id}' not found.",
+                }
+            },
+        )
+    snapshot = PlanningSnapshot.from_bundle(bundle)
+
+    try:
+        schedule = ScheduleResult.model_validate(request.schedule)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {"code": "MALFORMED_SCHEDULE_PAYLOAD", "message": str(e)}},
+        )
+
+    return validate_schedule(snapshot, schedule)
+
+
+@router.post(
+    "/diagnostics",
+    response_model=DiagnosticsReport,
+    responses={
+        404: {"model": ErrorResponse},
+        400: {"model": ErrorResponse},
+    },
+)
+async def schedule_diagnostics_endpoint(
+    request: ScheduleDiagnosticsRequest,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+) -> DiagnosticsReport:
+    """Investigate root causes and relaxation scenarios for unscheduled tasks."""
+    from backend.app.services.planning_service import PlanningScenarioService
+    from backend.app.domain.planning_snapshot import PlanningSnapshot
+    from backend.app.services.validation import UnscheduledTaskDiagnosticsService
+
+    scenario_service = PlanningScenarioService(session)
+    bundle = await scenario_service.get_planning_bundle(request.scenario_id)
+    if not bundle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": {
+                    "code": "SCENARIO_NOT_FOUND",
+                    "message": f"Operational scenario '{request.scenario_id}' not found.",
+                }
+            },
+        )
+    snapshot = PlanningSnapshot.from_bundle(bundle)
+
+    try:
+        schedule = ScheduleResult.model_validate(request.schedule)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {"code": "MALFORMED_SCHEDULE_PAYLOAD", "message": str(e)}},
+        )
+
+    diag_service = UnscheduledTaskDiagnosticsService(snapshot, schedule)
+    return diag_service.diagnose_all(target_task_id=request.target_task_id)
+
 

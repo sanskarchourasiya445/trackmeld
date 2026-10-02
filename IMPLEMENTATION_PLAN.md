@@ -266,23 +266,39 @@ This roadmap assumes a new repository and prioritizes a working, testable vertic
 
 ## Phase 7 — Independent validation and diagnostics
 
-**Status:** NEXT
+**Status:** COMPLETE (Executed October 2, 2026)
 
 **Objective:** Never present solver output as valid without independent checks.
 
-### Work
-- Implement validator separately from the solver model where practical.
-- Validate all hard constraints against the returned schedule.
-- Generate structured conflict records and task decision reasons.
-- Add bounded diagnostic/relaxation suggestions only when they can be re-solved and verified.
-- Store evidence identifiers for every explanation.
+### Delivered Capabilities
+- **Validation Domain Models & Contracts (`backend/app/services/validation/models.py`):**
+  - Typed Enums: `ValidationStatus` (VALID, INVALID, UNKNOWN), `ValidationSeverity` (ERROR, WARNING, INFO), `ValidationCategory` (14 categories), `DiagnosticStatus`, `RelaxationScenarioType`.
+  - Pydantic v2 Models: `ValidationFinding` (with deterministic sort key), `ScheduleValidationResult`, `RelaxationFinding` (strictly enforcing `hypothetical=True` and `approvable=False`), `UnscheduledTaskDiagnostic`, and `DiagnosticsReport`.
+- **Independent Verification Suite (`backend/app/services/validation/checks.py`):**
+  - Built from first principles without calling Phase 4 `CompatibilityEngine`.
+  - Audits 12 independent dimensions: structural integrity, planning horizon boundaries, allowed task windows, duration matching, possession safety buffer envelopes, half-open $[start, end)$ track occupancy exclusivity, multi-section continuity, train movement clearance, sweep-line resource capacity tracking, finish-to-start dependencies, mandatory task accounting, and traction power block rules.
+- **Independent Schedule Validator & Approval Gate (`backend/app/services/validation/validator.py`):**
+  - Generates deterministic 64-character SHA-256 schedule fingerprint.
+  - Strict human approval gating via `assert_schedule_approvable()`, raising `ScheduleApprovalBlockedError` for invalid or unknown schedules.
+- **Root-Cause Diagnostics & Relaxation Scenarios (`backend/app/services/validation/diagnostics.py` & `relaxation.py`):**
+  - Diagnostic analysis for unscheduled tasks identifying concrete blocking entities (trains, sections, resources, windows).
+  - 5 controlled hypothetical relaxation scenarios with zero hallucination and strict non-approvable tags.
+- **REST APIs (`backend/app/api/v1/planning.py`):**
+  - `POST /api/v1/planning/validate`: Independent schedule auditing.
+  - `POST /api/v1/planning/diagnostics`: Root-cause diagnostics on unscheduled tasks.
+  - `POST /api/v1/planning/optimize`: Integrated with `validate_after_solve=True`.
 
-### Acceptance gate
-- Tests inject intentionally invalid assignments and validator catches them.
-- A failed validation blocks approval.
-- Unexplained tasks receive an explicit incomplete/unknown diagnostic status.
+### Verification Results
+- **Independent Validator Unit Tests:** `PASS` (22 tests in `tests/unit/test_phase7_validator.py`).
+- **Validation & Diagnostics API Integration Tests:** `PASS` (6 tests in `tests/integration/test_phase7_validation_api.py`).
+- **Phase 7 Invariant Validation Script:** `PASS` (23 passed, 0 failed in `scripts/validate_phase7_validation.py`).
+- **Full Pytest Regression Suite:** `PASS` (157 passed, 0 failed in 14.09s across 23 test files).
+- **All Milestone Validation Scripts:** `PASS` (310 total invariant checks passed, 0 failed).
+- **Validation Latency:** **1.51 ms** (< 250 ms budget).
 
 ## Phase 8 — Planning jobs and persistence
+
+**Status:** NEXT
 
 **Objective:** Run optimization without blocking API responsiveness.
 

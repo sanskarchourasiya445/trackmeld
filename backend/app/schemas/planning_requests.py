@@ -1,6 +1,6 @@
 """Pydantic request schemas for planning and baseline scheduling endpoints."""
 
-from typing import Optional
+from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 from backend.app.domain.scheduling import (
@@ -81,4 +81,25 @@ class OptimizeScheduleRequest(BaseModel):
         default=False,
         description="Emit CP-SAT search log"
     )
+    validate_after_solve: bool = Field(
+        default=True,
+        description="Run independent post-solve validation immediately after CP-SAT solve"
+    )
+
+
+class ValidateScheduleRequest(BaseModel):
+    """Requisition to independently audit a schedule against all hard constraints."""
+    scenario_id: str = Field(..., description="Operational scenario ID against which schedule was planned")
+    schedule: Dict[str, Any] = Field(..., description="ScheduleResult payload to validate")
+
+
+class ScheduleDiagnosticsRequest(BaseModel):
+    """Requisition to investigate root causes and relaxation scenarios for unscheduled tasks."""
+    scenario_id: str = Field(..., description="Operational scenario ID")
+    schedule: Dict[str, Any] = Field(..., description="ScheduleResult payload containing unscheduled tasks")
+    target_task_id: Optional[str] = Field(
+        default=None,
+        description="Optional specific task ID to diagnose; if omitted, diagnoses all unscheduled tasks"
+    )
+
 

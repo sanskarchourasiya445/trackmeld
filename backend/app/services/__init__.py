@@ -14,6 +14,13 @@ from backend.app.services.optimization import (
     CPSATModelBuilder,
     CPSATSolver,
 )
+from backend.app.services.validation import (
+    IndependentScheduleValidator,
+    UnscheduledTaskDiagnosticsService,
+    RelaxationAnalyzer,
+    validate_schedule,
+    assert_schedule_approvable,
+)
 
 __all__ = [
     "OperationalDataProvider",
@@ -33,5 +40,11 @@ __all__ = [
     "SolverDiagnostics",
     "CPSATModelBuilder",
     "CPSATSolver",
+    "IndependentScheduleValidator",
+    "UnscheduledTaskDiagnosticsService",
+    "RelaxationAnalyzer",
+    "validate_schedule",
+    "assert_schedule_approvable",
 ]
+
 

@@ -32,11 +32,19 @@ class OptimizationPlanningService:
         self,
         scenario_id: str,
         config: Optional[OptimizationConfig] = None,
+        validate_after_solve: bool = True,
     ) -> Optional[ScheduleResult]:
-        """Execute CP-SAT mathematical optimization on the scenario snapshot."""
+        """Execute CP-SAT mathematical optimization on the scenario snapshot, optionally running independent post-solve validation."""
         snapshot = await self.get_snapshot(scenario_id)
         if not snapshot:
             return None
 
         solver = CPSATSolver(config=config)
-        return solver.solve(snapshot, config=config)
+        result = solver.solve(snapshot, config=config)
+
+        if validate_after_solve:
+            from backend.app.services.validation import validate_schedule
+            validation_res = validate_schedule(snapshot, result)
+            result.validation = validation_res.model_dump()
+
+        return result
