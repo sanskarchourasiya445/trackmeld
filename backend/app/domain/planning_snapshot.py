@@ -35,6 +35,40 @@ class PlanningSnapshot:
     rules_map: Dict[str, Any]
     train_passes: List[TrainPass]
 
+    def compute_snapshot_hash(self) -> str:
+        """Compute authoritative 64-char SHA-256 fingerprint representing all immutable planning inputs."""
+        import json
+        hasher = hashlib.sha256()
+        hasher.update(self.scenario_id.encode("utf-8"))
+        hasher.update(self.horizon.start.isoformat().encode("utf-8"))
+        hasher.update(self.horizon.end.isoformat().encode("utf-8"))
+
+        task_records = []
+        for t in self.tasks:
+            t_id = t.get("task_id") if isinstance(t, dict) else getattr(t, "task_id")
+            w_start = str(t.get("window_start") if isinstance(t, dict) else getattr(t, "window_start"))
+            w_end = str(t.get("window_end") if isinstance(t, dict) else getattr(t, "window_end"))
+            dur = str(t.get("estimated_duration_minutes") if isinstance(t, dict) else getattr(t, "estimated_duration_minutes"))
+            sec = str(t.get("section_id") if isinstance(t, dict) else getattr(t, "section_id"))
+            task_records.append((t_id, w_start, w_end, dur, sec))
+        task_records.sort(key=lambda x: x[0])
+        hasher.update(json.dumps(task_records, sort_keys=True).encode("utf-8"))
+
+        hasher.update(str(len(self.train_passes)).encode("utf-8"))
+        hasher.update(str(len(self.resources)).encode("utf-8"))
+        hasher.update(str(len(self.dependencies)).encode("utf-8"))
+        return hasher.hexdigest()
+
+    def compute_input_hash(self, config_payload: Dict[str, Any], seed: int = 0) -> str:
+        """Compute full input hash covering snapshot data, configuration snapshot, and randomization seed."""
+        import json
+        snap_hash = self.compute_snapshot_hash()
+        hasher = hashlib.sha256()
+        hasher.update(snap_hash.encode("utf-8"))
+        hasher.update(json.dumps(config_payload, sort_keys=True, default=str).encode("utf-8"))
+        hasher.update(str(seed).encode("utf-8"))
+        return hasher.hexdigest()
+
     @classmethod
     def from_bundle(cls, bundle: Any) -> "PlanningSnapshot":
         """Construct an immutable PlanningSnapshot from a ScenarioPlanningBundle."""

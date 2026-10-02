@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     APP_PORT: int = 8000
     TIMEZONE: str = "Asia/Kolkata"
 
+    # Worker configuration
+    WORKER_POLL_INTERVAL_SECONDS: float = 1.0
+    WORKER_HEARTBEAT_INTERVAL_SECONDS: float = 5.0
+    WORKER_STALE_TIMEOUT_SECONDS: float = 30.0
+    WORKER_MAX_ATTEMPTS: int = 3
+    PLANNING_JOB_TIMEOUT_SECONDS: float = 120.0
+
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() == "production"

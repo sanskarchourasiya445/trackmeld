@@ -15,6 +15,11 @@ from backend.app.repositories.resource_repo import (
     ResourceAvailabilityRepository,
     TaskResourceRequirementRepository,
 )
+from backend.app.repositories.planning_run_repo import (
+    PlanningRunRepository,
+    IllegalStateTransitionError,
+    PlanningRunNotFoundError,
+)
 
 __all__ = [
     "BaseRepository",
@@ -32,4 +37,6 @@ __all__ = [
     "ResourceRepository",
     "ResourceAvailabilityRepository",
     "TaskResourceRequirementRepository",
+    "PlanningRunRepository",
+    "IllegalStateTransitionError",
 ]

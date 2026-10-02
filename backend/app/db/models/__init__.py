@@ -18,6 +18,7 @@ from backend.app.db.models.resource import (
     ResourceAvailabilityModel,
     TaskResourceRequirementModel,
 )
+from backend.app.db.models.planning_run import PlanningRunModel
 
 __all__ = [
     "SourceDocumentModel",
@@ -37,4 +38,5 @@ __all__ = [
     "MaintenanceResourceModel",
     "ResourceAvailabilityModel",
     "TaskResourceRequirementModel",
+    "PlanningRunModel",
 ]

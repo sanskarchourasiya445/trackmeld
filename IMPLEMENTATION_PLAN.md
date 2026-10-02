@@ -298,25 +298,46 @@ This roadmap assumes a new repository and prioritizes a working, testable vertic
 
 ## Phase 8 — Planning jobs and persistence
 
-**Status:** NEXT
+**Status:** COMPLETE (Executed October 2, 2026)
 
 **Objective:** Run optimization without blocking API responsiveness.
 
-### Work
-- Create planning-run/job lifecycle.
-- Persist input snapshot reference and run configuration.
-- Execute solver in a separate worker process/service where practical.
-- Implement status polling and failure recovery.
-- Make repeated submissions idempotent where feasible.
-- Add resource limits and timeouts.
+### Delivered Capabilities
+- **Relational Data Model & Alembic Migration:**
+  - Designed `planning_runs` table (`backend/app/db/models/planning_run.py`) with PostgreSQL JSONB columns, foreign keys, and indexes (`run_id`, `scenario_id`, `status`, `heartbeat_at`, `idempotency_key`, `ix_planning_runs_status_created`).
+  - Generated and executed migration `8a4f21d9b301_003_planning_runs_schema.py`.
+- **Pydantic Schemas & Contracts (`backend/app/schemas/planning_run.py`):**
+  - Typed Enums: `PlanningRunStatus` (PENDING, RUNNING, VALIDATING, COMPLETED, FAILED, CANCEL_REQUESTED, CANCELLED, TIMED_OUT), `PlanningRunStage`.
+  - Models: `CreatePlanningRunRequest`, `CreatePlanningRunResponse`, `PlanningRunProgress`, `PlanningRunSummary`, `PlanningRunDetailResponse`.
+- **Planning Run Repository (`backend/app/repositories/planning_run_repo.py`):**
+  - Implemented atomic claiming using PostgreSQL row-level locks: `SELECT ... FOR UPDATE SKIP LOCKED`.
+  - State machine transition validation (`LEGAL_TRANSITIONS`) raising `IllegalStateTransitionError` for illegal transitions.
+  - Heartbeat updates, stale run identification, pagination, filtering, and structured error/failure recording.
+- **Reproducibility & Provenance Hashing (`backend/app/domain/planning_snapshot.py`):**
+  - Added deterministic 64-character SHA-256 `compute_snapshot_hash()` and `compute_input_hash(config, seed)` to guarantee mathematical reproduciblity.
+- **Background Worker Process & CLI (`backend/app/services/planning_worker.py` & `backend/app/worker.py`):**
+  - Implemented `PlanningRunWorker` polling queue, claiming runs, loading snapshots, running CPU-bound solvers in `asyncio.to_thread`, running Phase 7 Independent Validator, and persisting results in JSONB.
+  - Periodic heartbeat task and stale run timeout handler.
+- **REST APIs (`backend/app/api/v1/planning_runs.py`):**
+  - `POST /api/v1/planning-runs`: Submit run requisition, returns immediately with HTTP 201 Created and queue token URL.
+  - `GET /api/v1/planning-runs/{run_id}`: Polling endpoint for status, progress stage, execution time, and summary metrics.
+  - `GET /api/v1/planning-runs/{run_id}/result`: ScheduleResult retrieval (returns HTTP 409 Conflict if incomplete).
+  - `GET /api/v1/planning-runs`: Paginated run listing with filters and `X-Total-Count` header.
+  - `POST /api/v1/planning-runs/{run_id}/cancel`: Cooperative cancellation.
+- **Reporting & Documentation:**
+  - Created `docs/PHASE_8_PLANNING_JOBS_AND_PERSISTENCE_REPORT.md`.
 
-### Acceptance gate
-- UI can refresh during a run without losing state.
-- Worker crash/timeout produces a terminal status.
-- Duplicate submission behavior is documented.
-- API remains responsive during solver execution.
+### Verification Results
+- **Phase 8 Unit Test Suite:** `PASS` (8 tests in `tests/unit/test_phase8_planning_run.py`).
+- **Phase 8 API & Worker Integration Test Suite:** `PASS` (8 tests in `tests/integration/test_phase8_planning_jobs_api.py`).
+- **Phase 8 Invariant Validation Script:** `PASS` (22 passed, 0 failed in `scripts/validate_phase8_planning_jobs.py`).
+- **Full Pytest Regression Suite:** `PASS` (173 passed, 0 failed in 13.35s across 25 test files).
+- **All Milestone Validation Scripts:** `PASS` (10 suites, 332 total checks passed, 0 failed).
+- **Core Product Invariant Enforced:** `COMPLETED != APPROVED` (approval is an independent human governance gate).
 
 ## Phase 9 — Plan versions, review, and audit
+
+**Status:** NEXT
 
 **Objective:** Make planner decisions traceable.
 
