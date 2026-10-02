@@ -11,6 +11,7 @@ from backend.app.api.v1.work_orders import router as work_orders_router
 from backend.app.api.v1.tasks import router as tasks_router
 from backend.app.api.v1.resources import router as resources_router
 from backend.app.api.v1.compatibility import router as compatibility_router
+from backend.app.api.v1.planning import router as planning_router
 
 api_router = APIRouter()
 
@@ -30,5 +31,6 @@ v1_router.include_router(work_orders_router)
 v1_router.include_router(tasks_router)
 v1_router.include_router(resources_router)
 v1_router.include_router(compatibility_router)
+v1_router.include_router(planning_router)
 
 api_router.include_router(v1_router)

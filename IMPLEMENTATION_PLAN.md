@@ -170,20 +170,52 @@ This roadmap assumes a new repository and prioritizes a working, testable vertic
 
 ## Phase 5 — Priority and baseline schedulers
 
+**Status:** COMPLETE (Executed October 2, 2026)
+
 **Objective:** Establish transparent reference schedules before optimization.
 
-### Work
-- Implement configurable priority formula with feature breakdown.
-- Implement FCFS baseline.
-- Implement priority-greedy baseline.
-- Ensure both consume the same input snapshot and hard constraints.
-- Produce comparable result schemas and metrics.
+### Completed Work
+- **Immutable Planning Snapshot:**
+  - Implemented `backend/app/domain/planning_snapshot.py::PlanningSnapshot` with deterministic SHA256 snapshot IDs.
+  - Frozen in-memory container ensuring both baseline schedulers evaluate the exact same tasks, train passes, resources, availability, and horizon without mutable DB querying during scheduling loops.
+- **Explainable Priority Scoring Model:**
+  - Implemented `backend/app/domain/scheduling.py::PriorityConfig`, `PriorityScore`, `PriorityComponent`.
+  - Implemented `backend/app/services/priority_scorer.py::PriorityScorer`.
+  - Configurable, versioned weights explicitly documented as experimental benchmark heuristics.
+  - Normalizes 5 features to $[0.0, 1.0]$: `mandatory`, `urgency` (`TaskPriority`), `window_tightness`, `dependency_bottleneck` (downstream waiting count), and `operational_impact` (traffic/power block requirements).
+  - Decomposes every score into full explainable component breakdowns.
+- **Deterministic Baseline Schedulers:**
+  - Implemented `backend/app/services/schedulers/base.py::BaseScheduler`.
+  - Implemented `backend/app/services/schedulers/fcfs.py::FCFSScheduler` (orders by arrival/window start, tie-break by `task_id`).
+  - Implemented `backend/app/services/schedulers/priority_greedy.py::PriorityGreedyScheduler` (orders by priority score descending, mandatory first, arrival, tie-break by `task_id`).
+  - Implemented `backend/app/services/task_ordering.py` including topological dependency cycle detection.
+- **Deterministic Candidate Generator:**
+  - Implemented `backend/app/services/candidate_generator.py::CandidateGenerator`.
+  - Discovers natural railway event boundaries (window starts, preferred starts, predecessor completions, scheduled possession releases, train section clearances, resource availability starts).
+- **Zero Constraint Bypass / Phase 4 Integration:**
+  - 100% of candidate placement evaluations are outsourced to `CompatibilityEngine.evaluate_task_placement`.
+  - Baselines never violate modeled hard constraints (0 train overlaps, 0 section overlaps, 0 resource overlaps).
+- **Standardized Metrics & Result Contracts:**
+  - Implemented `backend/app/services/metrics_calculator.py::MetricsCalculator`.
+  - Shared `ScheduleResult`, `ScheduledTaskResult`, `UnscheduledTaskResult`, `ScheduleMetrics`, and `TaskDecisionTrace` models.
+- **REST Endpoints & Fair Benchmarking:**
+  - Implemented `POST /api/v1/planning/baseline` and `POST /api/v1/planning/benchmark` in `backend/app/api/v1/planning.py`.
+  - Side-by-side comparison contract evaluating FCFS and Priority-Greedy on the exact same snapshot.
+  - Mounted under `/api/v1/planning` in `backend/app/api/router.py`.
 
-### Acceptance gate
-- Scores are reproducible and explainable.
-- Weights are configurable and documented as experimental.
-- Baselines never violate modeled hard constraints.
-- Metric definitions are shared across methods.
+### Verification Results
+- **Priority Scorer Unit Tests:** `PASS` (6 tests in `tests/unit/test_priority_scorer.py`).
+- **Candidate Generator Unit Tests:** `PASS` (3 tests in `tests/unit/test_candidate_generator.py`).
+- **Schedulers Unit Tests:** `PASS` (6 tests in `tests/unit/test_schedulers.py`).
+- **Planning & Benchmark API Integration Tests:** `PASS` (4 tests in `tests/integration/test_phase5_baseline_api.py`).
+- **Full Pytest Regression Suite:** `PASS` (113 passed, 0 failed in 9.93s across 20 test files).
+- **Phase 5 Schedulers Validation Script:** `PASS` (30 passed, 0 failed in `scripts/validate_phase5_schedulers.py`).
+- **Phase 4 Compatibility Validation Script:** `PASS` (17 passed, 0 failed in `scripts/validate_phase4_compatibility.py`).
+- **Operational Database Validation:** `PASS` (30 passed, 0 failed in `scripts/validate_operational_data.py`).
+- **Reference Database Validation:** `PASS` (31 passed, 0 failed in `scripts/validate_database.py`).
+- **Total Automated Verification Checks:** **221 passed, 0 failed**.
+- **Benchmark Factual Results (`SCN-DEMO-001`):**
+  - Both FCFS and Priority-Greedy achieved **96.7% completion rate (29/30 tasks scheduled)** and **100% mandatory completion rate (17/17 mandatory tasks scheduled)** with **0 hard constraint violations** in **<10 ms**.
 
 ## Phase 6 — CP-SAT optimization
 

@@ -37,6 +37,20 @@ from backend.app.domain.compatibility import (
     ScheduledTaskPlacement,
     CompatibilityResult,
 )
+from backend.app.domain.planning_snapshot import PlanningSnapshot
+from backend.app.domain.scheduling import (
+    SchedulerType,
+    SchedulerStatus,
+    PriorityComponent,
+    PriorityConfig,
+    PriorityScore,
+    ScheduledTaskResult,
+    UnscheduledTaskResult,
+    TaskDecisionTrace,
+    ScheduleMetrics,
+    ScheduleResult,
+    BenchmarkComparisonResult,
+)
 
 __all__ = [
     "DataClass",
@@ -82,4 +96,16 @@ __all__ = [
     "RuleEvidence",
     "ScheduledTaskPlacement",
     "CompatibilityResult",
+    "PlanningSnapshot",
+    "SchedulerType",
+    "SchedulerStatus",
+    "PriorityComponent",
+    "PriorityConfig",
+    "PriorityScore",
+    "ScheduledTaskResult",
+    "UnscheduledTaskResult",
+    "TaskDecisionTrace",
+    "ScheduleMetrics",
+    "ScheduleResult",
+    "BenchmarkComparisonResult",
 ]
