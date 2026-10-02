@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   TrainTrack,
@@ -11,11 +11,22 @@ import {
   AlertTriangle,
   Sliders,
   Terminal,
+  Activity,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SyntheticDataBadge } from '@/components/common/SyntheticDataBadge';
+import { RailwayCanvas } from '@/components/railway/RailwayCanvas';
+import {
+  DEMO_CORRIDOR,
+  DEMO_TASKS,
+  DEMO_TRAINS,
+  DEMO_SCHEDULE_RESULT,
+} from '@/lib/api/client';
 
 export default function LandingPage() {
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>('TSK-0001');
+  const [selectedSectionCode, setSelectedSectionCode] = useState<string | null>('SEC-ETW-CNB');
+  const [selectedTrainId, setSelectedTrainId] = useState<string | null>(null);
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F5] flex flex-col font-sans selection:bg-[#4C87E7]/30 selection:text-white">
       {/* 1. Small announcement strip */}
@@ -99,24 +110,73 @@ export default function LandingPage() {
 
         {/* Hero Interactive Corridor Preview Graphic */}
         <div className="mt-14 w-full bg-[#141418] border border-[#202024] rounded-lg p-5 text-left relative overflow-hidden shadow-2xl">
-          <div className="flex items-center justify-between border-b border-[#202024] pb-3 mb-4">
+          <div className="flex items-center justify-between border-b border-[#202024] pb-3 mb-3">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="font-mono text-xs font-bold text-[#F5F5F5]">
-                Northern Trunk Corridor (NDLS–CNB 440km)
+                Interactive Corridor Simulation (NDLS–CNB 440km)
               </span>
-              <span className="text-[10px] font-mono text-[#71717A] bg-[#0E0E12] px-2 py-0.5 rounded">
-                24h CP-SAT Schedule
+              <span className="text-[10px] font-mono text-[#71717A] bg-[#0E0E12] px-2 py-0.5 rounded border border-[#202024]">
+                Browser-Side WebGL / 2D Fallback
               </span>
             </div>
             <SyntheticDataBadge size="sm" />
           </div>
 
+          {/* Interactive 3D/2D Railway Canvas */}
+          <div className="h-[380px] w-full rounded border border-[#202024] overflow-hidden my-3 relative bg-[#0A0A0A]">
+            <RailwayCanvas
+              corridor={DEMO_CORRIDOR}
+              tasks={DEMO_TASKS}
+              trains={DEMO_TRAINS}
+              scheduleResult={DEMO_SCHEDULE_RESULT}
+              selectedTaskId={selectedTaskId}
+              selectedSectionCode={selectedSectionCode}
+              selectedTrainId={selectedTrainId}
+              onSelectTask={(id) => {
+                setSelectedTaskId(id);
+                setSelectedTrainId(null);
+                const task = DEMO_TASKS.find((t) => t.task_id === id);
+                if (task) setSelectedSectionCode(task.section_code || task.section_id || null);
+              }}
+              onSelectSection={(code) => {
+                setSelectedSectionCode(code);
+                const task = DEMO_TASKS.find((t) => t.section_code === code || t.section_id === code);
+                if (task) setSelectedTaskId(task.task_id);
+              }}
+              onSelectTrain={(id) => {
+                setSelectedTrainId(id);
+                setSelectedTaskId(null);
+              }}
+            />
+          </div>
+
+          {/* Contextual Telemetry Feedback Strip */}
+          <div className="bg-[#0E0E12] border border-[#202024] rounded px-3 py-2 text-xs font-mono mb-4 flex items-center justify-between text-[#A1A1AA]">
+            <div className="flex items-center gap-2 truncate">
+              <Activity className="w-3.5 h-3.5 text-[#4C87E7] shrink-0" />
+              <span className="text-white font-bold text-[11px] uppercase tracking-wider">
+                {selectedTaskId ? (
+                  <>Inspection: <span className="text-sky-400">{selectedTaskId}</span> on {selectedSectionCode || 'Corridor'}</>
+                ) : selectedTrainId ? (
+                  <>Inspection: Train <span className="text-amber-300">{selectedTrainId}</span> Occupancy</>
+                ) : selectedSectionCode ? (
+                  <>Inspection: Block Section <span className="text-emerald-400">{selectedSectionCode}</span></>
+                ) : (
+                  <>Click any track block, task, or train rake in the scene above to inspect</>
+                )}
+              </span>
+            </div>
+            <div className="text-[10px] text-[#71717A] hidden sm:block shrink-0">
+              Interactive 3D / Fallback 2D Active
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             <div className="bg-[#0E0E12] p-3 rounded border border-[#202024] font-mono">
               <span className="text-[#71717A] text-[10px]">SCHEDULE RATE</span>
-              <div className="text-xl font-bold text-emerald-400">87.5%</div>
-              <div className="text-[10px] text-[#A1A1AA]">7 of 8 scheduled</div>
+              <div className="text-xl font-bold text-emerald-400">96.7%</div>
+              <div className="text-[10px] text-[#A1A1AA]">29 of 30 scheduled</div>
             </div>
             <div className="bg-[#0E0E12] p-3 rounded border border-[#202024] font-mono">
               <span className="text-[#71717A] text-[10px]">POSSESSION TIME</span>
@@ -136,11 +196,12 @@ export default function LandingPage() {
           </div>
 
           <div className="bg-[#0E0E12] rounded p-3 border border-[#202024] flex items-center justify-between text-xs font-mono">
-            <span className="text-[#A1A1AA]">
+            <span className="text-[#A1A1AA] flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
               Independent Validator: <strong className="text-emerald-400">48 Rules Evaluated • Zero Violations</strong>
             </span>
             <Link href="/planning" className="text-[#4C87E7] hover:underline flex items-center gap-1 font-semibold">
-              Open Interactive Time-Space Diagram
+              Open Full Operations Workspace
               <ArrowRight className="w-3 h-3" />
             </Link>
           </div>

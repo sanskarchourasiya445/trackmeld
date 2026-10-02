@@ -536,3 +536,112 @@ export async function getPlanVersionAudit(planVersionId: string): Promise<AuditL
     return DEMO_AUDIT_LOGS;
   }
 }
+
+// ==========================================
+// COPILOT & DECISION SUPPORT APIS
+// ==========================================
+
+export interface CopilotEvidenceItem {
+  evidence_id: string;
+  evidence_type: string;
+  title: string;
+  data: Record<string, unknown>;
+  source_reference?: string;
+}
+
+export interface CopilotQueryRequest {
+  prompt: string;
+  scenario_id?: string;
+  run_id?: string;
+  task_id?: string;
+  plan_version_id?: string;
+}
+
+export interface CopilotQueryResponse {
+  query: string;
+  answer: string;
+  evidence: CopilotEvidenceItem[];
+  tool_calls_executed: string[];
+  provider_used: string;
+  read_only_notice: string;
+  timestamp: string;
+}
+
+export async function askCopilot(req: CopilotQueryRequest): Promise<CopilotQueryResponse> {
+  try {
+    return await fetchJson<CopilotQueryResponse>('/copilot/explain', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    });
+  } catch (err) {
+    console.warn('[TrackMeld API] askCopilot fallback:', err);
+    const p = req.prompt.toLowerCase();
+
+    // Refusal check
+    if (p.includes('approve') || p.includes('delete') || p.includes('cancel') || p.includes('reschedule')) {
+      return {
+        query: req.prompt,
+        answer: "**Action Refusal: Strictly Read-Only System**\n\nThe TrackMeld Copilot is an evidence-grounded decision support assistant. In accordance with Indian Railways safety boundaries, the Copilot cannot approve plans, modify schedules, or delete operational records.\n\n**Governance Boundary:** `COMPLETED ≠ APPROVED`. Formal operational authorizations require an authenticated signature from an authorized Divisional Railway Manager (DRM).",
+        evidence: [
+          {
+            evidence_id: "GOVERNANCE:READ_ONLY_GUARDRAIL",
+            evidence_type: "REFUSAL",
+            title: "Read-Only Governance Boundary",
+            data: { rule: "COMPLETED_NOT_APPROVED" },
+            source_reference: "PRD::FR-032",
+          }
+        ],
+        tool_calls_executed: [],
+        provider_used: "GOVERNANCE_GUARDRAIL (DEMO_FALLBACK)",
+        read_only_notice: "TrackMeld Copilot is strictly read-only. It cannot alter schedules or grant operational approval.",
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    if (p.includes('0007') || p.includes('tsk-0007')) {
+      return {
+        query: req.prompt,
+        answer: "### Task TSK-0007: Unscheduled Decision Analysis\n\n**Task Description:** Deep Track Screening & Ballast Cleaning (Engineering)\n**Target Section:** `SEC-NDLS-GZB` | **Required Duration:** 180 min  \n**Mandatory Flag:** Elective / Non-Mandatory  \n\n**Root-Cause Diagnostic Findings:**  \n- **Train Timetable Collision:** Continuous traffic occupancy by passenger express services (Train 12301 Rajdhani Express) on section SEC-NDLS-GZB prevented placing the required continuous 180-minute window + safety buffers.\n- **Reason Codes:** `TRAIN_MOVEMENT_CONFLICT`, `SECTION_OCCUPANCY_CONFLICT`\n\n**Mathematical Trace:**  \nCP-SAT solver tested multiple candidate placements; all were rejected to protect passenger headways.\n\n*Evidence Grounding:* [TASK:TSK-0007](source://maintenance_tasks)",
+        evidence: [
+          {
+            evidence_id: "TASK:TSK-0007",
+            evidence_type: "TASK_DECISION",
+            title: "Task Decision Record for TSK-0007",
+            data: { task_id: "TSK-0007", status: "UNSCHEDULED", section_id: "SEC-NDLS-GZB", duration_minutes: 180 },
+            source_reference: "maintenance_tasks",
+          },
+          {
+            evidence_id: "CONFLICTS:TSK-0007",
+            evidence_type: "CONFLICT",
+            title: "Blocking Conflicts for TSK-0007",
+            data: { reason_codes: ["TRAIN_MOVEMENT_CONFLICT", "SECTION_OCCUPANCY_CONFLICT"], blocking_trains: ["12301"] },
+            source_reference: "planning_runs::RUN-20261002-OPTIMAL",
+          }
+        ],
+        tool_calls_executed: ["get_task_decision", "get_conflicts_for_task"],
+        provider_used: "DETERMINISTIC_EVIDENCE_ENGINE (DEMO_FALLBACK)",
+        read_only_notice: "TrackMeld Copilot is strictly read-only. It cannot alter schedules or grant operational approval.",
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    return {
+      query: req.prompt,
+      answer: "### Task TSK-0001: Feasible & Scheduled\n\n**Work Description:** Track Tamping & Alignment\n**Department:** `ENGINEERING` | **Assigned Section:** `SEC-ETW-CNB`\n**Maintenance Window:** `01:00 UTC → 04:00 UTC` (180 min)\n**Possession Envelope:** `00:45 UTC → 04:15 UTC` (includes 15m setup & 15m clearance safety buffers)\n**Priority Score:** `98.50` (Mandatory: YES)\n\n**Verification Certificate:**  \nZero timetable collision with passenger trains. Power block requirements satisfied.\n\n*Evidence Grounding:* [TASK:TSK-0001](source://planning_runs::RUN-20261002-OPTIMAL)",
+      evidence: [
+        {
+          evidence_id: "TASK:TSK-0001",
+          evidence_type: "TASK_DECISION",
+          title: "Task Decision Record for TSK-0001",
+          data: { task_id: "TSK-0001", status: "SCHEDULED", start_time: "01:00 UTC", end_time: "04:00 UTC" },
+          source_reference: "planning_runs::RUN-20261002-OPTIMAL",
+        }
+      ],
+      tool_calls_executed: ["get_task_decision"],
+      provider_used: "DETERMINISTIC_EVIDENCE_ENGINE (DEMO_FALLBACK)",
+      read_only_notice: "TrackMeld Copilot is strictly read-only. It cannot alter schedules or grant operational approval.",
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+

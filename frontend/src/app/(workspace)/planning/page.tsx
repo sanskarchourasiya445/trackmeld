@@ -8,6 +8,7 @@ import { TaskQueueTable } from '@/components/planning/TaskQueueTable';
 import { RailwayCanvas } from '@/components/railway/RailwayCanvas';
 import { PlanApprovalModal } from '@/components/governance/PlanApprovalModal';
 import { BenchmarkComparisonModal } from '@/components/planning/BenchmarkComparisonModal';
+import { CopilotDrawer } from '@/components/copilot/CopilotDrawer';
 import { PlanLifecycleBar, LifecycleStage } from '@/components/planning/PlanLifecycleBar';
 import { MetricCard } from '@/components/common/MetricCard';
 import { StatusBadge } from '@/components/common/StatusBadge';
@@ -49,6 +50,7 @@ import {
   AlertCircle,
   FileCheck,
   RefreshCw,
+  Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -72,6 +74,7 @@ export default function PlanningPage() {
   const [solvingMessage, setSolvingMessage] = useState<string>('');
   const [isApprovalOpen, setIsApprovalOpen] = useState(false);
   const [isBenchmarkOpen, setIsBenchmarkOpen] = useState(false);
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [viewLayout, setViewLayout] = useState<'4QUADRANT' | 'FOCUSED'>('4QUADRANT');
   const [focusedTab, setFocusedTab] = useState<'TIMESCHEME' | '3DCORRIDOR'>('TIMESCHEME');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -300,6 +303,17 @@ export default function PlanningPage() {
             >
               <FileCheck className="w-3.5 h-3.5 mr-1.5" />
               Human Governance
+            </Button>
+
+            {/* AI Copilot Decision Support */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsCopilotOpen(true)}
+              className="border-[#4C87E7]/40 text-[#4C87E7] hover:bg-[#4C87E7]/10 text-xs font-semibold"
+            >
+              <Bot className="w-3.5 h-3.5 mr-1.5" />
+              Copilot (AI)
             </Button>
 
             {/* Layout switchers */}
@@ -578,6 +592,14 @@ export default function PlanningPage() {
         validationSummary={validationResult}
         onApprove={handleApprove}
         onReject={handleReject}
+      />
+
+      {/* AI Copilot Decision Support Drawer */}
+      <CopilotDrawer
+        isOpen={isCopilotOpen}
+        onClose={() => setIsCopilotOpen(false)}
+        selectedTaskId={selectedTaskId}
+        onSelectTask={handleSelectTask}
       />
     </AppShell>
   );
