@@ -1,0 +1,92 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@layer base {
+  :root {
+    color-scheme: dark;
+
+    /* TrackMeld Domain Tokens */
+    --tm-bg: #0A0A0A;
+    --tm-bg-pure: #000000;
+    --tm-surface: #141418;
+    --tm-surface-elevated: #18181C;
+    --tm-surface-hover: #1E1E24;
+
+    --tm-border: #29292F;
+    --tm-border-subtle: #202024;
+
+    --tm-text-primary: #F5F5F5;
+    --tm-text-secondary: #A1A1AA;
+    --tm-text-muted: #71717A;
+
+    --tm-accent: #4C87E7;
+    --tm-accent-bright: #3B82F6;
+    --tm-accent-soft: rgba(76, 135, 231, 0.12);
+    --tm-accent-glow: rgba(76, 135, 231, 0.20);
+
+    --tm-success: #35B779;
+    --tm-warning: #F4B740;
+    --tm-danger: #F06464;
+    --tm-info: #75A7F7;
+
+    /* Mapping to shadcn semantic tokens in dark mode */
+    --background: #0A0A0A;
+    --foreground: #F5F5F5;
+    --card: #141418;
+    --card-foreground: #F5F5F5;
+    --popover: #18181C;
+    --popover-foreground: #F5F5F5;
+    --primary: #4C87E7;
+    --primary-foreground: #FFFFFF;
+    --secondary: #1E1E24;
+    --secondary-foreground: #F5F5F5;
+    --muted: #18181C;
+    --muted-foreground: #A1A1AA;
+    --accent: #1E1E24;
+    --accent-foreground: #F5F5F5;
+    --destructive: #F06464;
+    --destructive-foreground: #FFFFFF;
+    --border: #29292F;
+    --input: #202024;
+    --ring: #4C87E7;
+    --radius: 0.375rem;
+
+    --sidebar: #0E0E12;
+    --sidebar-foreground: #F5F5F5;
+    --sidebar-primary: #4C87E7;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #18181C;
+    --sidebar-accent-foreground: #F5F5F5;
+    --sidebar-border: #202024;
+    --sidebar-ring: #4C87E7;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "rlig" 1, "calt" 1, "tnum" 1;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom crisp dark scrollbar for data tables & time-space chart */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+  background: #29292f;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;
+}
