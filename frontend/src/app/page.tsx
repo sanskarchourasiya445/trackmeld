@@ -8,10 +8,11 @@ import {
   ShieldCheck,
   Cpu,
   Lock,
-  AlertTriangle,
+  Play,
   Sliders,
-  Terminal,
   Activity,
+  FileCheck,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SyntheticDataBadge } from '@/components/common/SyntheticDataBadge';
@@ -24,107 +25,104 @@ import {
 } from '@/lib/api/client';
 
 export default function LandingPage() {
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>('TSK-0001');
-  const [selectedSectionCode, setSelectedSectionCode] = useState<string | null>('SEC-ETW-CNB');
-  const [selectedTrainId, setSelectedTrainId] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>('TSK-0007');
+  const [selectedSectionCode, setSelectedSectionCode] = useState<string | null>('SEC-12');
+  const [selectedTrainId, setSelectedTrainId] = useState<string | null>('02073');
+
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F5] flex flex-col font-sans selection:bg-[#4C87E7]/30 selection:text-white">
-      {/* 1. Small announcement strip */}
-      <div className="bg-[#141418] border-b border-amber-500/30 text-amber-200 px-4 py-1.5 text-xs flex items-center justify-between z-40 select-none">
-        <div className="flex items-center gap-2 overflow-hidden mx-auto">
-          <span className="flex items-center gap-1.5 font-mono font-bold tracking-wider uppercase text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40 shrink-0">
-            <AlertTriangle className="w-3 h-3 text-amber-400" />
-            Decision-Support Prototype
-          </span>
-          <span className="text-[#A1A1AA] truncate text-[11px]">
-            TrackMeld is a research and decision-support prototype evaluated on synthetic CRIS corridor datasets. Not for direct train dispatch.
-          </span>
-        </div>
-      </div>
-
-      {/* 2. Navbar */}
-      <header className="h-16 border-b border-[#202024] px-6 lg:px-12 flex items-center justify-between sticky top-0 bg-[#0A0A0A]/90 backdrop-blur-md z-30">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded bg-[#18181C] border border-[#29292F] flex items-center justify-center">
-            <TrainTrack className="w-5 h-5 text-[#4C87E7]" />
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-base tracking-tight text-[#F5F5F5]">TrackMeld</span>
-              <span className="text-[10px] font-mono uppercase bg-[#18181C] text-[#4C87E7] px-1.5 py-0.2 rounded border border-[#29292F]">
-                CRIS Prototype
-              </span>
+    <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col font-sans selection:bg-[#2563EB]/30 selection:text-white antialiased">
+      {/* 1. Header Navigation */}
+      <header className="h-16 border-b border-[#1E2D4A] px-6 lg:px-12 flex items-center justify-between sticky top-0 bg-[#080C14]/90 backdrop-blur-md z-40">
+        <div className="flex items-center gap-8">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-8 h-8 rounded bg-[#141F36] border border-[#2D436D] group-hover:border-[#3B82F6] transition-colors flex items-center justify-center">
+              <TrainTrack className="w-4 h-4 text-[#3B82F6]" />
             </div>
-            <span className="text-[10px] text-[#71717A] tracking-wider uppercase font-mono">
-              Railway Maintenance Possession Platform
+            <span className="font-bold text-base tracking-tight text-[#F8FAFC]">
+              TrackMeld
             </span>
-          </div>
+          </Link>
+
+          <nav className="hidden md:flex items-center gap-6 text-xs text-[#94A3B8]">
+            <a href="#home" className="text-white font-medium hover:text-white transition-colors">Home</a>
+            <a href="#features" className="hover:text-white transition-colors">Features</a>
+            <a href="#architecture" className="hover:text-white transition-colors">Architecture</a>
+            <a href="#governance" className="hover:text-white transition-colors">Governance</a>
+          </nav>
         </div>
 
-        <nav className="hidden md:flex items-center gap-6 text-xs font-mono text-[#A1A1AA]">
-          <a href="#problem" className="hover:text-white transition-colors">Problem</a>
-          <a href="#architecture" className="hover:text-white transition-colors">Core Boundary</a>
-          <a href="#workflow" className="hover:text-white transition-colors">Workflow</a>
-          <a href="#governance" className="hover:text-white transition-colors">Governance</a>
-        </nav>
-
         <div className="flex items-center gap-3">
+          <SyntheticDataBadge size="sm" />
           <Link href="/planning">
-            <Button className="bg-[#4C87E7] hover:bg-[#3B82F6] text-white font-mono text-xs shadow-none">
-              Launch Workspace
-              <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+            <Button size="sm" className="bg-[#141F36] hover:bg-[#1A2846] text-[#F8FAFC] border border-[#2D436D] text-xs h-8 px-3 font-medium">
+              Operator Sign-in
             </Button>
           </Link>
         </div>
       </header>
 
-      {/* 3. Hero Section */}
-      <section className="py-20 px-6 lg:px-12 max-w-6xl mx-auto text-center flex flex-col items-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#18181C] border border-[#29292F] text-xs font-mono text-[#4C87E7] mb-6">
-          <Terminal className="w-3.5 h-3.5" />
-          <span>Rules Classify • Optimization Schedules • Humans Approve • AI Explains</span>
-        </div>
-
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#F5F5F5] max-w-4xl leading-tight">
-          Smarter maintenance planning for a more reliable railway.
+      {/* 2. Hero Section */}
+      <section className="pt-12 pb-16 px-6 lg:px-12 max-w-7xl mx-auto w-full flex flex-col items-center text-center">
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#F8FAFC] max-w-4xl leading-tight">
+          Smarter Railway Possession Planning
         </h1>
 
-        <p className="mt-6 text-base sm:text-lg text-[#A1A1AA] max-w-3xl leading-relaxed">
-          Coordinate track tamping, OHE wiring, and bridge inspection around dense passenger corridors.
-          Mathematically optimize possession windows with CP-SAT while preserving strict safety rules and human sign-off.
+        <p className="mt-4 text-sm sm:text-base text-[#94A3B8] max-w-2xl leading-relaxed">
+          AI-powered, validated, and human-governed maintenance planning for a safer, more efficient rail network.
         </p>
 
-        <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
+        {/* Value Prop Pills */}
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#111C30] border border-[#1E2D4A] text-[#94A3B8]">
+            <Cpu className="w-3.5 h-3.5 text-[#3B82F6]" />
+            Optimized Scheduling
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#111C30] border border-[#1E2D4A] text-[#94A3B8]">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            Independent Validation
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#111C30] border border-[#1E2D4A] text-[#94A3B8]">
+            <Lock className="w-3.5 h-3.5 text-amber-400" />
+            Human Approval
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#111C30] border border-[#1E2D4A] text-[#94A3B8]">
+            <FileCheck className="w-3.5 h-3.5 text-sky-400" />
+            Complete Audit Trail
+          </span>
+        </div>
+
+        {/* CTA Buttons */}
+        <div className="mt-8 flex items-center gap-3">
           <Link href="/planning">
-            <Button size="lg" className="bg-[#4C87E7] hover:bg-[#3B82F6] text-white font-mono text-sm px-6 h-11">
-              Enter Operations Planning Workspace
+            <Button size="lg" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs sm:text-sm px-6 h-10 shadow-lg shadow-blue-500/20 font-semibold">
+              Launch Application
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </Link>
           <Link href="/overview">
-            <Button size="lg" variant="outline" className="border-[#29292F] hover:bg-[#18181C] text-[#F5F5F5] font-mono text-sm px-6 h-11">
-              View Corridor KPIs & Audit
+            <Button size="lg" variant="outline" className="border-[#1E2D4A] bg-[#111C30]/50 hover:bg-[#141F36] text-[#F8FAFC] text-xs sm:text-sm px-5 h-10 font-medium">
+              <Play className="w-3.5 h-3.5 mr-2 fill-current" />
+              Explore Corridor
             </Button>
           </Link>
         </div>
 
-        {/* Hero Interactive Corridor Preview Graphic */}
-        <div className="mt-14 w-full bg-[#141418] border border-[#202024] rounded-lg p-5 text-left relative overflow-hidden shadow-2xl">
-          <div className="flex items-center justify-between border-b border-[#202024] pb-3 mb-3">
+        {/* Interactive Corridor Visualizer */}
+        <div className="mt-12 w-full bg-[#0F172A] border border-[#1E2D4A] rounded-xl overflow-hidden shadow-2xl relative">
+          {/* Top Bar inside visualizer container */}
+          <div className="px-4 py-2.5 bg-[#0B101C] border-b border-[#1E2D4A] flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="font-mono text-xs font-bold text-[#F5F5F5]">
-                Interactive Corridor Simulation (NDLS–CNB 440km)
-              </span>
-              <span className="text-[10px] font-mono text-[#71717A] bg-[#0E0E12] px-2 py-0.5 rounded border border-[#202024]">
-                Browser-Side WebGL / 2D Fallback
-              </span>
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+              <span className="font-semibold text-[#F8FAFC]">Northern Trunk Corridor (NDLS–CNB 440 km)</span>
+              <span className="text-[11px] font-mono text-[#64748B] hidden sm:inline">• 24h CP-SAT Feasible Schedule</span>
             </div>
-            <SyntheticDataBadge size="sm" />
+            <div className="text-[11px] text-[#94A3B8] font-mono flex items-center gap-2">
+              <span className="text-[#3B82F6]">Live Interactive Simulation</span>
+            </div>
           </div>
 
-          {/* Interactive 3D/2D Railway Canvas */}
-          <div className="h-[380px] w-full rounded border border-[#202024] overflow-hidden my-3 relative bg-[#0A0A0A]">
+          {/* Canvas with Overlays */}
+          <div className="h-[460px] w-full relative bg-[#080C14]">
             <RailwayCanvas
               corridor={DEMO_CORRIDOR}
               tasks={DEMO_TASKS}
@@ -136,135 +134,172 @@ export default function LandingPage() {
               onSelectTask={(id) => {
                 setSelectedTaskId(id);
                 setSelectedTrainId(null);
-                const task = DEMO_TASKS.find((t) => t.task_id === id);
-                if (task) setSelectedSectionCode(task.section_code || task.section_id || null);
+                const t = DEMO_TASKS.find((x) => x.task_id === id);
+                if (t) setSelectedSectionCode(t.section_code || t.section_id || null);
               }}
               onSelectSection={(code) => {
                 setSelectedSectionCode(code);
-                const task = DEMO_TASKS.find((t) => t.section_code === code || t.section_id === code);
-                if (task) setSelectedTaskId(task.task_id);
+                const t = DEMO_TASKS.find((x) => x.section_code === code || x.section_id === code);
+                if (t) setSelectedTaskId(t.task_id);
               }}
               onSelectTrain={(id) => {
                 setSelectedTrainId(id);
                 setSelectedTaskId(null);
               }}
             />
-          </div>
 
-          {/* Contextual Telemetry Feedback Strip */}
-          <div className="bg-[#0E0E12] border border-[#202024] rounded px-3 py-2 text-xs font-mono mb-4 flex items-center justify-between text-[#A1A1AA]">
-            <div className="flex items-center gap-2 truncate">
-              <Activity className="w-3.5 h-3.5 text-[#4C87E7] shrink-0" />
-              <span className="text-white font-bold text-[11px] uppercase tracking-wider">
-                {selectedTaskId ? (
-                  <>Inspection: <span className="text-sky-400">{selectedTaskId}</span> on {selectedSectionCode || 'Corridor'}</>
-                ) : selectedTrainId ? (
-                  <>Inspection: Train <span className="text-amber-300">{selectedTrainId}</span> Occupancy</>
-                ) : selectedSectionCode ? (
-                  <>Inspection: Block Section <span className="text-emerald-400">{selectedSectionCode}</span></>
-                ) : (
-                  <>Click any track block, task, or train rake in the scene above to inspect</>
-                )}
-              </span>
+            {/* Contextual In-Scene Callout Overlays */}
+            <div className="absolute top-12 left-6 z-20 pointer-events-none hidden sm:block">
+              <div className="bg-[#0B101C]/90 backdrop-blur-md border border-[#2D436D] rounded-lg p-2.5 text-left text-xs shadow-xl min-w-[210px]">
+                <div className="text-[10px] uppercase font-bold text-[#3B82F6] flex items-center justify-between">
+                  <span>Train Rake 02073</span>
+                  <span className="text-emerald-400">On Time</span>
+                </div>
+                <div className="text-white font-medium mt-0.5">Vande Bharat Express</div>
+                <div className="text-[11px] text-[#94A3B8] mt-0.5 font-mono">
+                  Scheduled: 14:20 – 16:10 UTC
+                </div>
+              </div>
             </div>
-            <div className="text-[10px] text-[#71717A] hidden sm:block shrink-0">
-              Interactive 3D / Fallback 2D Active
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-            <div className="bg-[#0E0E12] p-3 rounded border border-[#202024] font-mono">
-              <span className="text-[#71717A] text-[10px]">SCHEDULE RATE</span>
-              <div className="text-xl font-bold text-emerald-400">96.7%</div>
-              <div className="text-[10px] text-[#A1A1AA]">29 of 30 scheduled</div>
-            </div>
-            <div className="bg-[#0E0E12] p-3 rounded border border-[#202024] font-mono">
-              <span className="text-[#71717A] text-[10px]">POSSESSION TIME</span>
-              <div className="text-xl font-bold text-[#F5F5F5]">18.5h</div>
-              <div className="text-[10px] text-[#A1A1AA]">Across 5 sections</div>
-            </div>
-            <div className="bg-[#0E0E12] p-3 rounded border border-[#202024] font-mono">
-              <span className="text-[#71717A] text-[10px]">PASSENGER DELAY</span>
-              <div className="text-xl font-bold text-[#4C87E7]">0 min</div>
-              <div className="text-[10px] text-[#A1A1AA]">Hard safety constraint</div>
-            </div>
-            <div className="bg-[#0E0E12] p-3 rounded border border-[#202024] font-mono">
-              <span className="text-[#71717A] text-[10px]">SHADOW BUNDLING</span>
-              <div className="text-xl font-bold text-amber-300">1 Co-location</div>
-              <div className="text-[10px] text-[#A1A1AA]">Tamping + OHE wire</div>
+            <div className="absolute bottom-6 right-6 z-20 pointer-events-none hidden sm:block">
+              <div className="bg-[#0B101C]/90 backdrop-blur-md border border-amber-500/40 rounded-lg p-2.5 text-left text-xs shadow-xl min-w-[220px]">
+                <div className="text-[10px] uppercase font-bold text-amber-400 flex items-center justify-between">
+                  <span>Maintenance Task TSK-0007</span>
+                  <span className="text-rose-400 font-mono">Unplaced</span>
+                </div>
+                <div className="text-white font-medium mt-0.5">Track Regrading & Screening</div>
+                <div className="text-[11px] text-[#94A3B8] mt-0.5 font-mono">
+                  Section: SEC-12 (km 238.4 – 242.1)
+                </div>
+                <div className="text-[10px] text-amber-300 mt-1">
+                  Blocked: High-density train traffic
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="bg-[#0E0E12] rounded p-3 border border-[#202024] flex items-center justify-between text-xs font-mono">
-            <span className="text-[#A1A1AA] flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              Independent Validator: <strong className="text-emerald-400">48 Rules Evaluated • Zero Violations</strong>
-            </span>
-            <Link href="/planning" className="text-[#4C87E7] hover:underline flex items-center gap-1 font-semibold">
-              Open Full Operations Workspace
-              <ArrowRight className="w-3 h-3" />
-            </Link>
+          {/* Bottom 4 Metric Tiles */}
+          <div className="grid grid-cols-2 md:grid-cols-4 border-t border-[#1E2D4A] divide-x divide-y md:divide-y-0 divide-[#1E2D4A] bg-[#0B101C]">
+            <div className="p-4 text-left">
+              <div className="flex items-center gap-1.5 text-xs text-[#94A3B8]">
+                <Activity className="w-3.5 h-3.5 text-[#3B82F6]" />
+                <span>Total Tasks (Demo)</span>
+              </div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-bold font-mono text-[#F8FAFC]">82</span>
+                <span className="text-[11px] font-semibold text-emerald-400 font-mono">+12%</span>
+              </div>
+            </div>
+
+            <div className="p-4 text-left">
+              <div className="flex items-center gap-1.5 text-xs text-[#94A3B8]">
+                <Sliders className="w-3.5 h-3.5 text-[#3B82F6]" />
+                <span>Active Scenarios</span>
+              </div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-bold font-mono text-[#F8FAFC]">4</span>
+                <span className="text-[11px] text-[#64748B] font-mono">72h Horizon</span>
+              </div>
+            </div>
+
+            <div className="p-4 text-left">
+              <div className="flex items-center gap-1.5 text-xs text-[#94A3B8]">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Plan Feasibility</span>
+              </div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-bold font-mono text-emerald-400">98.6%</span>
+                <span className="text-[11px] text-[#94A3B8] font-mono">Hard Rules Passed</span>
+              </div>
+            </div>
+
+            <div className="p-4 text-left">
+              <div className="flex items-center gap-1.5 text-xs text-[#94A3B8]">
+                <Cpu className="w-3.5 h-3.5 text-sky-400" />
+                <span>Validation Latency</span>
+              </div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-bold font-mono text-[#F8FAFC]">&lt; 250ms</span>
+                <span className="text-[11px] text-[#64748B] font-mono">12 Check Suite</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 4. Core Principle Architecture Section */}
-      <section id="architecture" className="py-16 border-t border-[#202024] bg-[#0E0E12] px-6 lg:px-12">
+      {/* 3. Product Architecture Section */}
+      <section id="architecture" className="py-16 border-t border-[#1E2D4A] bg-[#0A0E17] px-6 lg:px-12">
         <div className="max-w-6xl mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-xs font-mono uppercase text-[#4C87E7] tracking-wider font-semibold">
-              Design Boundaries
+            <span className="text-xs uppercase text-[#3B82F6] tracking-wider font-bold">
+              Engineering Governance
             </span>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#F5F5F5] mt-2">
-              Four Inviolable Architectural Boundaries
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#F8FAFC] mt-1.5">
+              Five Inviolable Architecture Boundaries
             </h2>
+            <p className="text-xs text-[#94A3B8] mt-2">
+              Rules classify. Optimization schedules. Humans approve. AI explains.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-[#141418] border border-[#202024] p-5 rounded-md flex flex-col justify-between">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="bg-[#0F172A] border border-[#1E2D4A] p-4 rounded-lg flex flex-col justify-between">
               <div>
-                <div className="w-8 h-8 rounded bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 mb-3">
-                  <Sliders className="w-4 h-4" />
+                <div className="w-7 h-7 rounded bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 mb-2.5">
+                  <Sliders className="w-3.5 h-3.5" />
                 </div>
-                <h3 className="font-bold text-sm text-[#F5F5F5] font-mono mb-1">1. Rules Classify</h3>
-                <p className="text-xs text-[#A1A1AA] leading-relaxed">
-                  Deterministic compatibility engine evaluates safety curfews, electrical isolation, and headway rules. Rules never originate in the optimizer.
+                <h3 className="font-bold text-xs text-[#F8FAFC] mb-1">1. Rules Classify</h3>
+                <p className="text-[11px] text-[#94A3B8] leading-relaxed">
+                  Deterministic compatibility engine evaluates safety curfews, electrical isolation, and headway rules before optimization.
                 </p>
               </div>
             </div>
 
-            <div className="bg-[#141418] border border-[#202024] p-5 rounded-md flex flex-col justify-between">
+            <div className="bg-[#0F172A] border border-[#1E2D4A] p-4 rounded-lg flex flex-col justify-between">
               <div>
-                <div className="w-8 h-8 rounded bg-[#4C87E7]/10 border border-[#4C87E7]/30 flex items-center justify-center text-[#4C87E7] mb-3">
-                  <Cpu className="w-4 h-4" />
+                <div className="w-7 h-7 rounded bg-[#2563EB]/10 border border-[#2563EB]/30 flex items-center justify-center text-[#3B82F6] mb-2.5">
+                  <Cpu className="w-3.5 h-3.5" />
                 </div>
-                <h3 className="font-bold text-sm text-[#F5F5F5] font-mono mb-1">2. Solver Schedules</h3>
-                <p className="text-xs text-[#A1A1AA] leading-relaxed">
-                  Integer interval CP-SAT solver packs maintenance tasks into available traffic gaps with shadow possession bundling and reproducible seeds.
+                <h3 className="font-bold text-xs text-[#F8FAFC] mb-1">2. Solver Schedules</h3>
+                <p className="text-[11px] text-[#94A3B8] leading-relaxed">
+                  Integer interval CP-SAT solver packs maintenance tasks into available traffic gaps with shadow possession bundling.
                 </p>
               </div>
             </div>
 
-            <div className="bg-[#141418] border border-[#202024] p-5 rounded-md flex flex-col justify-between">
+            <div className="bg-[#0F172A] border border-[#1E2D4A] p-4 rounded-lg flex flex-col justify-between">
               <div>
-                <div className="w-8 h-8 rounded bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 mb-3">
-                  <ShieldCheck className="w-4 h-4" />
+                <div className="w-7 h-7 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-2.5">
+                  <ShieldCheck className="w-3.5 h-3.5" />
                 </div>
-                <h3 className="font-bold text-sm text-[#F5F5F5] font-mono mb-1">3. Validator Verifies</h3>
-                <p className="text-xs text-[#A1A1AA] leading-relaxed">
-                  The solver never self-certifies. A separate validation layer verifies all hard constraints against raw timetables before declaring plan approvability.
+                <h3 className="font-bold text-xs text-[#F8FAFC] mb-1">3. Validator Verifies</h3>
+                <p className="text-[11px] text-[#94A3B8] leading-relaxed">
+                  The solver never self-certifies. A separate validation layer independently audits every interval against raw timetables.
                 </p>
               </div>
             </div>
 
-            <div className="bg-[#141418] border border-[#202024] p-5 rounded-md flex flex-col justify-between">
+            <div className="bg-[#0F172A] border border-[#1E2D4A] p-4 rounded-lg flex flex-col justify-between">
               <div>
-                <div className="w-8 h-8 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3">
-                  <Lock className="w-4 h-4" />
+                <div className="w-7 h-7 rounded bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-2.5">
+                  <Lock className="w-3.5 h-3.5" />
                 </div>
-                <h3 className="font-bold text-sm text-[#F5F5F5] font-mono mb-1">4. Humans Approve</h3>
-                <p className="text-xs text-[#A1A1AA] leading-relaxed">
-                  COMPLETED ≠ APPROVED. Divisional Railway Managers explicitly inspect and electronically authorize every possession into an immutable audit ledger.
+                <h3 className="font-bold text-xs text-[#F8FAFC] mb-1">4. Humans Approve</h3>
+                <p className="text-[11px] text-[#94A3B8] leading-relaxed">
+                  COMPLETED ≠ APPROVED. Divisional Railway Managers explicitly inspect and authorize every plan into an immutable audit ledger.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#0F172A] border border-[#1E2D4A] p-4 rounded-lg flex flex-col justify-between">
+              <div>
+                <div className="w-7 h-7 rounded bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-2.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+                <h3 className="font-bold text-xs text-[#F8FAFC] mb-1">5. AI Explains</h3>
+                <p className="text-[11px] text-[#94A3B8] leading-relaxed">
+                  Read-only Copilot provides grounded operational explanations from verified diagnostic records without write access.
                 </p>
               </div>
             </div>
@@ -272,52 +307,19 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 5. Workflow Section */}
-      <section id="workflow" className="py-16 px-6 lg:px-12 max-w-6xl mx-auto w-full">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <span className="text-xs font-mono uppercase text-[#4C87E7] tracking-wider font-semibold">
-            Execution Lifecycle
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#F5F5F5] mt-2">
-            The 7-Step Planning Pipeline
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2 font-mono text-xs text-center">
-          {[
-            { step: '01', title: 'Ingest', desc: 'Timetables & Work Orders' },
-            { step: '02', title: 'Rules', desc: 'Deterministic Filtering' },
-            { step: '03', title: 'Baseline', desc: 'Greedy Benchmarking' },
-            { step: '04', title: 'CP-SAT', desc: 'Integer Interval Solve' },
-            { step: '05', title: 'Validate', desc: 'Independent Audit' },
-            { step: '06', title: 'Diagnose', desc: 'Root-Cause Analysis' },
-            { step: '07', title: 'Approve', desc: 'Immutable Sign-off' },
-          ].map((item) => (
-            <div
-              key={item.step}
-              className="bg-[#141418] border border-[#202024] p-3 rounded flex flex-col items-center justify-center relative"
-            >
-              <div className="text-[10px] text-[#4C87E7] font-bold">{item.step}</div>
-              <div className="font-bold text-[#F5F5F5] mt-1">{item.title}</div>
-              <div className="text-[10px] text-[#71717A] mt-0.5">{item.desc}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 6. Footer */}
-      <footer className="mt-auto border-t border-[#202024] bg-[#0E0E12] py-8 px-6 lg:px-12 text-xs font-mono text-[#71717A]">
+      {/* 4. Footer */}
+      <footer className="mt-auto border-t border-[#1E2D4A] bg-[#080C14] py-8 px-6 lg:px-12 text-xs text-[#64748B]">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <TrainTrack className="w-4 h-4 text-[#4C87E7]" />
-            <span className="text-[#F5F5F5] font-semibold">TrackMeld Prototype</span>
+            <TrainTrack className="w-4 h-4 text-[#3B82F6]" />
+            <span className="text-[#F8FAFC] font-semibold">TrackMeld Platform</span>
             <span>• Smart India Hackathon 2026 / CRIS Context</span>
           </div>
 
-          <div className="flex items-center gap-4 text-[11px]">
+          <div className="flex items-center gap-5 text-xs text-[#94A3B8]">
             <Link href="/overview" className="hover:text-white transition-colors">Overview</Link>
             <Link href="/planning" className="hover:text-white transition-colors">Planning Workspace</Link>
-            <Link href="/audit" className="hover:text-white transition-colors">Governance Audit</Link>
+            <Link href="/audit" className="hover:text-white transition-colors">Audit & Governance</Link>
           </div>
         </div>
       </footer>

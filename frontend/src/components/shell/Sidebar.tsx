@@ -16,7 +16,7 @@ interface NavItem {
   badge?: string;
 }
 
-const NAV_ITEMS: NavItem[] = [
+const OPERATION_ITEMS: NavItem[] = [
   {
     label: 'Overview',
     href: '/overview',
@@ -28,6 +28,9 @@ const NAV_ITEMS: NavItem[] = [
     icon: <CalendarRange className="w-4 h-4" />,
     badge: 'LIVE',
   },
+];
+
+const GOVERNANCE_ITEMS: NavItem[] = [
   {
     label: 'Audit & Governance',
     href: '/audit',
@@ -40,15 +43,16 @@ export const Sidebar: React.FC = () => {
 
   return (
     <aside
-      aria-label="Main Navigation"
-      className="w-56 bg-[#0E0E12] border-r border-[#202024] flex flex-col justify-between select-none shrink-0"
+      aria-label="Operations Navigation"
+      className="w-56 bg-[#0B101C] border-r border-[#1E2D4A] flex flex-col justify-between select-none shrink-0"
     >
       <div className="p-3">
-        <div className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] px-2.5 py-1 mb-1 font-semibold">
-          Operations
+        {/* Operations Section */}
+        <div className="text-[10px] font-sans uppercase tracking-wider text-[#64748B] px-2.5 py-1 mb-1 font-bold">
+          OPERATIONS
         </div>
         <nav className="space-y-1">
-          {NAV_ITEMS.map((item) => {
+          {OPERATION_ITEMS.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/' && pathname?.startsWith(item.href));
             return (
               <Link
@@ -56,18 +60,18 @@ export const Sidebar: React.FC = () => {
                 href={item.href}
                 className={`flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition-all ${
                   isActive
-                    ? 'bg-[#18181C] text-[#F5F5F5] border border-[#29292F] shadow-sm'
-                    : 'text-[#A1A1AA] hover:bg-[#141418] hover:text-[#F5F5F5]'
+                    ? 'bg-[#141F36] text-[#F8FAFC] border border-[#2D436D] shadow-sm font-semibold'
+                    : 'text-[#94A3B8] hover:bg-[#0F172A] hover:text-[#F8FAFC]'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className={isActive ? 'text-[#4C87E7]' : 'text-[#71717A]'}>
+                  <span className={isActive ? 'text-[#3B82F6]' : 'text-[#64748B]'}>
                     {item.icon}
                   </span>
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
-                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-[#4C87E7]/20 text-[#4C87E7] font-semibold border border-[#4C87E7]/30">
+                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
                     {item.badge}
                   </span>
                 )}
@@ -76,35 +80,54 @@ export const Sidebar: React.FC = () => {
           })}
         </nav>
 
-        <div className="mt-6 text-[10px] font-mono uppercase tracking-wider text-[#71717A] px-2.5 py-1 mb-1 font-semibold">
-          Domain System
+        {/* Governance Section */}
+        <div className="mt-5 text-[10px] font-sans uppercase tracking-wider text-[#64748B] px-2.5 py-1 mb-1 font-bold">
+          GOVERNANCE
         </div>
-        <div className="space-y-1 px-1">
-          <div className="px-2 py-1.5 rounded bg-[#141418]/60 border border-[#202024] text-[11px] text-[#A1A1AA] font-mono">
-            <div className="text-[#71717A] text-[9px]">SOLVER ENGINE</div>
-            <div className="text-[#F5F5F5] font-semibold">CP-SAT v9.9</div>
-            <div className="text-[10px] text-emerald-400 mt-0.5">Deterministic (Seed 42)</div>
-          </div>
-          <div className="px-2 py-1.5 rounded bg-[#141418]/60 border border-[#202024] text-[11px] text-[#A1A1AA] font-mono mt-2">
-            <div className="text-[#71717A] text-[9px]">VALIDATION BOUNDARY</div>
-            <div className="text-[#F5F5F5] font-semibold">Independent Validator</div>
-            <div className="text-[10px] text-blue-400 mt-0.5">Hard Rules Verified</div>
-          </div>
-        </div>
+        <nav className="space-y-1">
+          {GOVERNANCE_ITEMS.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition-all ${
+                  isActive
+                    ? 'bg-[#141F36] text-[#F8FAFC] border border-[#2D436D] shadow-sm font-semibold'
+                    : 'text-[#94A3B8] hover:bg-[#0F172A] hover:text-[#F8FAFC]'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className={isActive ? 'text-[#3B82F6]' : 'text-[#64748B]'}>
+                    {item.icon}
+                  </span>
+                  <span>{item.label}</span>
+                </div>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
 
-      {/* System Integrity Footer */}
-      <div className="p-3 border-t border-[#202024] space-y-2">
-        <div className="p-2.5 rounded bg-[#141418] border border-[#202024] text-[10px] font-mono text-[#71717A]">
-          <div className="flex items-center justify-between text-[#A1A1AA] mb-1 font-semibold">
-            <span>Core Boundary</span>
-            <span className="text-amber-400">Strict</span>
+      {/* Active Scenario Card Footer */}
+      <div className="p-3 border-t border-[#1E2D4A]">
+        <div className="p-2.5 rounded-md bg-[#0F172A] border border-[#1E2D4A] text-xs">
+          <div className="text-[10px] uppercase font-bold text-[#64748B] tracking-wider mb-1 flex items-center justify-between">
+            <span>Active Scenario</span>
+            <span className="inline-flex items-center gap-1 text-[9px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/30 font-medium">
+              <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse"></span>
+              Active
+            </span>
           </div>
-          <p className="leading-tight">
-            Rules classify. Optimization schedules. Humans approve. AI explains.
-          </p>
+          <div className="font-mono text-xs font-bold text-[#F8FAFC]">
+            SCN-DEMO-001
+          </div>
+          <div className="text-[11px] text-[#94A3B8] mt-0.5 truncate">
+            Northern Corridor (440 km)
+          </div>
         </div>
       </div>
     </aside>
   );
 };
+

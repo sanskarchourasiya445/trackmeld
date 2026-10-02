@@ -2,16 +2,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
+import { RailwayCanvas } from '@/components/railway/RailwayCanvas';
 import { TimeSpaceChart } from '@/components/planning/TimeSpaceChart';
+import { TimelineScheduleView } from '@/components/planning/TimelineScheduleView';
 import { TaskInspector } from '@/components/planning/TaskInspector';
 import { TaskQueueTable } from '@/components/planning/TaskQueueTable';
-import { RailwayCanvas } from '@/components/railway/RailwayCanvas';
 import { PlanApprovalModal } from '@/components/governance/PlanApprovalModal';
 import { BenchmarkComparisonModal } from '@/components/planning/BenchmarkComparisonModal';
 import { CopilotDrawer } from '@/components/copilot/CopilotDrawer';
-import { PlanLifecycleBar, LifecycleStage } from '@/components/planning/PlanLifecycleBar';
-import { MetricCard } from '@/components/common/MetricCard';
-import { StatusBadge } from '@/components/common/StatusBadge';
 import {
   getScenarioBundle,
   optimizeSchedule,
@@ -43,14 +41,13 @@ import {
   DiagnosticsReport,
 } from '@/types/planning';
 import {
-  BarChart3,
   Play,
-  Grid,
-  Maximize2,
-  AlertCircle,
   FileCheck,
   RefreshCw,
-  Bot,
+  AlertCircle,
+  Clock,
+  Layers,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -64,33 +61,24 @@ export default function PlanningPage() {
   const [diagnosticsReport, setDiagnosticsReport] = useState<DiagnosticsReport | null>(DEMO_DIAGNOSTICS);
   const [planVersion, setPlanVersion] = useState<PlanVersion | null>(DEMO_PLAN_VERSION);
 
-  // Synchronized Multi-Entity Selection State
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>('TSK-0001');
-  const [selectedTrainId, setSelectedTrainId] = useState<string | null>(null);
-  const [selectedSectionCode, setSelectedSectionCode] = useState<string | null>('SEC-ETW-CNB');
+  // Subnavigation tabs
+  const [activeSubtab, setActiveSubtab] = useState<
+    'RAILWAY' | 'TIMESPACE' | 'TASKS' | 'CONFLICTS' | 'VALIDATION' | 'DIAGNOSTICS' | 'COPILOT'
+  >('RAILWAY');
 
-  // Operations & Governance State
+  // Synchronized Selection
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>('TSK-0007');
+  const [selectedTrainId, setSelectedTrainId] = useState<string | null>(null);
+  const [selectedSectionCode, setSelectedSectionCode] = useState<string | null>('SEC-12');
+
+  // Operations state
   const [isSolving, setIsSolving] = useState(false);
   const [solvingMessage, setSolvingMessage] = useState<string>('');
   const [isApprovalOpen, setIsApprovalOpen] = useState(false);
   const [isBenchmarkOpen, setIsBenchmarkOpen] = useState(false);
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
-  const [viewLayout, setViewLayout] = useState<'4QUADRANT' | 'FOCUSED'>('4QUADRANT');
-  const [focusedTab, setFocusedTab] = useState<'TIMESCHEME' | '3DCORRIDOR'>('TIMESCHEME');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Derive Lifecycle Stage
-  const lifecycleStage: LifecycleStage = isSolving
-    ? 'OPTIMIZING'
-    : planVersion?.status === 'APPROVED'
-    ? 'APPROVED'
-    : planVersion?.status === 'REJECTED'
-    ? 'REJECTED'
-    : validationResult?.is_approvable
-    ? 'AWAITING_REVIEW'
-    : 'CANDIDATE';
-
-  // Load bundle and plan versions on mount
   useEffect(() => {
     let cancelled = false;
     async function loadInitialData() {
@@ -100,12 +88,7 @@ export default function PlanningPage() {
         if (bundle.corridor) setCorridor(bundle.corridor);
         if (bundle.scenario) setScenario(bundle.scenario);
         if (bundle.trains && bundle.trains.length > 0) setTrains(bundle.trains);
-        if (bundle.tasks && bundle.tasks.length > 0) {
-          setTasks(bundle.tasks);
-          setSelectedTaskId(bundle.tasks[0].task_id);
-          const firstSec = bundle.tasks[0].section_code || bundle.tasks[0].section_id;
-          if (firstSec) setSelectedSectionCode(firstSec);
-        }
+        if (bundle.tasks && bundle.tasks.length > 0) setTasks(bundle.tasks);
 
         const versions = await getPlanVersions('SCN-DEMO-001');
         if (!cancelled && versions && versions.length > 0) {
@@ -121,7 +104,6 @@ export default function PlanningPage() {
     };
   }, []);
 
-  // Selection handlers
   const handleSelectTask = (taskId: string) => {
     setSelectedTaskId(taskId);
     setSelectedTrainId(null);
@@ -138,453 +120,341 @@ export default function PlanningPage() {
 
   const handleSelectSection = (sectionCode: string) => {
     setSelectedSectionCode(sectionCode);
-    // Find task on this section if any
-    const taskOnSec = tasks.find(
-      (t) => (t.section_code && t.section_code.includes(sectionCode)) || (t.section_id && t.section_id.includes(sectionCode))
-    );
-    if (taskOnSec) {
-      setSelectedTaskId(taskOnSec.task_id);
-      setSelectedTrainId(null);
-    }
   };
 
-  // Full Optimization Pipeline: Optimize → Validate → Diagnose
+  // Full Optimization Pipeline
   const handleTriggerSolve = useCallback(async () => {
     setIsSolving(true);
     setErrorMessage(null);
-    setSolvingMessage('Evaluating maintenance windows, train movements, and discrete headway buffers...');
+    setSolvingMessage('Evaluating possession windows and train headway buffers...');
     try {
-      // 1. CP-SAT mathematical optimization
       const sched = await optimizeSchedule(scenario.scenario_id, 5.0);
       setScheduleResult(sched);
-      setSolvingMessage('Independent Feasibility Certification: Auditing 12 hard constraint checks...');
+      setSolvingMessage('Independent Feasibility Certification: Auditing 12 hard constraints...');
 
-      // 2. Independent validation boundary
       const val = await validateSchedule(scenario.scenario_id, sched);
       setValidationResult(val);
-      setSolvingMessage('Running causal root-cause diagnostics and relaxation analyses...');
+      setSolvingMessage('Running causal diagnostics...');
 
-      // 3. Diagnostics and relaxation analyses for any unscheduled tasks
       const diag = await diagnoseSchedule(scenario.scenario_id, sched);
       setDiagnosticsReport(diag);
 
-      // Re-fetch latest plan versions
       const versions = await getPlanVersions(scenario.scenario_id);
       if (versions && versions.length > 0) {
         setPlanVersion(versions[0]);
       }
     } catch (err) {
       console.error('Solve pipeline error:', err);
-      setErrorMessage('Planning optimization request failed. The existing candidate schedule was preserved.');
+      setErrorMessage('Optimization request failed. Preserving candidate schedule.');
     } finally {
       setIsSolving(false);
       setSolvingMessage('');
     }
   }, [scenario.scenario_id]);
 
-  // Handle plan approval
-  const handleApprove = async (payload: {
-    reviewer_name: string;
-    reviewer_role: string;
-    approval_notes: string;
-  }) => {
+  const handleApprove = async (payload: { reviewer_name: string; reviewer_role: string; approval_notes: string }) => {
     if (!planVersion) return;
     try {
       const updated = await approvePlanVersion(planVersion.plan_version_id, payload.approval_notes);
       setPlanVersion(updated);
     } catch (err) {
       console.error('Plan approval error:', err);
-      setErrorMessage('Plan approval transaction failed. Please check official authorization permissions.');
+      setErrorMessage('Plan approval transaction failed.');
     }
   };
 
-  // Handle plan rejection
-  const handleReject = async (payload: {
-    reviewer_name: string;
-    reviewer_role: string;
-    rejection_reason: string;
-  }) => {
+  const handleReject = async (payload: { reviewer_name: string; reviewer_role: string; rejection_reason: string }) => {
     if (!planVersion) return;
     try {
       const updated = await rejectPlanVersion(planVersion.plan_version_id, payload.rejection_reason);
       setPlanVersion(updated);
     } catch (err) {
       console.error('Plan rejection error:', err);
-      setErrorMessage('Plan rejection transaction failed. Please check network logs.');
+      setErrorMessage('Plan rejection transaction failed.');
     }
   };
 
-  // Lookups for selected entities
   const selectedTask = tasks.find((t) => t.task_id === selectedTaskId) || null;
-  const selectedScheduled =
-    scheduleResult?.scheduled_tasks.find((st) => st.task_id === selectedTaskId) || null;
-  const selectedUnscheduled =
-    scheduleResult?.unscheduled_tasks.find((ut) => ut.task_id === selectedTaskId) || null;
-  const selectedDiagnostic =
-    diagnosticsReport?.diagnostics?.find((d) => d.task_id === selectedTaskId) || null;
-
-  const selectedTrain =
-    trains.find((tr) => (tr.train_id === selectedTrainId || tr.movement_id === selectedTrainId)) || null;
-
+  const selectedScheduled = scheduleResult?.scheduled_tasks.find((st) => st.task_id === selectedTaskId) || null;
+  const selectedUnscheduled = scheduleResult?.unscheduled_tasks.find((ut) => ut.task_id === selectedTaskId) || null;
+  const selectedDiagnostic = diagnosticsReport?.diagnostics?.find((d) => d.task_id === selectedTaskId) || null;
+  const selectedTrain = trains.find((tr) => tr.train_id === selectedTrainId || tr.movement_id === selectedTrainId) || null;
   const selectedSection: BlockSection | null =
     corridor.sections?.find((s) => s.code === selectedSectionCode || s.section_id === selectedSectionCode) || null;
 
-  const conflictingTrains = trains.filter((tr) =>
-    selectedDiagnostic?.conflicting_train_movements?.includes(tr.train_id || tr.movement_id || '')
-  );
-
-  const isScheduleApprovable = validationResult?.is_approvable ?? true;
-  const scheduledCount = scheduleResult?.scheduled_tasks.length ?? 29;
-  const totalCount = tasks.length || 30;
-  const completionPct = ((scheduledCount / totalCount) * 100).toFixed(1);
-
   return (
-    <AppShell
-      onTriggerSolve={handleTriggerSolve}
-      onOpenApproval={() => setIsApprovalOpen(true)}
-      isSolving={isSolving}
-      canApprove={isScheduleApprovable}
-      activeScenarioId={scenario.scenario_id}
-      tasksCount={tasks.length}
-      trainsCount={trains.length}
-      lastSolveDuration={scheduleResult?.solver_wall_time_seconds ?? 1.48}
-    >
-      <div className="flex-1 flex flex-col h-full overflow-hidden p-3 gap-2 font-mono">
-        {/* Plan Lifecycle Bar */}
-        <PlanLifecycleBar
-          currentStage={lifecycleStage}
-          planVersionStatus={planVersion?.status}
-          isApprovable={isScheduleApprovable}
-          approvedBy={planVersion?.approved_by}
-          onOpenApprovalModal={() => setIsApprovalOpen(true)}
-        />
-
-        {/* Operational Action Strip */}
-        <div className="flex items-center justify-between bg-[#141418] border border-[#202024] rounded-md px-3 py-1.5 shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-bold text-[#F5F5F5]">
-              {scenario.name}
-            </span>
-            <span className="text-[10px] text-[#71717A] bg-[#202024] px-1.5 py-0.5 rounded">
-              Corridor {corridor.name}
-            </span>
+    <AppShell activeScenarioId={scenario.scenario_id}>
+      <div className="flex-1 flex flex-col h-full overflow-hidden p-4 gap-3 bg-[#0A0E17] font-sans">
+        {/* Top Workstation Subnavigation Bar */}
+        <div className="flex items-center justify-between bg-[#0F172A] border border-[#1E2D4A] rounded-lg px-3.5 py-2 shrink-0">
+          {/* Subnavigation Tabs */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setActiveSubtab('RAILWAY')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                activeSubtab === 'RAILWAY'
+                  ? 'bg-[#2563EB] text-white shadow-xs'
+                  : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36]'
+              }`}
+            >
+              Railway View
+            </button>
+            <button
+              onClick={() => setActiveSubtab('TIMESPACE')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                activeSubtab === 'TIMESPACE'
+                  ? 'bg-[#2563EB] text-white shadow-xs'
+                  : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36]'
+              }`}
+            >
+              Time-Space
+            </button>
+            <button
+              onClick={() => setActiveSubtab('TASKS')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                activeSubtab === 'TASKS'
+                  ? 'bg-[#2563EB] text-white shadow-xs'
+                  : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36]'
+              }`}
+            >
+              Tasks
+            </button>
+            <button
+              onClick={() => setActiveSubtab('CONFLICTS')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                activeSubtab === 'CONFLICTS'
+                  ? 'bg-[#2563EB] text-white shadow-xs'
+                  : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36]'
+              }`}
+            >
+              Conflicts
+            </button>
+            <button
+              onClick={() => setIsApprovalOpen(true)}
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36] transition-colors"
+            >
+              Validation
+            </button>
+            <button
+              onClick={() => setIsBenchmarkOpen(true)}
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36] transition-colors"
+            >
+              Diagnostics
+            </button>
+            <button
+              onClick={() => setIsCopilotOpen(true)}
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-[#93C5FD] hover:bg-[#141F36] transition-colors flex items-center gap-1"
+            >
+              <Sparkles className="w-3 h-3 text-[#2563EB]" />
+              Copilot
+            </button>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Benchmark Trigger */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsBenchmarkOpen(true)}
-              className="border-[#29292F] text-xs text-[#A1A1AA] hover:text-white"
-            >
-              <BarChart3 className="w-3.5 h-3.5 mr-1.5 text-[#4C87E7]" />
-              Compare Schedulers (Benchmark)
-            </Button>
+          {/* Right Status & Action Controls */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-[#64748B] flex items-center gap-1 font-mono">
+              <Clock className="w-3 h-3 text-[#64748B]" />
+              Saved 14:32
+            </span>
 
-            {/* Run CP-SAT Optimization */}
+            <div className="h-4 w-[1px] bg-[#1E2D4A]" />
+
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-[#1E2D4A] border border-[#2D436D] flex items-center justify-center text-[10px] font-bold text-[#F8FAFC]">
+                MP
+              </div>
+              <span className="text-xs text-[#94A3B8] hidden sm:inline">
+                Planner / Maintenance Planner
+              </span>
+            </div>
+
+            <div className="h-4 w-[1px] bg-[#1E2D4A]" />
+
+            {/* Run CP-SAT Button */}
             <Button
               size="sm"
               disabled={isSolving}
               onClick={handleTriggerSolve}
-              className="bg-[#4C87E7] hover:bg-[#3B82F6] text-white text-xs font-semibold"
+              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold px-3 h-8 shadow-xs"
             >
-              <Play className={`w-3.5 h-3.5 mr-1.5 ${isSolving ? 'animate-spin' : ''}`} />
-              {isSolving ? 'Optimizing Schedule...' : 'Run Optimization (CP-SAT)'}
+              <Play className={`w-3.5 h-3.5 mr-1.5 fill-current ${isSolving ? 'animate-spin' : ''}`} />
+              {isSolving ? 'Optimizing...' : 'Run CP-SAT'}
             </Button>
 
-            {/* Plan Approval Trigger */}
+            {/* Governance Action */}
             <Button
               size="sm"
               variant="outline"
               onClick={() => setIsApprovalOpen(true)}
-              className="border-emerald-600/40 text-emerald-400 hover:bg-emerald-950/40 text-xs font-semibold"
+              className="border-emerald-600/40 text-emerald-400 hover:bg-emerald-950/40 text-xs font-semibold h-8"
             >
               <FileCheck className="w-3.5 h-3.5 mr-1.5" />
-              Human Governance
+              Governance
             </Button>
-
-            {/* AI Copilot Decision Support */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsCopilotOpen(true)}
-              className="border-[#4C87E7]/40 text-[#4C87E7] hover:bg-[#4C87E7]/10 text-xs font-semibold"
-            >
-              <Bot className="w-3.5 h-3.5 mr-1.5" />
-              Copilot (AI)
-            </Button>
-
-            {/* Layout switchers */}
-            <div className="flex items-center gap-0.5 border-l border-[#29292F] pl-2">
-              <Button
-                variant={viewLayout === '4QUADRANT' ? 'secondary' : 'ghost'}
-                size="icon-xs"
-                onClick={() => setViewLayout('4QUADRANT')}
-                title="4-Quadrant Grid View"
-                className="text-[#A1A1AA]"
-              >
-                <Grid className="w-3.5 h-3.5" />
-              </Button>
-              <Button
-                variant={viewLayout === 'FOCUSED' ? 'secondary' : 'ghost'}
-                size="icon-xs"
-                onClick={() => setViewLayout('FOCUSED')}
-                title="Wide Diagram View"
-                className="text-[#A1A1AA]"
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
-              </Button>
-            </div>
           </div>
         </div>
 
-        {/* Error Alert Bar if any */}
+        {/* Error Notice */}
         {errorMessage && (
-          <div className="bg-rose-500/10 border border-rose-500/30 rounded px-3 py-1.5 text-xs text-rose-300 flex items-center justify-between shrink-0">
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-1.5 text-xs text-rose-300 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-400" />
               <span>{errorMessage}</span>
             </div>
-            <button
-              onClick={() => setErrorMessage(null)}
-              className="text-[#A1A1AA] hover:text-white text-xs cursor-pointer"
-            >
+            <button onClick={() => setErrorMessage(null)} className="text-[#94A3B8] hover:text-white text-xs">
               Dismiss
             </button>
           </div>
         )}
 
-        {/* Operational KPI Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 shrink-0">
-          <MetricCard
-            label="Schedule Efficiency"
-            value={`${completionPct}%`}
-            subtext={`${scheduledCount} of ${totalCount} requisitions placed`}
-            delta={{ value: '+14% vs Greedy Baseline', isPositive: true }}
-          />
-          <MetricCard
-            label="Track Possession"
-            value={(
-              (scheduleResult?.metrics.total_possession_duration_minutes ?? 4485) / 60
-            ).toFixed(1)}
-            unit="hours"
-            subtext="Across 32 block sections"
-          />
-          <MetricCard
-            label="Mandatory Clearance"
-            value="100%"
-            unit="rate"
-            delta={{ value: '17 of 17 mandatory placed', isPositive: true }}
-          />
-          <MetricCard
-            label="Priority Capture"
-            value={`${(
-              (scheduleResult?.metrics.priority_score_capture_rate ?? 0.9855) * 100
-            ).toFixed(1)}%`}
-            subtext="3,001 of 3,045 available pts"
-          />
-          <MetricCard
-            label="Independent Validator"
-            value={validationResult?.status ?? 'VALID'}
-            badge={
-              <StatusBadge
-                status={validationResult?.status === 'VALID' ? 'VALID' : 'INFEASIBLE'}
-                size="sm"
-              />
-            }
-            subtext={
-              validationResult?.is_approvable
-                ? '12 of 12 Hard Rules Certified'
-                : 'Hard Constraint Violations'
-            }
-          />
-          <MetricCard
-            label="Plan Governance"
-            value={planVersion?.status ?? 'PENDING_REVIEW'}
-            badge={<StatusBadge status={planVersion?.status ?? 'PENDING_REVIEW'} size="sm" />}
-            subtext={
-              planVersion?.approved_by
-                ? `Approved: ${planVersion.approved_by}`
-                : 'COMPLETED ≠ APPROVED'
-            }
-          />
-        </div>
-
-        {/* Active Solver Progress Notice */}
+        {/* Active Solver Progress Strip */}
         {isSolving && (
-          <div className="bg-[#18181C] border border-[#4C87E7]/40 rounded p-2.5 flex items-center justify-between text-xs text-[#F5F5F5] shrink-0">
+          <div className="bg-[#141F36] border border-[#2563EB]/40 rounded-lg p-2.5 flex items-center justify-between text-xs text-[#F8FAFC] shrink-0">
             <div className="flex items-center gap-2">
-              <RefreshCw className="w-4 h-4 text-[#4C87E7] animate-spin" />
-              <span className="font-bold">OPTIMIZING CANDIDATE PLAN:</span>
-              <span className="text-[#A1A1AA]">{solvingMessage}</span>
+              <RefreshCw className="w-4 h-4 text-[#2563EB] animate-spin" />
+              <span className="font-semibold">OPTIMIZING POSSESSION SCHEDULE:</span>
+              <span className="text-[#94A3B8]">{solvingMessage}</span>
             </div>
-            <span className="text-[10px] text-[#71717A]">Target solver latency: &lt; 5.0s</span>
+            <span className="text-[10px] text-[#64748B] font-mono">Target: &lt; 5.0s</span>
           </div>
         )}
 
-        {/* Operational Layout: 4-Quadrant vs Focused */}
-        {viewLayout === '4QUADRANT' ? (
-          /* 4-Quadrant Operational Layout */
-          <div className="flex-1 grid grid-cols-12 grid-rows-2 gap-2 min-h-0">
-            {/* Quadrant 1 (Top-Left): Task Queue Table */}
-            <div className="col-span-12 lg:col-span-4 row-span-1 h-full overflow-hidden">
-              <TaskQueueTable
-                tasks={tasks}
-                scheduleResult={scheduleResult}
-                selectedTaskId={selectedTaskId}
-                selectedSectionCode={selectedSectionCode}
-                onSelectTask={handleSelectTask}
-              />
-            </div>
-
-            {/* Quadrant 2 (Top-Right): 2D Time-Space Diagram */}
-            <div className="col-span-12 lg:col-span-8 row-span-1 h-full overflow-hidden">
-              <TimeSpaceChart
-                corridor={corridor}
-                trains={trains}
-                tasks={tasks}
-                scheduleResult={scheduleResult}
-                selectedTaskId={selectedTaskId}
-                selectedTrainId={selectedTrainId}
-                selectedSectionCode={selectedSectionCode}
-                onSelectTask={handleSelectTask}
-                onSelectTrain={handleSelectTrain}
-                onSelectSection={handleSelectSection}
-              />
-            </div>
-
-            {/* Quadrant 3 (Bottom-Left): 3D Railway Corridor View */}
-            <div className="col-span-12 lg:col-span-7 row-span-1 h-full overflow-hidden">
-              <RailwayCanvas
-                corridor={corridor}
-                tasks={tasks}
-                trains={trains}
-                scheduleResult={scheduleResult}
-                selectedTaskId={selectedTaskId}
-                selectedSectionCode={selectedSectionCode}
-                selectedTrainId={selectedTrainId}
-                onSelectTask={handleSelectTask}
-                onSelectSection={handleSelectSection}
-                onSelectTrain={handleSelectTrain}
-              />
-            </div>
-
-            {/* Quadrant 4 (Bottom-Right): Deep Task Inspector & Diagnostics */}
-            <div className="col-span-12 lg:col-span-5 row-span-1 h-full overflow-hidden">
-              <TaskInspector
-                task={selectedTask}
-                scheduledInterval={selectedScheduled}
-                unscheduledReport={selectedUnscheduled}
-                diagnostic={selectedDiagnostic}
-                conflictingTrains={conflictingTrains}
-                selectedTrain={selectedTrain}
-                selectedSection={selectedSection}
-                onClearSelection={() => {
-                  setSelectedTaskId(null);
-                  setSelectedTrainId(null);
-                  setSelectedSectionCode(null);
-                }}
-              />
-            </div>
+        {/* Workstation Body */}
+        {activeSubtab === 'TIMESPACE' ? (
+          /* Focused Time-Space View */
+          <div className="flex-1 min-h-0 bg-[#0F172A] border border-[#1E2D4A] rounded-lg overflow-hidden">
+            <TimeSpaceChart
+              corridor={corridor}
+              trains={trains}
+              tasks={tasks}
+              scheduleResult={scheduleResult}
+              selectedTaskId={selectedTaskId}
+              selectedTrainId={selectedTrainId}
+              selectedSectionCode={selectedSectionCode}
+              onSelectTask={handleSelectTask}
+              onSelectTrain={handleSelectTrain}
+              onSelectSection={handleSelectSection}
+            />
           </div>
         ) : (
-          /* Focused Wide Layout */
-          <div className="flex-1 grid grid-cols-12 gap-2 min-h-0">
-            <div className="col-span-12 lg:col-span-3 h-full overflow-hidden">
-              <TaskQueueTable
-                tasks={tasks}
-                scheduleResult={scheduleResult}
-                selectedTaskId={selectedTaskId}
-                selectedSectionCode={selectedSectionCode}
-                onSelectTask={handleSelectTask}
-              />
-            </div>
+          /* Flagship Multi-Pane Master Workstation Layout */
+          <div className="flex-1 flex flex-col gap-3 min-h-0 overflow-hidden">
+            {/* Upper Split: Corridor Map (Left) + Selected Entity & Copilot (Right) */}
+            <div className="flex-1 grid grid-cols-12 gap-3 min-h-0">
+              {/* Middle Left: Railway Corridor Map (65%) */}
+              <div className="col-span-12 lg:col-span-8 h-full relative rounded-lg overflow-hidden border border-[#1E2D4A]">
+                <RailwayCanvas
+                  corridor={corridor}
+                  tasks={tasks}
+                  trains={trains}
+                  scheduleResult={scheduleResult}
+                  selectedTaskId={selectedTaskId}
+                  selectedSectionCode={selectedSectionCode}
+                  selectedTrainId={selectedTrainId}
+                  onSelectTask={handleSelectTask}
+                  onSelectSection={handleSelectSection}
+                  onSelectTrain={handleSelectTrain}
+                />
 
-            <div className="col-span-12 lg:col-span-6 h-full flex flex-col gap-2 overflow-hidden">
-              <div className="flex items-center gap-1 bg-[#141418] p-1 rounded border border-[#202024] text-xs shrink-0">
-                <button
-                  onClick={() => setFocusedTab('TIMESCHEME')}
-                  className={`px-3 py-1 rounded transition-colors ${
-                    focusedTab === 'TIMESCHEME'
-                      ? 'bg-[#4C87E7] text-white font-semibold'
-                      : 'text-[#A1A1AA] hover:text-white'
-                  }`}
-                >
-                  2D Time-Space Diagram
-                </button>
-                <button
-                  onClick={() => setFocusedTab('3DCORRIDOR')}
-                  className={`px-3 py-1 rounded transition-colors ${
-                    focusedTab === '3DCORRIDOR'
-                      ? 'bg-[#4C87E7] text-white font-semibold'
-                      : 'text-[#A1A1AA] hover:text-white'
-                  }`}
-                >
-                  3D Railway Corridor View
-                </button>
+                {/* Prominent Overlay Callout Badge (Direct match to reference comp) */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 bg-[#0F172A]/95 backdrop-blur-md border border-[#2563EB] rounded-lg p-3 shadow-2xl pointer-events-none min-w-[260px] text-xs">
+                  <div className="flex items-center justify-between pb-1 mb-1 border-b border-[#1E2D4A]">
+                    <span className="font-semibold text-[#F8FAFC] flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#2563EB] animate-pulse" />
+                      Block-Section SEC-12
+                    </span>
+                    <span className="text-[10px] font-mono text-[#93C5FD] bg-[#1E3A8A]/50 px-1.5 py-0.5 rounded border border-[#2563EB]/40">
+                      UP Mainline
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-[#CBD5E1] space-y-0.5 font-mono">
+                    <p>Occupied: <span className="text-amber-400 font-semibold">14:00 - 15:30 UTC</span></p>
+                    <p>By: <span className="text-[#F8FAFC] font-semibold">Maintenance Task TSK-0007</span></p>
+                  </div>
+                </div>
+
+                {/* Bottom Corridor Station Indicator Bar */}
+                <div className="absolute bottom-2.5 left-2.5 right-2.5 bg-[#0F172A]/90 backdrop-blur-xs border border-[#1E2D4A] rounded-md px-3 py-1.5 flex items-center justify-between text-[11px] text-[#94A3B8]">
+                  <div className="flex items-center gap-4 font-mono text-[10px]">
+                    <span className="text-[#F8FAFC] font-semibold">NDLS (0 km)</span>
+                    <span className="text-[#64748B]">→</span>
+                    <span>GZB (26 km)</span>
+                    <span className="text-[#64748B]">→</span>
+                    <span>ALJN (131 km)</span>
+                    <span className="text-[#64748B]">→</span>
+                    <span>TDL (209 km)</span>
+                    <span className="text-[#64748B]">→</span>
+                    <span>ETW (301 km)</span>
+                    <span className="text-[#64748B]">→</span>
+                    <span className="text-[#F8FAFC] font-semibold">CNB (440 km)</span>
+                  </div>
+                  <span className="text-[10px] text-[#64748B] flex items-center gap-1 font-sans">
+                    <Layers className="w-3 h-3 text-[#2563EB]" />
+                    Double Electrified (25kV AC)
+                  </span>
+                </div>
               </div>
 
-              <div className="flex-1 overflow-hidden">
-                {focusedTab === 'TIMESCHEME' ? (
-                  <TimeSpaceChart
-                    corridor={corridor}
-                    trains={trains}
-                    tasks={tasks}
-                    scheduleResult={scheduleResult}
-                    selectedTaskId={selectedTaskId}
-                    selectedTrainId={selectedTrainId}
-                    selectedSectionCode={selectedSectionCode}
-                    onSelectTask={handleSelectTask}
-                    onSelectTrain={handleSelectTrain}
-                    onSelectSection={handleSelectSection}
-                  />
-                ) : (
-                  <RailwayCanvas
-                    corridor={corridor}
-                    tasks={tasks}
-                    trains={trains}
-                    scheduleResult={scheduleResult}
-                    selectedTaskId={selectedTaskId}
-                    selectedSectionCode={selectedSectionCode}
-                    selectedTrainId={selectedTrainId}
-                    onSelectTask={handleSelectTask}
-                    onSelectSection={handleSelectSection}
-                    onSelectTrain={handleSelectTrain}
-                  />
-                )}
+              {/* Middle Right: Selected Entity Inspector + Integrated Copilot (35%) */}
+              <div className="col-span-12 lg:col-span-4 h-full overflow-hidden">
+                <TaskInspector
+                  task={selectedTask}
+                  scheduledInterval={selectedScheduled}
+                  unscheduledReport={selectedUnscheduled}
+                  diagnostic={selectedDiagnostic}
+                  conflictingTrains={trains.filter((tr) => tr.train_number === '02073')}
+                  selectedTrain={selectedTrain}
+                  selectedSection={selectedSection}
+                  onClearSelection={() => {
+                    setSelectedTaskId(null);
+                    setSelectedTrainId(null);
+                    setSelectedSectionCode(null);
+                  }}
+                  onSelectTask={handleSelectTask}
+                />
               </div>
             </div>
 
-            <div className="col-span-12 lg:col-span-3 h-full overflow-hidden">
-              <TaskInspector
-                task={selectedTask}
-                scheduledInterval={selectedScheduled}
-                unscheduledReport={selectedUnscheduled}
-                diagnostic={selectedDiagnostic}
-                conflictingTrains={conflictingTrains}
-                selectedTrain={selectedTrain}
-                selectedSection={selectedSection}
-                onClearSelection={() => {
-                  setSelectedTaskId(null);
-                  setSelectedTrainId(null);
-                  setSelectedSectionCode(null);
-                }}
-              />
+            {/* Bottom Split: Task List (Left 45%) + Timeline Schedule Diagram (Right 55%) */}
+            <div className="h-[270px] grid grid-cols-12 gap-3 shrink-0">
+              {/* Bottom Left: Task List (45%) */}
+              <div className="col-span-12 lg:col-span-5 h-full overflow-hidden">
+                <TaskQueueTable
+                  tasks={tasks}
+                  scheduleResult={scheduleResult}
+                  selectedTaskId={selectedTaskId}
+                  selectedSectionCode={selectedSectionCode}
+                  onSelectTask={handleSelectTask}
+                />
+              </div>
+
+              {/* Bottom Right: Timeline / Time-Space Schedule (55%) */}
+              <div className="col-span-12 lg:col-span-7 h-full overflow-hidden">
+                <TimelineScheduleView
+                  corridor={corridor}
+                  trains={trains}
+                  tasks={tasks}
+                  scheduleResult={scheduleResult}
+                  selectedTaskId={selectedTaskId}
+                  selectedTrainId={selectedTrainId}
+                  selectedSectionCode={selectedSectionCode}
+                  onSelectTask={handleSelectTask}
+                  onSelectTrain={handleSelectTrain}
+                  onSelectSection={handleSelectSection}
+                />
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Comparative Benchmark Modal */}
+      {/* Modals & Drawers */}
       <BenchmarkComparisonModal
         isOpen={isBenchmarkOpen}
         onClose={() => setIsBenchmarkOpen(false)}
         scenarioId={scenario.scenario_id}
       />
 
-      {/* Human Approval & Governance Modal */}
       <PlanApprovalModal
         isOpen={isApprovalOpen}
         onClose={() => setIsApprovalOpen(false)}
@@ -594,7 +464,6 @@ export default function PlanningPage() {
         onReject={handleReject}
       />
 
-      {/* AI Copilot Decision Support Drawer */}
       <CopilotDrawer
         isOpen={isCopilotOpen}
         onClose={() => setIsCopilotOpen(false)}

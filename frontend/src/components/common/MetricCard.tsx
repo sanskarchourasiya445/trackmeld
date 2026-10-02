@@ -27,34 +27,34 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 }) => {
   return (
     <div
-      className={`bg-[#141418] border border-[#202024] hover:border-[#29292F] transition-colors rounded-md p-4 flex flex-col justify-between ${className}`}
+      className={`bg-[#0F172A] border border-[#1E2D4A] hover:border-[#2D436D] transition-colors rounded-md p-3.5 flex flex-col justify-between ${className}`}
     >
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="text-xs font-mono uppercase tracking-wider text-[#A1A1AA] flex items-center gap-1.5">
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <span className="text-xs font-sans font-medium text-[#94A3B8] flex items-center gap-1.5">
           {icon}
           {label}
         </span>
         {badge}
       </div>
 
-      <div className="flex items-baseline gap-1.5">
-        <span className="text-2xl font-bold font-mono text-[#F5F5F5] tracking-tight tabular-nums">
+      <div className="flex items-baseline gap-1.5 my-0.5">
+        <span className="text-2xl font-bold font-mono text-[#F8FAFC] tracking-tight tabular-nums">
           {value}
         </span>
-        {unit && <span className="text-xs font-mono text-[#71717A]">{unit}</span>}
+        {unit && <span className="text-xs font-mono text-[#64748B]">{unit}</span>}
       </div>
 
       {(subtext || delta) && (
-        <div className="mt-2.5 pt-2 border-t border-[#202024]/60 flex items-center justify-between text-xs text-[#71717A]">
-          {subtext && <span>{subtext}</span>}
+        <div className="mt-2 pt-2 border-t border-[#1E2D4A]/60 flex items-center justify-between text-[11px] text-[#64748B]">
+          {subtext && <span className="font-sans text-[#94A3B8]">{subtext}</span>}
           {delta && (
             <span
               className={`font-mono text-[11px] font-semibold ${
                 delta.isNeutral
-                  ? 'text-[#A1A1AA]'
+                  ? 'text-[#94A3B8]'
                   : delta.isPositive
-                  ? 'text-[#35B779]'
-                  : 'text-[#F06464]'
+                  ? 'text-emerald-400'
+                  : 'text-rose-400'
               }`}
             >
               {delta.value}

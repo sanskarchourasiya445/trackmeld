@@ -7,7 +7,9 @@ import {
   Play,
   CheckCircle,
   Clock,
-  ShieldCheck,
+  Bell,
+  RefreshCw,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SyntheticDataBadge } from '@/components/common/SyntheticDataBadge';
@@ -18,6 +20,9 @@ interface TopBarProps {
   isSolving?: boolean;
   canApprove?: boolean;
   activeScenarioId?: string;
+  userRole?: string;
+  userName?: string;
+  onRefresh?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -25,68 +30,51 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenApproval,
   isSolving = false,
   canApprove = true,
-  activeScenarioId = 'SCN-DEMO-001',
+  userRole = 'Operations Officer',
+  userName = 'Operator',
+  onRefresh,
 }) => {
   return (
-    <header className="h-14 bg-[#0A0A0A] border-b border-[#202024] px-4 flex items-center justify-between z-30 select-none">
+    <header className="h-13 bg-[#0B101C] border-b border-[#1E2D4A] px-4 flex items-center justify-between z-30 select-none shrink-0 font-sans">
       {/* Brand & Context */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded bg-[#18181C] border border-[#29292F] group-hover:border-[#4C87E7] transition-colors flex items-center justify-center">
-            <TrainTrack className="w-4 h-4 text-[#4C87E7]" />
+          <div className="w-7 h-7 rounded bg-[#141F36] border border-[#2D436D] group-hover:border-[#3B82F6] transition-colors flex items-center justify-center">
+            <TrainTrack className="w-3.5 h-3.5 text-[#3B82F6]" />
           </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="font-bold tracking-tight text-[#F5F5F5] text-sm group-hover:text-white transition-colors">
-                TrackMeld
-              </span>
-              <span className="text-[10px] font-mono uppercase bg-[#18181C] text-[#4C87E7] px-1.5 py-0.2 rounded border border-[#29292F]">
-                v0.10
-              </span>
-            </div>
-            <span className="text-[10px] text-[#71717A] tracking-wider uppercase font-mono">
-              Decision Support System
+          <div className="flex items-center gap-2">
+            <span className="font-bold tracking-tight text-[#F8FAFC] text-sm group-hover:text-white transition-colors">
+              TrackMeld
+            </span>
+            <span className="text-[10px] font-mono uppercase bg-[#141F36] text-[#94A3B8] px-1.5 py-0.2 rounded border border-[#1E2D4A]">
+              v1.0
             </span>
           </div>
         </Link>
-
-        <div className="h-4 w-[1px] bg-[#29292F] hidden sm:block" />
-
-        {/* Active Scenario indicator */}
-        <div className="hidden sm:flex items-center gap-2 text-xs">
-          <span className="text-[#71717A] font-mono">SCENARIO:</span>
-          <span className="font-mono text-xs font-semibold text-[#F5F5F5] bg-[#141418] border border-[#202024] px-2 py-0.5 rounded">
-            {activeScenarioId}
-          </span>
-        </div>
-
-        <SyntheticDataBadge size="sm" className="hidden lg:inline-flex" />
       </div>
 
-      {/* Primary Actions & Controls */}
-      <div className="flex items-center gap-2.5">
-        <div className="hidden md:flex items-center gap-2 mr-2 text-xs font-mono text-[#A1A1AA]">
-          <span className="flex items-center gap-1.5 bg-[#141418] px-2 py-1 rounded border border-[#202024]">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Validator: Verified</span>
-          </span>
-        </div>
+      {/* Center Environment Indicator */}
+      <div className="flex items-center gap-2">
+        <SyntheticDataBadge size="sm" />
+      </div>
 
+      {/* Right Controls, User, & Actions */}
+      <div className="flex items-center gap-3 text-xs">
         {onTriggerSolve && (
           <Button
             size="sm"
             onClick={onTriggerSolve}
             disabled={isSolving}
-            className="bg-[#4C87E7] hover:bg-[#3B82F6] text-white font-mono text-xs shadow-none border-0"
+            className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs h-7 px-2.5 shadow-none border-0 font-medium"
           >
             {isSolving ? (
               <>
-                <Clock className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                CP-SAT Solving...
+                <Clock className="w-3 h-3 animate-spin mr-1.5" />
+                Solving...
               </>
             ) : (
               <>
-                <Play className="w-3.5 h-3.5 fill-current mr-1.5" />
+                <Play className="w-3 h-3 fill-current mr-1.5" />
                 Run CP-SAT
               </>
             )}
@@ -99,10 +87,47 @@ export const TopBar: React.FC<TopBarProps> = ({
             variant="outline"
             onClick={onOpenApproval}
             disabled={!canApprove}
-            className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 font-mono text-xs"
+            className="border-emerald-600/40 text-emerald-400 hover:bg-emerald-950/40 text-xs h-7 px-2.5 font-medium"
           >
-            <CheckCircle className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
-            Human Review & Approve
+            <CheckCircle className="w-3 h-3 mr-1.5 text-emerald-400" />
+            Governance
+          </Button>
+        )}
+
+        {/* Notification Bell */}
+        <button
+          className="relative text-[#94A3B8] hover:text-[#F8FAFC] p-1.5 rounded hover:bg-[#141F36] transition-colors"
+          title="Operational Notifications"
+        >
+          <Bell className="w-3.5 h-3.5" />
+          <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-[#3B82F6] rounded-full"></span>
+        </button>
+
+        {/* User Profile */}
+        <div className="flex items-center gap-2 pl-2 border-l border-[#1E2D4A]">
+          <div className="w-6 h-6 rounded-full bg-[#141F36] border border-[#2D436D] flex items-center justify-center text-[#3B82F6]">
+            <User className="w-3.5 h-3.5" />
+          </div>
+          <div className="hidden sm:flex flex-col text-left">
+            <span className="text-[11px] font-semibold text-[#F8FAFC] leading-tight">
+              {userName}
+            </span>
+            <span className="text-[10px] text-[#64748B] leading-tight">
+              {userRole}
+            </span>
+          </div>
+        </div>
+
+        {/* Refresh Button */}
+        {onRefresh && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRefresh}
+            className="border-[#1E2D4A] hover:bg-[#141F36] text-[#94A3B8] hover:text-white text-xs h-7 px-2 gap-1.5 font-sans"
+          >
+            <RefreshCw className="w-3 h-3" />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         )}
       </div>
