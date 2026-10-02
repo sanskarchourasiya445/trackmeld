@@ -33,6 +33,10 @@ class SchedulerStatus(str, Enum):
     COMPLETED_WITH_UNSCHEDULED_TASKS = "COMPLETED_WITH_UNSCHEDULED_TASKS"
     FAILED = "FAILED"
     INVALID_INPUT = "INVALID_INPUT"
+    OPTIMAL = "OPTIMAL"
+    FEASIBLE = "FEASIBLE"
+    INFEASIBLE = "INFEASIBLE"
+    UNKNOWN = "UNKNOWN"
 
 
 # =============================================================================
@@ -183,6 +187,10 @@ class ScheduleResult(BaseModel):
     configuration: Dict[str, Any]
     execution_time_ms: float
     decision_trace: List[TaskDecisionTrace] = Field(default_factory=list)
+    solver_diagnostics: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Diagnostic metrics and metadata from mathematical optimizer"
+    )
 
 
 class BenchmarkComparisonResult(BaseModel):

@@ -19,6 +19,7 @@ dependencies = [
     "alembic>=1.13.0",
     "python-dotenv>=1.0.0",
     "pypdf>=4.0.0",
+    "ortools>=9.10.0,<9.16.0",
 ]
 
 [project.optional-dependencies]

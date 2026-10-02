@@ -41,3 +41,44 @@ class BenchmarkComparisonRequest(BaseModel):
         le=200,
         description="Max candidate timepoints evaluated per task"
     )
+    include_cpsat: bool = Field(
+        default=False,
+        description="Include CP-SAT solver in the side-by-side comparison"
+    )
+    cpsat_time_limit: float = Field(
+        default=10.0,
+        ge=0.1,
+        le=300.0,
+        description="CP-SAT time limit in seconds when include_cpsat is True"
+    )
+
+
+class OptimizeScheduleRequest(BaseModel):
+    """Requisition to execute the CP-SAT mathematical optimization solver."""
+    scenario_id: str = Field(..., description="Operational scenario ID to optimize")
+    priority_config: Optional[PriorityConfig] = Field(
+        default=None,
+        description="Optional custom priority scoring parameters"
+    )
+    time_limit_seconds: float = Field(
+        default=30.0,
+        gt=0.1,
+        le=300.0,
+        description="Maximum CP-SAT execution wall time in seconds"
+    )
+    num_search_workers: int = Field(
+        default=1,
+        ge=1,
+        le=16,
+        description="Search workers (default 1 for deterministic reproducibility)"
+    )
+    random_seed: int = Field(
+        default=0,
+        ge=0,
+        description="Random seed for search initialization"
+    )
+    log_search_progress: bool = Field(
+        default=False,
+        description="Emit CP-SAT search log"
+    )
+

@@ -14,6 +14,7 @@ from backend.app.schemas.common import ErrorResponse
 from backend.app.schemas.planning_requests import (
     BaselineScheduleRequest,
     BenchmarkComparisonRequest,
+    OptimizeScheduleRequest,
 )
 from backend.app.domain.scheduling import (
     SchedulerConfig,
@@ -106,6 +107,8 @@ async def execute_benchmark_comparison(
         comparison = await service.run_benchmark(
             scenario_id=request.scenario_id,
             config=config,
+            include_cpsat=request.include_cpsat,
+            cpsat_time_limit=request.cpsat_time_limit,
         )
     except ValueError as e:
         raise HTTPException(
@@ -125,3 +128,63 @@ async def execute_benchmark_comparison(
         )
 
     return comparison
+
+
+@router.post(
+    "/optimize",
+    response_model=ScheduleResult,
+    responses={
+        404: {"model": ErrorResponse},
+        400: {"model": ErrorResponse},
+    },
+)
+async def execute_optimization_schedule(
+    request: OptimizeScheduleRequest,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+) -> ScheduleResult:
+    """Execute bounded mathematical optimization (CP-SAT) on an operational scenario.
+    
+    This evaluates global discrete feasibility and priority optimization without mutating operational task state.
+    """
+    from backend.app.services.optimization_service import OptimizationPlanningService
+    from backend.app.services.optimization.solver_config import OptimizationConfig
+
+    service = OptimizationPlanningService(session)
+    config = OptimizationConfig(
+        time_limit_seconds=request.time_limit_seconds,
+        num_search_workers=request.num_search_workers,
+        random_seed=request.random_seed,
+        log_search_progress=request.log_search_progress,
+        priority_config=request.priority_config if request.priority_config else None,
+    ) if request.priority_config else OptimizationConfig(
+        time_limit_seconds=request.time_limit_seconds,
+        num_search_workers=request.num_search_workers,
+        random_seed=request.random_seed,
+        log_search_progress=request.log_search_progress,
+    )
+
+    try:
+        result = await service.run_optimizer(
+            scenario_id=request.scenario_id,
+            config=config,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {"code": "INVALID_OPTIMIZER_CONFIG", "message": str(e)}},
+        )
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": {
+                    "code": "SCENARIO_NOT_FOUND",
+                    "message": f"Operational scenario '{request.scenario_id}' not found.",
+                }
+            },
+        )
+
+    return result
+

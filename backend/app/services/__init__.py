@@ -7,6 +7,13 @@ from backend.app.services.candidate_generator import CandidateGenerator
 from backend.app.services.metrics_calculator import MetricsCalculator
 from backend.app.services.schedulers import BaseScheduler, FCFSScheduler, PriorityGreedyScheduler
 from backend.app.services.baseline_service import BaselinePlanningService
+from backend.app.services.optimization_service import OptimizationPlanningService
+from backend.app.services.optimization import (
+    OptimizationConfig,
+    SolverDiagnostics,
+    CPSATModelBuilder,
+    CPSATSolver,
+)
 
 __all__ = [
     "OperationalDataProvider",
@@ -21,4 +28,10 @@ __all__ = [
     "FCFSScheduler",
     "PriorityGreedyScheduler",
     "BaselinePlanningService",
+    "OptimizationPlanningService",
+    "OptimizationConfig",
+    "SolverDiagnostics",
+    "CPSATModelBuilder",
+    "CPSATSolver",
 ]
+

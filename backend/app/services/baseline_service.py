@@ -56,8 +56,10 @@ class BaselinePlanningService:
         self,
         scenario_id: str,
         config: Optional[SchedulerConfig] = None,
+        include_cpsat: bool = False,
+        cpsat_time_limit: float = 10.0,
     ) -> Optional[BenchmarkComparisonResult]:
-        """Run both FCFS and Priority-Greedy on the exact same snapshot and return side-by-side comparison."""
+        """Run FCFS, Priority-Greedy, and optionally CP-SAT on the exact same snapshot and return side-by-side comparison."""
         snapshot = await self.get_snapshot(scenario_id)
         if not snapshot:
             return None
@@ -69,71 +71,102 @@ class BaselinePlanningService:
         fcfs_res = fcfs_scheduler.schedule(snapshot, config)
         prio_res = prio_scheduler.schedule(snapshot, config)
 
+        schedules = {
+            "FCFS": fcfs_res,
+            "PRIORITY_GREEDY": prio_res,
+        }
+
+        cpsat_res = None
+        if include_cpsat:
+            from backend.app.services.optimization.solver_config import OptimizationConfig
+            from backend.app.services.optimization.cp_sat_solver import CPSATSolver
+
+            opt_cfg = OptimizationConfig(
+                time_limit_seconds=cpsat_time_limit,
+                priority_config=config.priority_config if config and config.priority_config else None,
+            ) if config and config.priority_config else OptimizationConfig(time_limit_seconds=cpsat_time_limit)
+            cpsat_solver = CPSATSolver(config=opt_cfg)
+            cpsat_res = cpsat_solver.solve(snapshot, config=opt_cfg)
+            schedules["CP_SAT"] = cpsat_res
+
         comparison_table = [
             {
                 "metric": "Total Tasks In Scope",
                 "FCFS": fcfs_res.metrics.total_tasks,
                 "Priority-Greedy": prio_res.metrics.total_tasks,
+                **({"CP-SAT": cpsat_res.metrics.total_tasks} if cpsat_res else {}),
             },
             {
                 "metric": "Scheduled Tasks Count",
                 "FCFS": fcfs_res.metrics.scheduled_tasks,
                 "Priority-Greedy": prio_res.metrics.scheduled_tasks,
+                **({"CP-SAT": cpsat_res.metrics.scheduled_tasks} if cpsat_res else {}),
             },
             {
                 "metric": "Unscheduled Tasks Count",
                 "FCFS": fcfs_res.metrics.unscheduled_tasks,
                 "Priority-Greedy": prio_res.metrics.unscheduled_tasks,
+                **({"CP-SAT": cpsat_res.metrics.unscheduled_tasks} if cpsat_res else {}),
             },
             {
                 "metric": "Completion Rate",
                 "FCFS": f"{fcfs_res.metrics.completion_rate * 100:.1f}%",
                 "Priority-Greedy": f"{prio_res.metrics.completion_rate * 100:.1f}%",
+                **({"CP-SAT": f"{cpsat_res.metrics.completion_rate * 100:.1f}%"} if cpsat_res else {}),
             },
             {
                 "metric": "Mandatory Tasks Total",
                 "FCFS": fcfs_res.metrics.mandatory_tasks,
                 "Priority-Greedy": prio_res.metrics.mandatory_tasks,
+                **({"CP-SAT": cpsat_res.metrics.mandatory_tasks} if cpsat_res else {}),
             },
             {
                 "metric": "Mandatory Tasks Scheduled",
                 "FCFS": fcfs_res.metrics.mandatory_scheduled,
                 "Priority-Greedy": prio_res.metrics.mandatory_scheduled,
+                **({"CP-SAT": cpsat_res.metrics.mandatory_scheduled} if cpsat_res else {}),
             },
             {
                 "metric": "Mandatory Completion Rate",
                 "FCFS": f"{fcfs_res.metrics.mandatory_completion_rate * 100:.1f}%",
                 "Priority-Greedy": f"{prio_res.metrics.mandatory_completion_rate * 100:.1f}%",
+                **({"CP-SAT": f"{cpsat_res.metrics.mandatory_completion_rate * 100:.1f}%"} if cpsat_res else {}),
             },
             {
                 "metric": "Total Scheduled Work (mins)",
                 "FCFS": fcfs_res.metrics.total_scheduled_duration_minutes,
                 "Priority-Greedy": prio_res.metrics.total_scheduled_duration_minutes,
+                **({"CP-SAT": cpsat_res.metrics.total_scheduled_duration_minutes} if cpsat_res else {}),
             },
             {
                 "metric": "Total Track Possession (mins)",
                 "FCFS": fcfs_res.metrics.total_possession_duration_minutes,
                 "Priority-Greedy": prio_res.metrics.total_possession_duration_minutes,
+                **({"CP-SAT": cpsat_res.metrics.total_possession_duration_minutes} if cpsat_res else {}),
             },
             {
                 "metric": "Available Priority Points",
                 "FCFS": round(fcfs_res.metrics.total_priority_score_available, 2),
                 "Priority-Greedy": round(prio_res.metrics.total_priority_score_available, 2),
+                **({"CP-SAT": round(cpsat_res.metrics.total_priority_score_available, 2)} if cpsat_res else {}),
             },
             {
                 "metric": "Captured Priority Points",
                 "FCFS": round(fcfs_res.metrics.scheduled_priority_score, 2),
                 "Priority-Greedy": round(prio_res.metrics.scheduled_priority_score, 2),
+                **({"CP-SAT": round(cpsat_res.metrics.scheduled_priority_score, 2)} if cpsat_res else {}),
             },
             {
                 "metric": "Priority Capture Rate",
                 "FCFS": f"{fcfs_res.metrics.priority_score_capture_rate * 100:.1f}%",
                 "Priority-Greedy": f"{prio_res.metrics.priority_score_capture_rate * 100:.1f}%",
+                **({"CP-SAT": f"{cpsat_res.metrics.priority_score_capture_rate * 100:.1f}%"} if cpsat_res else {}),
             },
             {
                 "metric": "Execution Latency (ms)",
                 "FCFS": f"{fcfs_res.execution_time_ms} ms",
                 "Priority-Greedy": f"{prio_res.execution_time_ms} ms",
+                **({"CP-SAT": f"{cpsat_res.execution_time_ms} ms"} if cpsat_res else {}),
             },
         ]
 
@@ -142,9 +175,7 @@ class BaselinePlanningService:
             snapshot_id=snapshot.snapshot_id,
             planning_start=snapshot.horizon.start,
             planning_end=snapshot.horizon.end,
-            schedules={
-                "FCFS": fcfs_res,
-                "PRIORITY_GREEDY": prio_res,
-            },
+            schedules=schedules,
             comparison_table=comparison_table,
         )
+
