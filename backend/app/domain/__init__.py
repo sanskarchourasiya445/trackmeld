@@ -27,6 +27,16 @@ from backend.app.domain.scenarios import OperationalScenario
 from backend.app.domain.work_orders import WorkOrder
 from backend.app.domain.maintenance_tasks import WorkWindow, MaintenanceTask, TaskDependency
 from backend.app.domain.resources import MaintenanceResource, ResourceAvailability, TaskResourceRequirement
+from backend.app.domain.temporal import TimeInterval, PlanningHorizon, TrainPass
+from backend.app.domain.compatibility import (
+    ConstraintSeverity,
+    ReasonCode,
+    ConflictType,
+    ConflictDetail,
+    RuleEvidence,
+    ScheduledTaskPlacement,
+    CompatibilityResult,
+)
 
 __all__ = [
     "DataClass",
@@ -62,4 +72,14 @@ __all__ = [
     "MaintenanceResource",
     "ResourceAvailability",
     "TaskResourceRequirement",
+    "TimeInterval",
+    "PlanningHorizon",
+    "TrainPass",
+    "ConstraintSeverity",
+    "ReasonCode",
+    "ConflictType",
+    "ConflictDetail",
+    "RuleEvidence",
+    "ScheduledTaskPlacement",
+    "CompatibilityResult",
 ]

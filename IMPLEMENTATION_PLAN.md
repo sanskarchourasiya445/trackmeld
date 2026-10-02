@@ -119,21 +119,54 @@ This roadmap assumes a new repository and prioritizes a working, testable vertic
 
 ## Phase 4 — Planning windows and compatibility
 
+**Status:** COMPLETE (Executed October 2, 2026)
+
 **Objective:** Make feasibility rules deterministic and inspectable.
 
-### Work
-- Define time representation and half-open interval convention.
-- Derive allowed windows from the synthetic scenario.
-- Implement train occupancy conflict checks.
-- Implement track/line and resource availability checks.
-- Implement task compatibility and stable reason codes.
-- Classify constraints as hard, soft, diagnostic-only, or unverified.
-- Keep source/provenance metadata attached to rules.
+### Completed Work
+- **Temporal Domain Models & Half-Open Semantics:**
+  - Implemented `backend/app/domain/temporal.py` with `TimeInterval` and `PlanningHorizon`.
+  - Standardized continuous half-open interval conventions `[start, end)`.
+  - Enforced mathematical overlap semantics: `max(s1, s2) < min(e1, e2)` with zero-overlap on strictly adjacent intervals (`end1 == start2`).
+  - Added UTC timezone enforcement and duration metrics (minutes, hours).
+- **Train Pass Derivation:**
+  - Implemented `CompatibilityEngine.derive_train_passes(...)` projecting timetable train movements onto contiguous block sections and station dwells across the planning horizon.
+- **Deterministic Feasibility & Compatibility Engine:**
+  - Implemented `backend/app/services/compatibility_service.py::CompatibilityEngine`.
+  - Evaluates candidate placements across 10 deterministic checks:
+    1. Interval validity (positive duration, zero/negative duration detection, duration match).
+    2. Planning horizon enclosure.
+    3. Task allowed planning window enclosure `[window_start, window_end)`.
+    4. Setup and clearance safety buffers (`safety_buffer_before_minutes`, `safety_buffer_after_minutes`).
+    5. Block requirements (power block on electrified sections, traffic block isolation).
+    6. Train movement collision detection on primary and secondary sections.
+    7. Track section exclusivity against existing task placements.
+    8. Multi-section possession conflicts.
+    9. Resource availability windows and concurrent assignment overlap.
+    10. Task dependency precedence (`FINISH_TO_START` precedence: predecessor end $\le$ candidate start).
+- **Four-Tier Constraint Hierarchy:**
+  - Formalized in `backend/app/domain/compatibility.py`:
+    - `HARD`: Physical or safety barriers (train collisions, section occupancy, window breaches).
+    - `SOFT`: Operational optimization preferences.
+    - `DIAGNOSTIC_ONLY`: Informational notes and telemetry.
+    - `UNVERIFIED`: Unverified assumptions (Invariant strictly enforced: **NEVER promotes to HARD**).
+- **Reason Code Catalog:**
+  - Machine-readable reason codes: `INVALID_INTERVAL`, `OUTSIDE_PLANNING_HORIZON`, `TASK_WINDOW_CONFLICT`, `TRAIN_MOVEMENT_CONFLICT`, `SECTION_OCCUPANCY_CONFLICT`, `RESOURCE_UNAVAILABLE`, `RESOURCE_OVERLAP`, `DEPENDENCY_NOT_SATISFIED`, `TRAFFIC_BLOCK_REQUIRED`, `POWER_BLOCK_REQUIRED`, `PTW_REQUIRED`, `MULTI_SECTION_CONFLICT`, `UNVERIFIED_RULE`.
+- **Structured Compatibility Result:**
+  - Implemented `CompatibilityResult` returning `compatible`, `feasible_hard`, `admissible_soft`, `evaluated_interval`, `possession_interval`, `reason_codes`, `conflicts`, `affected_sections`, `affected_movements`, `affected_resources`, and `rule_evidence`.
+- **Evaluation API Endpoint:**
+  - Implemented `POST /api/v1/compatibility/evaluate-task` in `backend/app/api/v1/compatibility.py` for read/evaluation-only feasibility queries.
+  - Mounted in `backend/app/api/router.py`.
 
-### Acceptance gate
-- Unit tests cover boundaries, adjacent intervals, overlaps, missing data, and multiple simultaneous conflicts.
-- A task with an invalid window is rejected or marked explicitly.
-- Unverified railway-specific assumptions cannot silently become authoritative safety rules.
+### Verification Results
+- **Temporal Unit Tests:** `PASS` (8 tests in `tests/unit/test_temporal.py`).
+- **Compatibility Engine Unit Tests:** `PASS` (15 boundary tests in `tests/unit/test_compatibility_engine.py` covering zero duration, negative duration, adjacent boundaries, train collision, train adjacent, resource unavailability, boundary matching, section sharing, multi-section collision, dependency ordering, non-electrified power blocks, unverified rule invariants).
+- **API Integration Tests:** `PASS` (4 tests in `tests/integration/test_phase4_compatibility_api.py`).
+- **Full Pytest Regression Suite:** `PASS` (94 passed, 0 failed in 9.03s across 16 test files).
+- **Phase 4 Compatibility Validation Script:** `PASS` (17 passed, 0 failed in `scripts/validate_phase4_compatibility.py`).
+- **Reference Database Validation:** `PASS` (31 passed, 0 failed in `scripts/validate_database.py`).
+- **Operational Database Validation:** `PASS` (30 passed, 0 failed in `scripts/validate_operational_data.py`).
+
 
 ## Phase 5 — Priority and baseline schedulers
 

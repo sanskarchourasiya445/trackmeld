@@ -19,7 +19,7 @@ from backend.app.services.operational_provider import OperationalDataProvider
 from backend.app.db.models.task import MaintenanceTaskModel
 from backend.app.db.models.work_order import WorkOrderModel
 from backend.app.db.models.movement import TrainMovementModel
-from backend.app.domain.enums import DataClassification
+from backend.app.domain.enums import DataClass
 
 
 class SyntheticOperationalDataProvider(OperationalDataProvider):
@@ -62,7 +62,7 @@ class SyntheticOperationalDataProvider(OperationalDataProvider):
                 "requested_execution_start": wo.requested_execution_start.isoformat(),
                 "requested_execution_end": wo.requested_execution_end.isoformat(),
                 "remarks": wo.remarks,
-                "classification": DataClassification.SYNTHETIC.value,
+                "classification": DataClass.SYNTHETIC.value,
                 "source_id": wo.source_id,
             }
             for wo in work_orders
@@ -104,7 +104,7 @@ class SyntheticOperationalDataProvider(OperationalDataProvider):
                 "requires_traffic_block": t.requires_traffic_block,
                 "requires_power_block": t.requires_power_block,
                 "requires_ptw": t.requires_ptw,
-                "classification": DataClassification.SYNTHETIC.value,
+                "classification": DataClass.SYNTHETIC.value,
                 "source_id": t.source_id,
             }
             for t in tasks

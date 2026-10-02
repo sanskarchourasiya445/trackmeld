@@ -64,6 +64,8 @@ class RuleClass(str, Enum):
     VERIFIED_SOURCE = "VERIFIED_SOURCE"
     ASSUMPTION = "ASSUMPTION"
     DEMO_ONLY = "DEMO_ONLY"
+    UNVERIFIED = "UNVERIFIED"
+
 
 
 class SourceClass(str, Enum):

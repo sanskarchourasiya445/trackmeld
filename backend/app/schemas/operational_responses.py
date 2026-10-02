@@ -172,3 +172,11 @@ class ScenarioPlanningBundleResponse(BaseModel):
     sections: List[Dict[str, Any]]
     train_movements: List[Dict[str, Any]]
     applicable_rules: List[Dict[str, Any]]
+
+
+class TaskEvaluationRequest(BaseModel):
+    task_id: str
+    start_time: datetime
+    end_time: datetime
+    scenario_id: Optional[str] = None
+
