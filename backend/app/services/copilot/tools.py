@@ -128,8 +128,9 @@ class CopilotToolRegistry:
             "status": "UNSCHEDULED",
         }
 
-        if target_run and target_run.result:
-            result_data = target_run.result
+        run_result = target_run.schedule_result if target_run else None
+        if run_result:
+            result_data = run_result
             scheduled_list = result_data.get("scheduled_tasks", [])
             unscheduled_list = result_data.get("unscheduled_tasks", [])
 
@@ -236,8 +237,9 @@ class CopilotToolRegistry:
         val_status = "NOT_EVALUATED"
         val_errors = 0
         schedule_fingerprint = None
-        if run.result and "validation" in run.result:
-            v_data = run.result["validation"]
+        run_result = run.schedule_result if run else None
+        if run_result and "validation" in run_result:
+            v_data = run_result["validation"]
             val_status = v_data.get("status", "NOT_EVALUATED")
             val_errors = v_data.get("error_count", 0)
             schedule_fingerprint = v_data.get("schedule_fingerprint")

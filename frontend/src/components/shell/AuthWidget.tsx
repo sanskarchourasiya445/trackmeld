@@ -15,7 +15,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Lock, LogOut, CheckCircle2, AlertCircle, Loader2, KeyRound, X } from 'lucide-react';
-import { getAuthToken, setAuthToken } from '@/lib/api/client';
+import { getAuthToken, setAuthToken, API_BASE_URL } from '@/lib/api/client';
 
 type AuthState =
   | 'unauthenticated'
@@ -26,7 +26,7 @@ type AuthState =
 
 async function verifyToken(token: string): Promise<'authenticated' | 'forbidden' | 'error'> {
   try {
-    const res = await fetch('/api/v1/planning-runs?limit=1', {
+    const res = await fetch(`${API_BASE_URL}/planning-runs?limit=1`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok || res.status === 200) return 'authenticated';

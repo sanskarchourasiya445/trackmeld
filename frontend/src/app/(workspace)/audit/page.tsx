@@ -474,9 +474,13 @@ export default function AuditPage() {
                             <span className="inline-block px-2 py-0.5 rounded text-[9.5px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30">
                               Rejected
                             </span>
+                          ) : ver.status === 'UNDER_REVIEW' ? (
+                            <span className="inline-block px-2 py-0.5 rounded text-[9.5px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                              Under Review
+                            </span>
                           ) : (
                             <span className="inline-block px-2 py-0.5 rounded text-[9.5px] font-semibold bg-slate-500/15 text-slate-400 border border-slate-500/30">
-                              Draft
+                              Superseded
                             </span>
                           )}
                         </td>
