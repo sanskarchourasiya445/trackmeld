@@ -55,6 +55,33 @@ async def add_request_id_middleware(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def add_security_headers_middleware(request: Request, call_next):
+    """Attach standard HTTP security headers to every response.
+
+    HSTS is intentionally omitted: this prototype runs on plain HTTP in
+    development. Add HSTS only when served over verified HTTPS in production.
+    CSP allows 'unsafe-inline' for Next.js SSR compatibility; tighten in
+    production once nonce-based inline scripts are implemented.
+    """
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    # Basic CSP compatible with Next.js without nonces
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none';"
+    )
+    return response
+
+
 @app.exception_handler(StarletteHTTPException)
 async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException):
     """Normalize HTTP exceptions into consistent TrackMeld error payload."""

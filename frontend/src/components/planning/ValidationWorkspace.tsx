@@ -43,8 +43,14 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-emerald-400" />
             <h2 className="text-base font-bold text-[#F8FAFC]">Independent Validation Certification</h2>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
-              STATUS: {validationResult?.status || 'VALID'}
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold border ${
+              !validationResult
+                ? 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                : validationResult.status === 'VALID'
+                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                  : 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+            }`}>
+              STATUS: {validationResult?.status ?? 'NOT RUN'}
             </span>
           </div>
           <p className="text-xs text-[#94A3B8] mt-0.5">
@@ -57,7 +63,8 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
             <Button
               size="sm"
               onClick={onOpenGovernance}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold h-8"
+              disabled={!validationResult?.is_approvable}
+              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold h-8"
             >
               <FileCheck className="w-3.5 h-3.5 mr-1.5" />
               Proceed to Governance Review
@@ -84,21 +91,27 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
         </div>
 
         {/* Validation Summary Metrics */}
-        <div className="flex flex-wrap items-center gap-2 font-mono text-[10px]">
-          <span className="bg-[#0A0E17] border border-[#1E2D4A] px-2 py-1 rounded text-emerald-400">
-            Errors: <strong>0</strong>
-          </span>
-          <span className="bg-[#0A0E17] border border-[#1E2D4A] px-2 py-1 rounded text-amber-400">
-            Warnings: <strong>0</strong>
-          </span>
-          <span className="bg-[#0A0E17] border border-[#1E2D4A] px-2 py-1 rounded text-[#93C5FD]">
-            Audit: <strong>12/12 Passed</strong>
-          </span>
-          <div className="flex items-center gap-1 text-[#64748B] bg-[#0A0E17] border border-[#1E2D4A] px-2 py-1 rounded">
-            <Fingerprint className="w-3 h-3 text-[#3B82F6]" />
-            <span>{validationResult?.schedule_identity?.slice(0, 10) || 'bae346ecf3'}...</span>
+        {validationResult ? (
+          <div className="flex flex-wrap items-center gap-2 font-mono text-[10px]">
+            <span className="bg-[#0A0E17] border border-[#1E2D4A] px-2 py-1 rounded text-emerald-400">
+              Errors: <strong>{validationResult.error_count ?? 0}</strong>
+            </span>
+            <span className="bg-[#0A0E17] border border-[#1E2D4A] px-2 py-1 rounded text-amber-400">
+              Warnings: <strong>{validationResult.warning_count ?? 0}</strong>
+            </span>
+            <span className="bg-[#0A0E17] border border-[#1E2D4A] px-2 py-1 rounded text-[#93C5FD]">
+              Checks: <strong>{validationResult.checked_task_count ?? '—'}</strong>
+            </span>
+            <div className="flex items-center gap-1 text-[#64748B] bg-[#0A0E17] border border-[#1E2D4A] px-2 py-1 rounded">
+              <Fingerprint className="w-3 h-3 text-[#3B82F6]" />
+              <span>{validationResult.schedule_identity?.slice(0, 10) ?? '—'}...</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="text-[10px] text-[#64748B] font-mono italic">
+            No validation data — run optimization to certify schedule
+          </div>
+        )}
       </div>
 
       {/* 3. Hard Rules Audit Table (Desktop/Tablet) & Stacked Cards (Mobile) */}

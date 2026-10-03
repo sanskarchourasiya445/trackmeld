@@ -10,13 +10,14 @@ import {
 } from 'lucide-react';
 
 export type DomainStatus =
-  | 'DRAFT'
   | 'QUEUED'
+  | 'PENDING'
+  | 'PENDING_REVIEW'
+  | 'UNDER_REVIEW'
   | 'RUNNING'
   | 'SOLVING'
   | 'VALIDATING'
   | 'VALIDATED'
-  | 'READY_FOR_REVIEW'
   | 'APPROVED'
   | 'REJECTED'
   | 'SUPERSEDED'
@@ -59,11 +60,6 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
       icon = <ShieldCheck className="w-3 h-3 text-blue-400" />;
       break;
 
-    case 'READY_FOR_REVIEW':
-      styles = 'bg-amber-500/10 text-amber-300 border-amber-500/30';
-      icon = <Clock className="w-3 h-3 text-amber-400" />;
-      break;
-
     case 'RUNNING':
     case 'SOLVING':
     case 'VALIDATING':
@@ -71,11 +67,16 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
       icon = <RotateCw className="w-3 h-3 text-sky-400 animate-spin" />;
       break;
 
+    case 'PENDING_REVIEW':
     case 'QUEUED':
     case 'PENDING':
-    case 'DRAFT':
       styles = 'bg-zinc-800 text-zinc-400 border-zinc-700';
       icon = <Clock className="w-3 h-3 text-zinc-400" />;
+      break;
+
+    case 'UNDER_REVIEW':
+      styles = 'bg-amber-500/10 text-amber-300 border-amber-500/30';
+      icon = <Clock className="w-3 h-3 text-amber-400" />;
       break;
 
     case 'REJECTED':

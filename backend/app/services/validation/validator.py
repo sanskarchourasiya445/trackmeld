@@ -29,7 +29,46 @@ class IndependentScheduleValidator:
 
     @classmethod
     def compute_schedule_identity(cls, snapshot: PlanningSnapshot, schedule: ScheduleResult) -> str:
-        """Compute deterministic SHA-256 fingerprint from canonical sorted schedule content."""
+        """Compute deterministic SHA-256 fingerprint from canonical sorted schedule content.
+
+        Canonical Schedule Identity Schema
+        -----------------------------------
+        The fingerprint covers fields that define WHAT was scheduled and HOW.
+        Any change to these fields produces a different fingerprint.
+
+        Identity-bearing fields (hashed):
+          Per scheduled task (sorted by task_id):
+            - task_id          (str)  — authoritative task identifier
+            - start            (ISO)  — placement window start
+            - end              (ISO)  — placement window end
+            - pos_start        (ISO)  — possession interval start (with safety buffers)
+            - pos_end          (ISO)  — possession interval end
+            - sections         (list) — sorted affected section codes
+            - resources        (list) — sorted assigned resource identifiers
+
+          Per unscheduled task (sorted by task_id):
+            - task_id          (str)  — task that could not be feasibly placed
+
+          Scenario provenance:
+            - snapshot_id      (str)  — immutable planning snapshot identifier
+            - scenario_id      (str)  — scenario under which schedule was computed
+            - scheduler_type   (str)  — algorithm that produced this schedule
+            - solver_status    (str)  — terminal solver outcome (OPTIMAL/FEASIBLE/etc.)
+
+        Explicitly NOT hashed (non-identity):
+          - priority_score, priority_breakdown  — derived metrics, not placement decisions
+          - sequence_order, scheduling_reason   — explanatory annotations
+          - execution_time_ms, solver_diagnostics — performance telemetry
+          - decision_trace, rule_evidence_ids   — audit evidence, not placement
+          - crew_id, assigned_track             — these fields do not exist on the
+                                                  ScheduledTaskResult domain model;
+                                                  if added in future, include them here
+                                                  with a VERIFIED_SOURCE provenance record.
+
+        Classification: ASSUMPTION
+        Provenance: Internal TrackMeld design — not derived from a published
+        railway standard. Review scope if operational requirements change.
+        """
         canonical_tasks = []
         for st in sorted(schedule.scheduled_tasks, key=lambda t: t.task_id):
             canonical_tasks.append({
@@ -42,12 +81,17 @@ class IndependentScheduleValidator:
                 "resources": sorted(st.assigned_resources),
             })
 
+        # Sorted unscheduled task IDs are identity-bearing: a schedule that
+        # leaves a different set of tasks unscheduled is a different schedule.
+        unscheduled_ids = sorted(ut.task_id for ut in schedule.unscheduled_tasks)
+
         identity_payload = {
             "snapshot_id": snapshot.snapshot_id,
             "scenario_id": snapshot.scenario_id,
             "scheduler_type": schedule.scheduler_type.value if hasattr(schedule.scheduler_type, "value") else str(schedule.scheduler_type),
             "solver_status": schedule.status.value if hasattr(schedule.status, "value") else str(schedule.status),
             "scheduled_tasks": canonical_tasks,
+            "unscheduled_task_ids": unscheduled_ids,
         }
         serialized = json.dumps(identity_payload, sort_keys=True)
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()

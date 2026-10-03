@@ -27,10 +27,6 @@ import {
   DEMO_CORRIDOR,
   DEMO_TRAINS,
   DEMO_TASKS,
-  DEMO_SCHEDULE_RESULT,
-  DEMO_PLAN_VERSION,
-  DEMO_VALIDATION_RESULT,
-  DEMO_DIAGNOSTICS,
 } from '@/lib/api/client';
 import {
   Corridor,
@@ -79,10 +75,10 @@ function PlanningPageContent() {
   const [scenario, setScenario] = useState<Scenario>(DEMO_SCENARIO);
   const [trains, setTrains] = useState<TrainMovement[]>(DEMO_TRAINS);
   const [tasks, setTasks] = useState<MaintenanceTask[]>(DEMO_TASKS);
-  const [scheduleResult, setScheduleResult] = useState<ScheduleResult | null>(DEMO_SCHEDULE_RESULT);
-  const [validationResult, setValidationResult] = useState<ScheduleValidationResult | null>(DEMO_VALIDATION_RESULT);
-  const [diagnosticsReport, setDiagnosticsReport] = useState<DiagnosticsReport | null>(DEMO_DIAGNOSTICS);
-  const [planVersion, setPlanVersion] = useState<PlanVersion | null>(DEMO_PLAN_VERSION);
+  const [scheduleResult, setScheduleResult] = useState<ScheduleResult | null>(null);
+  const [validationResult, setValidationResult] = useState<ScheduleValidationResult | null>(null);
+  const [diagnosticsReport, setDiagnosticsReport] = useState<DiagnosticsReport | null>(null);
+  const [planVersion, setPlanVersion] = useState<PlanVersion | null>(null);
 
   // Active Workspace Mode (Progressive Disclosure)
   const [activeSubtab, setActiveSubtab] = useState<WorkspaceSubtab>(initialSubtab);
@@ -429,6 +425,18 @@ function PlanningPageContent() {
               <span className="text-[#94A3B8]">{solvingMessage}</span>
             </div>
             <span className="text-[10px] text-[#64748B] font-mono">Target: &lt; 5.0s</span>
+          </div>
+        )}
+
+        {/* No-Data / Backend Unavailable Banner */}
+        {!isSolving && scheduleResult === null && (
+          <div className="bg-amber-950/30 border border-amber-500/30 rounded-lg p-2.5 flex items-center gap-2.5 text-xs text-amber-300 shrink-0">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              <span className="font-semibold">No schedule computed.</span>
+              {' '}Backend unavailable or optimization has not yet run.
+              Planning data is unverified — no approval decision can be made.
+            </span>
           </div>
         )}
 

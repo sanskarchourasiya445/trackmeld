@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.db.session import get_db_session
 from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.rate_limit import enforce_compute_rate_limit
 from backend.app.schemas.common import ErrorResponse
 from backend.app.schemas.copilot import (
     CopilotQueryRequest,
@@ -37,6 +38,7 @@ async def explain_decision(
     request: CopilotQueryRequest,
     session: AsyncSession = Depends(get_db_session),
     current_user: AuthUser = Depends(get_current_user),
+    _rate_limit: None = Depends(enforce_compute_rate_limit),
 ) -> CopilotQueryResponse:
     """Submit natural language inquiry and receive evidence-grounded explanation.
     

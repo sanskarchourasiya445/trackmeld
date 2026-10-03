@@ -274,7 +274,8 @@ async def test_approval_supersedes_previous_approved_version(test_session_factor
         await session.commit()
 
         service = PlanGovernanceService(session)
-        plan_v2 = await service.create_plan_version_from_run(run_v2.run_id, actor, comment="Candidate v2")
+        planner_actor = KNOWN_CREDENTIALS["planner-token-2026"]
+        plan_v2 = await service.create_plan_version_from_run(run_v2.run_id, planner_actor, comment="Candidate v2")
         assert plan_v2.version_number == 2
         v2_id = plan_v2.plan_version_id
 

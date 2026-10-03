@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.db.session import get_db_session
 from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.rate_limit import enforce_compute_rate_limit
 from backend.app.schemas.common import ErrorResponse
 from backend.app.schemas.planning_requests import (
     BaselineScheduleRequest,
@@ -148,6 +149,7 @@ async def execute_optimization_schedule(
     request: OptimizeScheduleRequest,
     session: AsyncSession = Depends(get_db_session),
     current_user: AuthUser = Depends(get_current_user),
+    _rate_limit: None = Depends(enforce_compute_rate_limit),
 ) -> ScheduleResult:
     """Execute bounded mathematical optimization (CP-SAT) on an operational scenario.
     
@@ -208,6 +210,7 @@ async def validate_schedule_endpoint(
     request: ValidateScheduleRequest,
     session: AsyncSession = Depends(get_db_session),
     current_user: AuthUser = Depends(get_current_user),
+    _rate_limit: None = Depends(enforce_compute_rate_limit),
 ) -> ScheduleValidationResult:
     """Independently audit a schedule against all hard constraints without mutating schedule state."""
     from backend.app.services.planning_service import PlanningScenarioService
@@ -251,6 +254,7 @@ async def schedule_diagnostics_endpoint(
     request: ScheduleDiagnosticsRequest,
     session: AsyncSession = Depends(get_db_session),
     current_user: AuthUser = Depends(get_current_user),
+    _rate_limit: None = Depends(enforce_compute_rate_limit),
 ) -> DiagnosticsReport:
     """Investigate root causes and relaxation scenarios for unscheduled tasks."""
     from backend.app.services.planning_service import PlanningScenarioService

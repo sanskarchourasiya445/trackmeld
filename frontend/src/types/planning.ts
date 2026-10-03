@@ -29,9 +29,8 @@ export type PlanningRunStage =
   | 'TIMED_OUT';
 
 export type PlanVersionStatus =
-  | 'DRAFT'
   | 'PENDING_REVIEW'
-  | 'READY_FOR_REVIEW'
+  | 'UNDER_REVIEW'
   | 'APPROVED'
   | 'REJECTED'
   | 'SUPERSEDED';

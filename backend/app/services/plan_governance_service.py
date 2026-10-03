@@ -30,6 +30,7 @@ from backend.app.repositories.plan_version_repo import (
     PlanVersionApprovalBlockedError,
     PlanFingerprintMismatchError,
     PlanVersionImmutableError,
+    FourEyesViolationError,
 )
 
 logger = logging.getLogger("trackmeld.governance")
@@ -313,6 +314,16 @@ class PlanGovernanceService:
             raise PlanFingerprintMismatchError("Planning snapshot hash does not match source run.")
         if run.input_hash and run.input_hash != plan.input_hash:
             raise PlanFingerprintMismatchError("Input configuration hash does not match source run.")
+
+        # Precondition 7: Separation of duties (Four-Eyes Principle)
+        # Author of the plan cannot approve their own candidate.
+        if isinstance(plan.created_by, str) and (
+            plan.created_by == actor.username or plan.created_by == actor.user_id
+        ):
+            raise FourEyesViolationError(
+                f"Separation of duties violation: Author '{plan.created_by}' cannot approve their own "
+                f"plan version '{plan_version_id}'. Formal operational approval requires independent review."
+            )
 
         now = datetime.now(timezone.utc)
         prev_status = plan.status

@@ -224,8 +224,14 @@ class PlanningRunRepository(BaseRepository[PlanningRunModel]):
         if not run:
             return None
 
-        # Allow marking failed from non-terminal states
-        if run.status in [PlanningRunStatus.COMPLETED.value, PlanningRunStatus.CANCELLED.value]:
+        # Allow marking failed from non-terminal states only.
+        # COMPLETED, CANCELLED, and TIMED_OUT are all terminal; stale workers
+        # must not overwrite a timed-out run with FAILED.
+        if run.status in [
+            PlanningRunStatus.COMPLETED.value,
+            PlanningRunStatus.CANCELLED.value,
+            PlanningRunStatus.TIMED_OUT.value,
+        ]:
             raise IllegalStateTransitionError(run.status, PlanningRunStatus.FAILED.value)
 
         now = datetime.now(timezone.utc)
@@ -246,7 +252,12 @@ class PlanningRunRepository(BaseRepository[PlanningRunModel]):
         if not run:
             return None
 
-        if run.status in [PlanningRunStatus.COMPLETED.value, PlanningRunStatus.CANCELLED.value]:
+        # FAILED, COMPLETED, and CANCELLED are terminal; do not overwrite with TIMED_OUT.
+        if run.status in [
+            PlanningRunStatus.COMPLETED.value,
+            PlanningRunStatus.CANCELLED.value,
+            PlanningRunStatus.FAILED.value,
+        ]:
             raise IllegalStateTransitionError(run.status, PlanningRunStatus.TIMED_OUT.value)
 
         now = datetime.now(timezone.utc)

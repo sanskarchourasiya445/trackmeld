@@ -16,8 +16,6 @@ interface AppShellProps {
   lastSolveDuration?: number;
   workerStatus?: string;
   validatorStatus?: string;
-  userRole?: string;
-  userName?: string;
   onRefresh?: () => void;
   // Backward compatibility props
   onTriggerSolve?: () => void;
@@ -37,8 +35,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   lastSolveDuration = 1.48,
   workerStatus = 'Idle',
   validatorStatus = 'Active',
-  userRole = 'Operations Officer',
-  userName = 'Operator',
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -49,8 +45,6 @@ export const AppShell: React.FC<AppShellProps> = ({
         activeScenarioId={activeScenarioId}
         scenarioName={scenarioName}
         planningHorizon={planningHorizon}
-        userRole={userRole}
-        userName={userName}
         onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
       />
 

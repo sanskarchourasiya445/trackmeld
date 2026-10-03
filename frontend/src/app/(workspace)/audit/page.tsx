@@ -7,8 +7,6 @@ import {
   getPlanVersionAudit,
   approvePlanVersion,
   rejectPlanVersion,
-  DEMO_PLAN_VERSION,
-  DEMO_AUDIT_LOGS,
 } from '@/lib/api/client';
 import { PlanVersion, AuditLogEntry } from '@/types/planning';
 import { PlanApprovalModal } from '@/components/governance/PlanApprovalModal';
@@ -31,7 +29,7 @@ import { Button } from '@/components/ui/button';
 interface PlanVersionSummary {
   id: string;
   version: string;
-  status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'DRAFT';
+  status: 'PENDING_REVIEW' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'SUPERSEDED';
   created: string;
   creator: string;
   scheduledCount: number;
@@ -80,16 +78,6 @@ const INITIAL_VERSIONS: PlanVersionSummary[] = [
     unplacedCount: 30,
     hash: '09ab31f419c82410a8274017fbc8201940173e871239ab710481239841029cba',
   },
-  {
-    id: 'PV-20260928-0284AE33',
-    version: 'v0.8',
-    status: 'DRAFT',
-    created: '4 days ago',
-    creator: 'planner_trainee',
-    scheduledCount: 48,
-    unplacedCount: 34,
-    hash: '77bc1920394017a41029bca81920384710293847102938471029384710293847',
-  },
 ];
 
 interface ReviewComment {
@@ -132,10 +120,21 @@ function mapApiToSummary(v: PlanVersion): PlanVersionSummary {
       ? (resultSummary.unscheduled_tasks as number)
       : 0;
 
+  const validStatuses: PlanVersion['status'][] = [
+    'PENDING_REVIEW',
+    'UNDER_REVIEW',
+    'APPROVED',
+    'REJECTED',
+    'SUPERSEDED',
+  ];
+  const assignedStatus = validStatuses.includes(v.status)
+    ? v.status
+    : 'PENDING_REVIEW';
+
   return {
     id: v.plan_version_id,
     version: `v${v.version_number}`,
-    status: (v.status as 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'DRAFT') || 'DRAFT',
+    status: assignedStatus,
     created: v.created_at ? new Date(v.created_at).toLocaleString() : 'Recent',
     creator: v.created_by || 'operations_officer',
     scheduledCount: schedCount,
@@ -147,7 +146,7 @@ function mapApiToSummary(v: PlanVersion): PlanVersionSummary {
 export default function AuditPage() {
   const [versions, setVersions] = useState<PlanVersionSummary[]>(INITIAL_VERSIONS);
   const [selectedVersionId, setSelectedVersionId] = useState<string>(INITIAL_VERSIONS[0].id);
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(DEMO_AUDIT_LOGS);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [comments, setComments] = useState<ReviewComment[]>(INITIAL_COMMENTS);
   const [newCommentText, setNewCommentText] = useState('');
   const [inspectorTab, setInspectorTab] = useState<'DETAILS' | 'REVIEW' | 'AUDIT'>('DETAILS');
@@ -292,11 +291,18 @@ export default function AuditPage() {
 
   // Convert for Modal
   const modalPlanVersion: PlanVersion = {
-    ...DEMO_PLAN_VERSION,
     plan_version_id: selectedVersion.id,
+    planning_run_id: 'RUN-AUTHORITATIVE',
+    scenario_id: 'SCN-DEMO-001',
     version_number: parseInt(selectedVersion.version.replace('v', ''), 10) || 1,
     status: selectedVersion.status,
+    scheduler_type: 'CP_SAT',
     schedule_identity: selectedVersion.hash,
+    is_approvable: selectedVersion.status === 'PENDING_REVIEW' || selectedVersion.status === 'UNDER_REVIEW',
+    created_at: new Date().toISOString(),
+    created_by: selectedVersion.creator,
+    total_scheduled: selectedVersion.scheduledCount,
+    total_unscheduled: selectedVersion.unplacedCount,
   };
 
   return (

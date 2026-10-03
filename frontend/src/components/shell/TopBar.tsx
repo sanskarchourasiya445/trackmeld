@@ -9,13 +9,12 @@ import {
   Menu,
 } from 'lucide-react';
 import { ResponsiveDrawer } from '@/components/common/ResponsiveDrawer';
+import { AuthWidget } from '@/components/shell/AuthWidget';
 
 interface TopBarProps {
   activeScenarioId?: string;
   scenarioName?: string;
   planningHorizon?: string;
-  userRole?: string;
-  userName?: string;
   onToggleSidebar?: () => void;
 }
 
@@ -23,8 +22,6 @@ export const TopBar: React.FC<TopBarProps> = ({
   activeScenarioId = 'SCN-DEMO-001',
   scenarioName = 'Northern Corridor',
   planningHorizon = '72-Hour Planning Horizon',
-  userRole = 'Operations Officer',
-  userName = 'Operator',
   onToggleSidebar,
 }) => {
   const [isScenarioDrawerOpen, setIsScenarioDrawerOpen] = React.useState(false);
@@ -110,19 +107,9 @@ export const TopBar: React.FC<TopBarProps> = ({
             <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#3B82F6] rounded-full" />
           </button>
 
-          {/* User Profile Badge */}
-          <div className="flex items-center gap-2 pl-2 border-l border-[#1E2D4A]">
-            <div className="w-7 h-7 rounded bg-[#141F36] border border-[#2D436D] flex items-center justify-center text-[#F8FAFC] font-semibold text-[11px] font-mono">
-              OP
-            </div>
-            <div className="hidden sm:flex flex-col text-left">
-              <span className="text-xs font-semibold text-[#F8FAFC] leading-tight">
-                {userName}
-              </span>
-              <span className="text-[10px] text-[#64748B] leading-tight">
-                {userRole}
-              </span>
-            </div>
+          {/* Auth Status & Sign-In Widget */}
+          <div className="pl-2 border-l border-[#1E2D4A]">
+            <AuthWidget />
           </div>
         </div>
       </header>

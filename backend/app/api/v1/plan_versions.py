@@ -39,6 +39,7 @@ from backend.app.repositories.plan_version_repo import (
     InvalidPlanVersionTransitionError,
     PlanVersionAlreadyExistsError,
     PlanVersionApprovalBlockedError,
+    FourEyesViolationError,
     PlanFingerprintMismatchError,
     PlanVersionImmutableError,
 )
@@ -390,6 +391,11 @@ async def approve_plan(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"error": {"code": "ILLEGAL_TRANSITION", "message": str(e)}},
+        )
+    except FourEyesViolationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error": {"code": "FOUR_EYES_VIOLATION", "message": str(e)}},
         )
     except PlanVersionApprovalBlockedError as e:
         raise HTTPException(

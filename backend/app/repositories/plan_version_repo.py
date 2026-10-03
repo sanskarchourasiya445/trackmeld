@@ -43,6 +43,11 @@ class PlanVersionApprovalBlockedError(ValueError):
     pass
 
 
+class FourEyesViolationError(PlanVersionApprovalBlockedError):
+    """Raised when the author of a plan version attempts to approve it (separation of duties violation)."""
+    pass
+
+
 class PlanFingerprintMismatchError(ValueError):
     """Raised when schedule fingerprint or snapshot hash fails integrity check."""
     pass
