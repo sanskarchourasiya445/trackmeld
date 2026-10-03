@@ -65,6 +65,7 @@ export interface TrainMovement {
   train_number: string;
   train_name: string;
   direction?: 'UP' | 'DOWN' | string;
+  track_id?: string;
   priority_tier?: number; // 1 (Highest/Vande Bharat/Rajdhani) to 5 (Freight)
   entry_station?: string;
   exit_station?: string;

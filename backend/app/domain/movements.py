@@ -23,6 +23,7 @@ class TrainMovement(BaseModel):
     distance_km: float = Field(default=0.0, ge=0.0, description="Cumulative distance from origin in kilometers")
     movement_type: str = Field(..., description="SCHEDULED_ORIGIN, SCHEDULED_INTERMEDIATE_STOP, or SCHEDULED_DESTINATION")
     basis: str = Field(default="SCHEDULED_TIMETABLE", description="SCHEDULED_TIMETABLE or OPERATIONAL_LOG")
+    track_id: Optional[str] = Field(default=None, description="Optional referenced track identifier (e.g. TRK-NDLS-GZB-UP)")
     classification: DataClass = Field(default=DataClass.REAL, description="Data authenticity classification")
     source_id: str = Field(..., description="Referenced source publication")
     source_reference: Optional[str] = Field(default=None, description="Table or schedule reference citation")

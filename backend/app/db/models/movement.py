@@ -46,6 +46,12 @@ class TrainMovementModel(Base, TimestampMixin):
     distance_km: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     movement_type: Mapped[str] = mapped_column(String(32), nullable=False)
     basis: Mapped[str] = mapped_column(String(32), default="SCHEDULED_TIMETABLE", nullable=False)
+    track_id: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        ForeignKey("tracks.track_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Provenance
     classification: Mapped[DataClass] = mapped_column(
@@ -63,3 +69,4 @@ class TrainMovementModel(Base, TimestampMixin):
     # Relationships
     train = relationship("TrainModel", back_populates="movements")
     station = relationship("StationModel", back_populates="movements")
+    track = relationship("TrackModel", back_populates="movements")

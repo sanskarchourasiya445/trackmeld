@@ -35,3 +35,4 @@ class TrackModel(Base, TimestampMixin):
     # Relationships
     section = relationship("SectionModel", back_populates="tracks")
     tasks = relationship("MaintenanceTaskModel", back_populates="track")
+    movements = relationship("TrainMovementModel", back_populates="track")

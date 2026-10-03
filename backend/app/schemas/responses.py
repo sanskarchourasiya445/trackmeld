@@ -104,6 +104,7 @@ class TrainMovementResponse(BaseModel):
     distance_km: float
     movement_type: str
     basis: str
+    track_id: Optional[str] = None
     classification: DataClass
     source_id: str
     source_reference: Optional[str] = None

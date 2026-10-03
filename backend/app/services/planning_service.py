@@ -268,6 +268,7 @@ class PlanningScenarioService:
                     "scheduled_arrival": m.scheduled_arrival,
                     "scheduled_departure": m.scheduled_departure,
                     "day_offset": m.day_offset,
+                    "track_id": m.track_id,
                     "classification": m.classification.value,
                 }
                 for m in train_movements

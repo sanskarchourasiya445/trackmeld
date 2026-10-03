@@ -203,6 +203,18 @@ export const TaskInspector: React.FC<TaskInspectorProps> = ({
               <span className="text-emerald-400 font-medium">Tier-1 Express (Protected Path)</span>
             </div>
             <div className="flex justify-between text-[11px]">
+              <span className="text-[#64748B]">Track:</span>
+              <span className="font-mono text-[#38BDF8]">
+                {selectedTrain?.track_id
+                  ? selectedTrain.track_id.endsWith('-UP')
+                    ? 'UP_MAIN'
+                    : selectedTrain.track_id.endsWith('-DN')
+                    ? 'DN_MAIN'
+                    : selectedTrain.track_id
+                  : 'Not specified'}
+              </span>
+            </div>
+            <div className="flex justify-between text-[11px]">
               <span className="text-[#64748B]">Section Entry / Exit:</span>
               <span className="font-mono text-[#CBD5E1]">NDLS (13:40) → CNB (18:15)</span>
             </div>

@@ -36,6 +36,8 @@ class PlanningSnapshot:
     train_passes: List[TrainPass]
     tracks: List[Any] = field(default_factory=list)
     tracks_map: Dict[str, Any] = field(default_factory=dict)
+    train_movements: List[Any] = field(default_factory=list)
+    train_movements_map: Dict[str, Any] = field(default_factory=dict)
 
 
     def compute_snapshot_hash(self) -> str:
@@ -161,6 +163,14 @@ class PlanningSnapshot:
             if trk_id:
                 tracks_map[trk_id] = trk
 
+        # 7c. Train movements lookup
+        raw_movs = getattr(bundle, "train_movements", []) or []
+        train_movements_map = {}
+        for m in raw_movs:
+            m_id = getattr(m, "movement_id", None) or (m.get("movement_id") if isinstance(m, dict) else None)
+            if m_id:
+                train_movements_map[m_id] = m
+
         # 8. Deterministic Snapshot ID computation
         hasher = hashlib.sha256()
         hasher.update(scenario_id.encode("utf-8"))
@@ -188,5 +198,7 @@ class PlanningSnapshot:
             train_passes=train_passes,
             tracks=list(raw_tracks),
             tracks_map=tracks_map,
+            train_movements=list(raw_movs),
+            train_movements_map=train_movements_map,
         )
 
