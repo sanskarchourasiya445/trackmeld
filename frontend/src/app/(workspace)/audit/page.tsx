@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   XCircle,
   RotateCcw,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -116,6 +117,33 @@ const INITIAL_COMMENTS: ReviewComment[] = [
   },
 ];
 
+function mapApiToSummary(v: PlanVersion): PlanVersionSummary {
+  const resultSummary = v.result_summary as Record<string, unknown> | undefined;
+  const schedCount =
+    typeof v.total_scheduled === 'number'
+      ? v.total_scheduled
+      : typeof resultSummary?.scheduled_tasks === 'number'
+      ? (resultSummary.scheduled_tasks as number)
+      : 30;
+  const unschedCount =
+    typeof v.total_unscheduled === 'number'
+      ? v.total_unscheduled
+      : typeof resultSummary?.unscheduled_tasks === 'number'
+      ? (resultSummary.unscheduled_tasks as number)
+      : 0;
+
+  return {
+    id: v.plan_version_id,
+    version: `v${v.version_number}`,
+    status: (v.status as 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'DRAFT') || 'DRAFT',
+    created: v.created_at ? new Date(v.created_at).toLocaleString() : 'Recent',
+    creator: v.created_by || 'operations_officer',
+    scheduledCount: schedCount,
+    unplacedCount: unschedCount,
+    hash: v.schedule_identity || '',
+  };
+}
+
 export default function AuditPage() {
   const [versions, setVersions] = useState<PlanVersionSummary[]>(INITIAL_VERSIONS);
   const [selectedVersionId, setSelectedVersionId] = useState<string>(INITIAL_VERSIONS[0].id);
@@ -125,6 +153,9 @@ export default function AuditPage() {
   const [inspectorTab, setInspectorTab] = useState<'DETAILS' | 'REVIEW' | 'AUDIT'>('DETAILS');
   const [isApprovalOpen, setIsApprovalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isAuthoritative, setIsAuthoritative] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   const selectedVersion = versions.find((v) => v.id === selectedVersionId) || versions[0];
 
@@ -133,14 +164,17 @@ export default function AuditPage() {
     getPlanVersions('SCN-DEMO-001')
       .then(async (apiVersions) => {
         if (cancelled || !apiVersions || apiVersions.length === 0) return;
+        setVersions(apiVersions.map(mapApiToSummary));
+        setIsAuthoritative(true);
         const active = apiVersions[0];
+        setSelectedVersionId(active.plan_version_id);
         const logs = await getPlanVersionAudit(active.plan_version_id);
         if (!cancelled && logs && logs.length > 0) {
           setAuditLogs(logs);
         }
       })
       .catch((err) => {
-        console.warn('Failed to load audit trail:', err);
+        console.warn('Failed to load authoritative audit trail, displaying synthetic reference:', err);
       });
 
     return () => {
@@ -150,56 +184,96 @@ export default function AuditPage() {
 
   const handleManualRefresh = async () => {
     setLoading(true);
+    setErrorMessage(null);
     try {
+      const apiVersions = await getPlanVersions('SCN-DEMO-001');
+      if (apiVersions && apiVersions.length > 0) {
+        setVersions(apiVersions.map(mapApiToSummary));
+        setIsAuthoritative(true);
+      }
       const logs = await getPlanVersionAudit(selectedVersion.id);
       if (logs && logs.length > 0) {
         setAuditLogs(logs);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.warn('Manual refresh notice:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(`Failed to refresh ledger from backend: ${msg}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDirectApprove = async () => {
+  const handleApproveAction = async (payload?: {
+    reviewer_name?: string;
+    reviewer_role?: string;
+    approval_notes?: string;
+  }) => {
     try {
-      await approvePlanVersion(selectedVersion.id, 'Approved by Authorized Operations Officer under Railway Board Policy.');
-      setVersions((prev) =>
-        prev.map((v) => (v.id === selectedVersion.id ? { ...v, status: 'APPROVED' } : v))
+      await approvePlanVersion(
+        selectedVersion.id,
+        payload?.approval_notes || 'Approved by Authorized Operations Officer under Railway Board Policy.',
+        payload?.reviewer_name,
+        payload?.reviewer_role
       );
-      setComments((prev) => [
-        ...prev,
-        {
-          id: `REV-${Date.now()}`,
-          author: 'Operations Officer',
-          role: 'Divisional Railway Manager',
-          time: 'Just now',
-          text: 'Executive Approval Granted: Plan Version officially authorized for operational possession issuance.',
-        },
-      ]);
-    } catch (err) {
+
+      // Refresh authoritative data from backend
+      const updatedVersions = await getPlanVersions('SCN-DEMO-001');
+      if (updatedVersions && updatedVersions.length > 0) {
+        setVersions(updatedVersions.map(mapApiToSummary));
+        setIsAuthoritative(true);
+      }
+      const logs = await getPlanVersionAudit(selectedVersion.id);
+      if (logs && logs.length > 0) {
+        setAuditLogs(logs);
+      }
+      setErrorMessage(null);
+      setInfoMessage(`Plan ${selectedVersion.id} approved successfully.`);
+    } catch (err: unknown) {
       console.warn('Approval error:', err);
-      // Fallback local update
-      setVersions((prev) =>
-        prev.map((v) => (v.id === selectedVersion.id ? { ...v, status: 'APPROVED' } : v))
+      // STRICT SAFETY: Do NOT mutate governance state to APPROVED on error!
+      const msg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(
+        `ACTION NOT COMPLETED: The backend did not confirm this approval (${msg}). No local state transition has been applied.`
       );
     }
   };
 
-  const handleDirectReject = async () => {
+  const handleRejectAction = async (payload?: {
+    reviewer_name?: string;
+    reviewer_role?: string;
+    rejection_reason?: string;
+  }) => {
     try {
-      await rejectPlanVersion(selectedVersion.id, 'Returned for revision due to passenger headway contention.');
-      setVersions((prev) =>
-        prev.map((v) => (v.id === selectedVersion.id ? { ...v, status: 'REJECTED' } : v))
+      await rejectPlanVersion(
+        selectedVersion.id,
+        payload?.rejection_reason || 'Returned for revision due to operational constraints.'
       );
-    } catch (err) {
+
+      // Refresh authoritative data from backend
+      const updatedVersions = await getPlanVersions('SCN-DEMO-001');
+      if (updatedVersions && updatedVersions.length > 0) {
+        setVersions(updatedVersions.map(mapApiToSummary));
+        setIsAuthoritative(true);
+      }
+      const logs = await getPlanVersionAudit(selectedVersion.id);
+      if (logs && logs.length > 0) {
+        setAuditLogs(logs);
+      }
+      setErrorMessage(null);
+      setInfoMessage(`Plan ${selectedVersion.id} rejected.`);
+    } catch (err: unknown) {
       console.warn('Rejection error:', err);
-      setVersions((prev) =>
-        prev.map((v) => (v.id === selectedVersion.id ? { ...v, status: 'REJECTED' } : v))
+      // STRICT SAFETY: Do NOT mutate governance state to REJECTED on error!
+      const msg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(
+        `ACTION NOT COMPLETED: The backend did not confirm this rejection (${msg}). No local state transition has been applied.`
       );
     }
   };
+
+  const handleDirectApprove = () => handleApproveAction();
+  const handleDirectReject = () => handleRejectAction();
 
   const handleAddComment = () => {
     if (!newCommentText.trim()) return;
@@ -231,7 +305,18 @@ export default function AuditPage() {
         {/* Top Header Block */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
           <div>
-            <h1 className="text-xl font-bold text-[#F8FAFC]">Audit & Governance</h1>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-bold text-[#F8FAFC]">Audit & Governance</h1>
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium ${
+                  isAuthoritative
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                }`}
+              >
+                {isAuthoritative ? 'AUTHORITATIVE BACKEND LEDGER' : 'SYNTHETIC / DEMO ONLY'}
+              </span>
+            </div>
             <p className="text-xs text-[#94A3B8] mt-0.5">
               Immutable audit trail and plan version approvals
             </p>
@@ -251,7 +336,9 @@ export default function AuditPage() {
 
             <Button
               size="sm"
-              onClick={() => alert('New Plan Version draft initiated from latest certified solver snapshot.')}
+              onClick={() =>
+                setInfoMessage('New Plan Version candidates can be created directly from certified runs in the Planning Workspace.')
+              }
               className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold h-8 shadow-xs"
             >
               <Plus className="w-3.5 h-3.5 mr-1" />
@@ -259,6 +346,32 @@ export default function AuditPage() {
             </Button>
           </div>
         </div>
+
+        {/* Error Alert Notice */}
+        {errorMessage && (
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 text-xs text-rose-300 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+            <button onClick={() => setErrorMessage(null)} className="text-[#94A3B8] hover:text-white text-xs ml-3">
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Informational Notice */}
+        {infoMessage && (
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-3 py-2 text-xs text-blue-300 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />
+              <span>{infoMessage}</span>
+            </div>
+            <button onClick={() => setInfoMessage(null)} className="text-[#94A3B8] hover:text-white text-xs ml-3">
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* 4 Summary KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -619,8 +732,20 @@ export default function AuditPage() {
         isOpen={isApprovalOpen}
         onClose={() => setIsApprovalOpen(false)}
         planVersion={modalPlanVersion}
-        onApprove={handleDirectApprove}
-        onReject={handleDirectReject}
+        onApprove={(data) =>
+          handleApproveAction({
+            reviewer_name: data.reviewer_name,
+            reviewer_role: data.reviewer_role,
+            approval_notes: data.approval_notes,
+          })
+        }
+        onReject={(data) =>
+          handleRejectAction({
+            reviewer_name: data.reviewer_name,
+            reviewer_role: data.reviewer_role,
+            rejection_reason: data.rejection_reason,
+          })
+        }
       />
     </AppShell>
   );

@@ -153,24 +153,57 @@ function PlanningPageContent() {
     setErrorMessage(null);
     setSolvingMessage('Evaluating possession windows and train headway buffers...');
     try {
-      const sched = await optimizeSchedule(scenario.scenario_id, 5.0);
-      setScheduleResult(sched);
-      setSolvingMessage('Independent Feasibility Certification: Auditing 12 hard constraints...');
-
-      const val = await validateSchedule(scenario.scenario_id, sched);
-      setValidationResult(val);
-      setSolvingMessage('Running causal diagnostics...');
-
-      const diag = await diagnoseSchedule(scenario.scenario_id, sched);
-      setDiagnosticsReport(diag);
-
-      const versions = await getPlanVersions(scenario.scenario_id);
-      if (versions && versions.length > 0) {
-        setPlanVersion(versions[0]);
+      let sched: ScheduleResult;
+      try {
+        sched = await optimizeSchedule(scenario.scenario_id, 5.0);
+        setScheduleResult(sched);
+      } catch (optErr: unknown) {
+        console.error('Optimization error:', optErr);
+        // DO NOT display OPTIMAL, VALID, APPROVABLE
+        setScheduleResult(null);
+        setValidationResult(null);
+        setErrorMessage(
+          'OPTIMIZATION UNAVAILABLE: The planning result could not be obtained from the planning service. No new schedule has been certified.'
+        );
+        return;
       }
-    } catch (err) {
+
+      setSolvingMessage('Independent Feasibility Certification: Auditing 12 hard constraints...');
+      let val: ScheduleValidationResult;
+      try {
+        val = await validateSchedule(scenario.scenario_id, sched);
+        setValidationResult(val);
+      } catch (valErr: unknown) {
+        console.error('Validation error:', valErr);
+        setValidationResult(null);
+        setErrorMessage(
+          'VALIDATION UNAVAILABLE: The independent validator could not be reached. Approval is unavailable.'
+        );
+        return;
+      }
+
+      setSolvingMessage('Running causal diagnostics...');
+      try {
+        const diag = await diagnoseSchedule(scenario.scenario_id, sched);
+        setDiagnosticsReport(diag);
+      } catch (diagErr) {
+        console.warn('Diagnostics unavailable:', diagErr);
+        setDiagnosticsReport(null);
+      }
+
+      try {
+        const versions = await getPlanVersions(scenario.scenario_id);
+        if (versions && versions.length > 0) {
+          setPlanVersion(versions[0]);
+        }
+      } catch {
+        // Non-blocking version refresh
+      }
+    } catch (err: unknown) {
       console.error('Solve pipeline error:', err);
-      setErrorMessage('Optimization request failed. Preserving candidate schedule.');
+      setErrorMessage(
+        'OPTIMIZATION UNAVAILABLE: An unexpected error occurred while contacting the planning services.'
+      );
     } finally {
       setIsSolving(false);
       setSolvingMessage('');
@@ -180,11 +213,18 @@ function PlanningPageContent() {
   const handleApprove = async (payload: { reviewer_name: string; reviewer_role: string; approval_notes: string }) => {
     if (!planVersion) return;
     try {
-      const updated = await approvePlanVersion(planVersion.plan_version_id, payload.approval_notes);
+      const updated = await approvePlanVersion(
+        planVersion.plan_version_id,
+        payload.approval_notes,
+        payload.reviewer_name,
+        payload.reviewer_role
+      );
       setPlanVersion(updated);
-    } catch (err) {
+      setErrorMessage(null);
+    } catch (err: unknown) {
       console.error('Plan approval error:', err);
-      setErrorMessage('Plan approval transaction failed.');
+      const msg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(`ACTION NOT COMPLETED: The backend did not confirm this governance action (${msg}). No local state transition has been applied.`);
     }
   };
 
@@ -193,9 +233,11 @@ function PlanningPageContent() {
     try {
       const updated = await rejectPlanVersion(planVersion.plan_version_id, payload.rejection_reason);
       setPlanVersion(updated);
-    } catch (err) {
+      setErrorMessage(null);
+    } catch (err: unknown) {
       console.error('Plan rejection error:', err);
-      setErrorMessage('Plan rejection transaction failed.');
+      const msg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(`ACTION NOT COMPLETED: The backend did not confirm this governance action (${msg}). No local state transition has been applied.`);
     }
   };
 

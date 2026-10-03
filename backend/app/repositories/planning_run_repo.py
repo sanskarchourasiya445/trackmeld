@@ -278,6 +278,24 @@ class PlanningRunRepository(BaseRepository[PlanningRunModel]):
         await self.session.refresh(run)
         return run
 
+    async def mark_cancelled(self, run_id: str, reason: Optional[str] = None) -> Optional[PlanningRunModel]:
+        """Formally transition a run to CANCELLED from PENDING or CANCEL_REQUESTED."""
+        run = await self.get_by_run_id(run_id)
+        if not run:
+            return None
+
+        self.validate_transition(run.status, PlanningRunStatus.CANCELLED)
+        now = datetime.now(timezone.utc)
+        run.status = PlanningRunStatus.CANCELLED.value
+        run.stage = PlanningRunStage.CANCELLED.value
+        run.completed_at = now
+        if reason:
+            run.error_message = reason
+
+        await self.session.commit()
+        await self.session.refresh(run)
+        return run
+
     async def find_stale_runs(self, stale_threshold_seconds: float) -> Sequence[PlanningRunModel]:
         """Find active runs whose worker heartbeat has expired."""
         cutoff = datetime.now(timezone.utc) - timedelta(seconds=stale_threshold_seconds)

@@ -365,8 +365,16 @@ async def approve_plan(
 ):
     service = PlanGovernanceService(session)
     comment = payload.comment if payload else None
+    declared_reviewer_name = payload.declared_reviewer_name if payload else None
+    declared_reviewer_role = payload.declared_reviewer_role if payload else None
     try:
-        plan = await service.approve_plan(plan_version_id, current_user, comment)
+        plan = await service.approve_plan(
+            plan_version_id,
+            current_user,
+            comment,
+            declared_reviewer_name=declared_reviewer_name,
+            declared_reviewer_role=declared_reviewer_role,
+        )
         return _map_to_detail(plan)
     except PlanVersionNotFoundError as e:
         raise HTTPException(

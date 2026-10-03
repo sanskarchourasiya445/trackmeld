@@ -265,6 +265,8 @@ class PlanGovernanceService:
         plan_version_id: str,
         actor: AuthUser,
         comment: Optional[str] = None,
+        declared_reviewer_name: Optional[str] = None,
+        declared_reviewer_role: Optional[str] = None,
     ) -> PlanVersionModel:
         """Formally approve an independently verified plan candidate."""
         # Precondition 1: Plan version exists and acquire row lock
@@ -390,6 +392,10 @@ class PlanGovernanceService:
                 "planning_run_id": plan.planning_run_id,
                 "scheduler_type": plan.scheduler_type,
                 "previous_plan_version_id": plan.previous_plan_version_id,
+                "declared_reviewer": {
+                    "name": declared_reviewer_name,
+                    "role": declared_reviewer_role,
+                } if (declared_reviewer_name or declared_reviewer_role) else None,
             },
         )
         await self.plan_repo.add_audit_event(approval_audit)

@@ -248,3 +248,71 @@ async def test_approve_plan_blocks_if_already_approved():
     actor = KNOWN_CREDENTIALS["approver-token-2026"]
     with pytest.raises(PlanVersionImmutableError, match="is already APPROVED"):
         await service.approve_plan("PV-TEST-01", actor)
+
+
+def test_approve_plan_request_schema_supports_declared_reviewer():
+    """Verify ApprovePlanRequest schema accepts declared reviewer name and role."""
+    req = ApprovePlanRequest(
+        approval_notes="Approved for Sunday block window.",
+        declared_reviewer_name="Shri R. K. Sharma",
+        declared_reviewer_role="Senior Divisional Operations Manager (Sr. DOM)",
+    )
+    assert req.declared_reviewer_name == "Shri R. K. Sharma"
+    assert req.declared_reviewer_role == "Senior Divisional Operations Manager (Sr. DOM)"
+
+
+@pytest.mark.asyncio
+async def test_approve_plan_persists_declared_reviewer_in_audit_metadata():
+    """Approval persists declared reviewer metadata while preserving authenticated actor ID."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    mock_plan = MagicMock(spec=PlanVersionModel)
+    mock_plan.plan_version_id = "PV-TEST-01"
+    mock_plan.planning_run_id = "RUN-TEST-01"
+    mock_plan.status = PlanVersionStatus.PENDING_REVIEW.value
+    mock_plan.validation_status = "VALID"
+    mock_plan.is_approvable = True
+    mock_plan.validation_findings_summary = {"error_count": 0}
+    mock_plan.schedule_identity = "FINGERPRINT_AAA"
+    mock_plan.snapshot_hash = "SNAPSHOT_HASH_AAA"
+    mock_plan.input_hash = "INPUT_HASH_AAA"
+    mock_plan.scenario_id = "SCN-TEST-01"
+    mock_plan.version_number = 1
+    mock_plan.scheduler_type = "CP_SAT"
+    mock_plan.previous_plan_version_id = None
+
+    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=mock_plan)
+    service.plan_repo.get_latest_approved = AsyncMock(return_value=None)
+    service.plan_repo.add_review_comment = AsyncMock()
+    service.plan_repo.add_audit_event = AsyncMock()
+    service.plan_repo.get_by_plan_version_id = AsyncMock(return_value=mock_plan)
+
+    mock_run = MagicMock(spec=PlanningRunModel)
+    mock_run.validation_fingerprint = "FINGERPRINT_AAA"
+    mock_run.snapshot_hash = "SNAPSHOT_HASH_AAA"
+    mock_run.input_hash = "INPUT_HASH_AAA"
+    service.run_repo.get_by_run_id = AsyncMock(return_value=mock_run)
+
+    actor = KNOWN_CREDENTIALS["approver-token-2026"]
+    result = await service.approve_plan(
+        plan_version_id="PV-TEST-01",
+        actor=actor,
+        comment="Formal block granted.",
+        declared_reviewer_name="Shri R. K. Sharma",
+        declared_reviewer_role="Sr. DOM / DLI",
+    )
+
+    # 1. Authoritative actor on plan must be the authenticated user
+    assert mock_plan.status == PlanVersionStatus.APPROVED.value
+    assert mock_plan.approved_by == actor.username
+
+    # 2. Audit event record must capture both authoritative actor and declared reviewer
+    service.plan_repo.add_audit_event.assert_called_once()
+    audit_event = service.plan_repo.add_audit_event.call_args[0][0]
+    assert audit_event.actor_id == actor.user_id
+    assert audit_event.actor_username == actor.username
+    assert audit_event.actor_role == actor.role.value
+    assert audit_event.event_metadata["declared_reviewer"]["name"] == "Shri R. K. Sharma"
+    assert audit_event.event_metadata["declared_reviewer"]["role"] == "Sr. DOM / DLI"
+

@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from backend.app.config import get_settings
 from backend.app.api.router import api_router
 
@@ -31,6 +32,16 @@ app = FastAPI(
     description="Railway maintenance possession planning and decision-support system backend",
     version="0.1.0",
     lifespan=lifespan,
+)
+
+# Explicit CORS Middleware Configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
 )
 
 

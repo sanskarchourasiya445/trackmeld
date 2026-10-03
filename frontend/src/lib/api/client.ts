@@ -1,7 +1,7 @@
 /**
  * Unified API Client for TrackMeld Backend
- * Connects to FastAPI (default port 8000) with Bearer token authentication
- * and graceful demonstration fallback when backend services are offline.
+ * Connects to FastAPI backend with explicit configuration-driven authentication.
+ * Never embeds administrative secrets in public client bundles.
  */
 
 import { Corridor, Scenario, MaintenanceTask, TrainMovement, BlockSection } from '@/types/railway';
@@ -15,23 +15,111 @@ import {
   AuditLogEntry,
 } from '@/types/planning';
 
+/**
+ * Structured API Error conforming to TrackMeld enterprise governance requirements.
+ */
+export class ApiError extends Error {
+  public status: number | null;
+  public code: string;
+  public requestId?: string;
+
+  constructor(message: string, status: number | null = null, code: string = 'API_ERROR', requestId?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.requestId = requestId;
+  }
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
-const AUTH_TOKEN = process.env.NEXT_PUBLIC_AUTH_TOKEN || 'admin-token-2026';
+
+/**
+ * Retrieve authenticated operator token from browser session/local storage.
+ * Default is null; does NOT ship or bake an admin token secret in the bundle.
+ */
+export function getAuthToken(): string | null {
+  if (typeof window !== 'undefined') {
+    return (
+      sessionStorage.getItem('trackmeld_auth_token') ||
+      localStorage.getItem('trackmeld_auth_token') ||
+      null
+    );
+  }
+  return null;
+}
+
+/**
+ * Configure operator token for formal governance and review actions.
+ */
+export function setAuthToken(token: string | null): void {
+  if (typeof window !== 'undefined') {
+    if (token) {
+      sessionStorage.setItem('trackmeld_auth_token', token);
+    } else {
+      sessionStorage.removeItem('trackmeld_auth_token');
+      localStorage.removeItem('trackmeld_auth_token');
+    }
+  }
+}
 
 async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${AUTH_TOKEN}`,
-      ...options?.headers,
-    },
-  });
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...((options?.headers as Record<string, string>) || {}),
+  };
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch {
+    throw new ApiError(
+      `Network connection failed when reaching backend at ${endpoint}. Please ensure the TrackMeld backend service is running.`,
+      null,
+      'NETWORK_UNAVAILABLE'
+    );
+  }
+
+  const requestId = res.headers.get('X-Request-ID') || undefined;
 
   if (!res.ok) {
-    const errBody = await res.json().catch(() => ({}));
-    throw new Error(errBody.detail || `API request to ${endpoint} failed with status ${res.status}`);
+    let errCode = `HTTP_${res.status}`;
+    let errMsg = `API request to ${endpoint} failed with status ${res.status}`;
+
+    try {
+      const errBody = await res.json();
+      if (errBody?.error?.message) {
+        errMsg = errBody.error.message;
+        errCode = errBody.error.code || errCode;
+      } else if (errBody?.detail) {
+        if (typeof errBody.detail === 'string') {
+          errMsg = errBody.detail;
+        } else if (errBody.detail?.error?.message) {
+          errMsg = errBody.detail.error.message;
+          errCode = errBody.detail.error.code || errCode;
+        }
+      }
+    } catch {
+      // Body not JSON
+    }
+
+    if (res.status === 401) {
+      errCode = 'UNAUTHORIZED';
+    } else if (res.status === 403) {
+      errCode = 'FORBIDDEN';
+    } else if (res.status === 404) {
+      errCode = 'NOT_FOUND';
+    } else if (res.status === 422) {
+      errCode = 'VALIDATION_ERROR';
+    }
+
+    throw new ApiError(errMsg, res.status, errCode, requestId);
   }
 
   return await res.json();
@@ -305,12 +393,7 @@ export const DEMO_AUDIT_LOGS: AuditLogEntry[] = [
 // ==========================================
 
 export async function getScenarios(): Promise<Scenario[]> {
-  try {
-    return await fetchJson<Scenario[]>('/scenarios');
-  } catch (err) {
-    console.warn('[TrackMeld API] getScenarios fallback:', err);
-    return [DEMO_SCENARIO];
-  }
+  return await fetchJson<Scenario[]>('/scenarios');
 }
 
 export async function getScenarioBundle(scenarioId: string): Promise<{
@@ -320,99 +403,73 @@ export async function getScenarioBundle(scenarioId: string): Promise<{
   trains: TrainMovement[];
   tasks: MaintenanceTask[];
 }> {
-  try {
-    const raw = await fetchJson<{
-      scenario: Scenario;
-      sections?: BlockSection[];
-      train_movements?: TrainMovement[];
-      tasks?: MaintenanceTask[];
-    }>(`/scenarios/${scenarioId}/bundle`);
+  const raw = await fetchJson<{
+    scenario: Scenario;
+    sections?: BlockSection[];
+    train_movements?: TrainMovement[];
+    tasks?: MaintenanceTask[];
+  }>(`/scenarios/${scenarioId}/bundle`);
 
-    const sections = raw.sections || DEMO_CORRIDOR.sections;
-    const trains = raw.train_movements || [];
-    const tasks = (raw.tasks || []).map((t) => ({
-      ...t,
-      section_code: t.section_id || t.section_code || '',
-      required_duration_minutes: t.estimated_duration_minutes || t.required_duration_minutes || 120,
-      earliest_start: t.window_start || t.earliest_start || '',
-      latest_finish: t.window_end || t.latest_finish || '',
-      work_type: t.task_type || t.work_type || 'TRACK_MAINTENANCE',
-    }));
+  const sections = raw.sections || DEMO_CORRIDOR.sections;
+  const trains = raw.train_movements || [];
+  const tasks = (raw.tasks || []).map((t) => ({
+    ...t,
+    section_code: t.section_id || t.section_code || '',
+    required_duration_minutes: t.estimated_duration_minutes || t.required_duration_minutes || 120,
+    earliest_start: t.window_start || t.earliest_start || '',
+    latest_finish: t.window_end || t.latest_finish || '',
+    work_type: t.task_type || t.work_type || 'TRACK_MAINTENANCE',
+  }));
 
-    return {
-      scenario: raw.scenario,
-      corridor: {
-        ...DEMO_CORRIDOR,
-        sections,
-      },
+  return {
+    scenario: raw.scenario,
+    corridor: {
+      ...DEMO_CORRIDOR,
       sections,
-      trains,
-      tasks,
-    };
-  } catch (err) {
-    console.warn('[TrackMeld API] getScenarioBundle fallback:', err);
-    return {
-      scenario: DEMO_SCENARIO,
-      corridor: DEMO_CORRIDOR,
-      sections: DEMO_CORRIDOR.sections,
-      trains: DEMO_TRAINS,
-      tasks: DEMO_TASKS,
-    };
-  }
+    },
+    sections,
+    trains,
+    tasks,
+  };
 }
 
 export async function optimizeSchedule(
   scenarioId: string,
   timeLimitSeconds: number = 5.0
 ): Promise<ScheduleResult> {
-  try {
-    return await fetchJson<ScheduleResult>('/planning/optimize', {
-      method: 'POST',
-      body: JSON.stringify({
-        scenario_id: scenarioId,
-        time_limit_seconds: timeLimitSeconds,
-      }),
-    });
-  } catch (err) {
-    console.warn('[TrackMeld API] optimizeSchedule fallback:', err);
-    return DEMO_SCHEDULE_RESULT;
-  }
+  return await fetchJson<ScheduleResult>('/planning/optimize', {
+    method: 'POST',
+    body: JSON.stringify({
+      scenario_id: scenarioId,
+      time_limit_seconds: timeLimitSeconds,
+    }),
+  });
 }
 
 export async function validateSchedule(
   scenarioId: string,
   schedule: ScheduleResult
 ): Promise<ScheduleValidationResult> {
-  try {
-    return await fetchJson<ScheduleValidationResult>('/planning/validate', {
-      method: 'POST',
-      body: JSON.stringify({
-        scenario_id: scenarioId,
-        schedule,
-      }),
-    });
-  } catch (err) {
-    console.warn('[TrackMeld API] validateSchedule fallback:', err);
-    return DEMO_VALIDATION_RESULT;
-  }
+  return await fetchJson<ScheduleValidationResult>('/planning/validate', {
+    method: 'POST',
+    body: JSON.stringify({
+      scenario_id: scenarioId,
+      schedule,
+    }),
+  });
 }
 
 export async function diagnoseSchedule(
   scenarioId: string,
   schedule: ScheduleResult
 ): Promise<DiagnosticsReport> {
-  try {
-    return await fetchJson<DiagnosticsReport>('/planning/diagnostics', {
-      method: 'POST',
-      body: JSON.stringify({
-        scenario_id: scenarioId,
-        schedule,
-      }),
-    });
-  } catch (err) {
-    console.warn('[TrackMeld API] diagnoseSchedule fallback:', err);
-    return DEMO_DIAGNOSTICS;
-  }
+  return await fetchJson<DiagnosticsReport>('/planning/diagnostics', {
+    method: 'POST',
+    body: JSON.stringify({
+      scenario_id: scenarioId,
+      schedule,
+    }),
+  });
 }
 
 export async function benchmarkSchedule(
@@ -420,38 +477,14 @@ export async function benchmarkSchedule(
   includeCpsat: boolean = true,
   cpsatTimeLimit: number = 5.0
 ): Promise<BenchmarkComparisonResult> {
-  try {
-    return await fetchJson<BenchmarkComparisonResult>('/planning/benchmark', {
-      method: 'POST',
-      body: JSON.stringify({
-        scenario_id: scenarioId,
-        include_cpsat: includeCpsat,
-        cpsat_time_limit: cpsatTimeLimit,
-      }),
-    });
-  } catch (err) {
-    console.warn('[TrackMeld API] benchmarkSchedule fallback:', err);
-    return {
+  return await fetchJson<BenchmarkComparisonResult>('/planning/benchmark', {
+    method: 'POST',
+    body: JSON.stringify({
       scenario_id: scenarioId,
-      snapshot_id: 'SNAP-BENCH-DEMO',
-      planning_start: '2026-10-10T00:00:00Z',
-      planning_end: '2026-10-12T23:59:59Z',
-      schedules: {
-        CP_SAT: DEMO_SCHEDULE_RESULT,
-      },
-      comparison_table: [
-        { metric: 'Total Tasks In Scope', FCFS: 30, 'Priority-Greedy': 30, 'CP-SAT': 30 },
-        { metric: 'Scheduled Tasks Count', FCFS: 29, 'Priority-Greedy': 29, 'CP-SAT': 29 },
-        { metric: 'Unscheduled Tasks Count', FCFS: 1, 'Priority-Greedy': 1, 'CP-SAT': 1 },
-        { metric: 'Completion Rate', FCFS: '96.7%', 'Priority-Greedy': '96.7%', 'CP-SAT': '96.7%' },
-        { metric: 'Mandatory Completion Rate', FCFS: '100.0%', 'Priority-Greedy': '100.0%', 'CP-SAT': '100.0%' },
-        { metric: 'Total Scheduled Work (mins)', FCFS: 3615, 'Priority-Greedy': 3615, 'CP-SAT': 3615 },
-        { metric: 'Total Track Possession (mins)', FCFS: 4485, 'Priority-Greedy': 4485, 'CP-SAT': 4485 },
-        { metric: 'Priority Capture Rate', FCFS: '98.6%', 'Priority-Greedy': '98.6%', 'CP-SAT': '98.6%' },
-        { metric: 'Execution Latency (ms)', FCFS: '6.2 ms', 'Priority-Greedy': '5.2 ms', 'CP-SAT': '23.1 ms' },
-      ],
-    };
-  }
+      include_cpsat: includeCpsat,
+      cpsat_time_limit: cpsatTimeLimit,
+    }),
+  });
 }
 
 export async function createPlanningRun(payload: {
@@ -468,12 +501,7 @@ export async function createPlanningRun(payload: {
 }
 
 export async function getPlanningRuns(): Promise<PlanningRun[]> {
-  try {
-    return await fetchJson<PlanningRun[]>('/planning-runs');
-  } catch (err) {
-    console.warn('[TrackMeld API] getPlanningRuns fallback:', err);
-    return [];
-  }
+  return await fetchJson<PlanningRun[]>('/planning-runs');
 }
 
 export async function getPlanningRun(runId: string): Promise<PlanningRun> {
@@ -495,13 +523,8 @@ export async function createPlanVersionFromRun(
 }
 
 export async function getPlanVersions(scenarioId?: string): Promise<PlanVersion[]> {
-  try {
-    const query = scenarioId ? `?scenario_id=${scenarioId}` : '';
-    return await fetchJson<PlanVersion[]>(`/plan-versions${query}`);
-  } catch (err) {
-    console.warn('[TrackMeld API] getPlanVersions fallback:', err);
-    return [DEMO_PLAN_VERSION];
-  }
+  const query = scenarioId ? `?scenario_id=${scenarioId}` : '';
+  return await fetchJson<PlanVersion[]>(`/plan-versions${query}`);
 }
 
 export async function getPlanVersion(planVersionId: string): Promise<PlanVersion> {
@@ -510,11 +533,17 @@ export async function getPlanVersion(planVersionId: string): Promise<PlanVersion
 
 export async function approvePlanVersion(
   planVersionId: string,
-  comment?: string
+  comment?: string,
+  declaredReviewerName?: string,
+  declaredReviewerRole?: string
 ): Promise<PlanVersion> {
   return await fetchJson<PlanVersion>(`/plan-versions/${planVersionId}/approve`, {
     method: 'POST',
-    body: JSON.stringify({ comment }),
+    body: JSON.stringify({
+      comment,
+      declared_reviewer_name: declaredReviewerName,
+      declared_reviewer_role: declaredReviewerRole,
+    }),
   });
 }
 
@@ -529,12 +558,7 @@ export async function rejectPlanVersion(
 }
 
 export async function getPlanVersionAudit(planVersionId: string): Promise<AuditLogEntry[]> {
-  try {
-    return await fetchJson<AuditLogEntry[]>(`/plan-versions/${planVersionId}/audit`);
-  } catch (err) {
-    console.warn('[TrackMeld API] getPlanVersionAudit fallback:', err);
-    return DEMO_AUDIT_LOGS;
-  }
+  return await fetchJson<AuditLogEntry[]>(`/plan-versions/${planVersionId}/audit`);
 }
 
 // ==========================================
@@ -568,80 +592,9 @@ export interface CopilotQueryResponse {
 }
 
 export async function askCopilot(req: CopilotQueryRequest): Promise<CopilotQueryResponse> {
-  try {
-    return await fetchJson<CopilotQueryResponse>('/copilot/explain', {
-      method: 'POST',
-      body: JSON.stringify(req),
-    });
-  } catch (err) {
-    console.warn('[TrackMeld API] askCopilot fallback:', err);
-    const p = req.prompt.toLowerCase();
-
-    // Refusal check
-    if (p.includes('approve') || p.includes('delete') || p.includes('cancel') || p.includes('reschedule')) {
-      return {
-        query: req.prompt,
-        answer: "**Action Refusal: Strictly Read-Only System**\n\nThe TrackMeld Copilot is an evidence-grounded decision support assistant. In accordance with Indian Railways safety boundaries, the Copilot cannot approve plans, modify schedules, or delete operational records.\n\n**Governance Boundary:** `COMPLETED ≠ APPROVED`. Formal operational authorizations require an authenticated signature from an authorized Divisional Railway Manager (DRM).",
-        evidence: [
-          {
-            evidence_id: "GOVERNANCE:READ_ONLY_GUARDRAIL",
-            evidence_type: "REFUSAL",
-            title: "Read-Only Governance Boundary",
-            data: { rule: "COMPLETED_NOT_APPROVED" },
-            source_reference: "PRD::FR-032",
-          }
-        ],
-        tool_calls_executed: [],
-        provider_used: "GOVERNANCE_GUARDRAIL (DEMO_FALLBACK)",
-        read_only_notice: "TrackMeld Copilot is strictly read-only. It cannot alter schedules or grant operational approval.",
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    if (p.includes('0007') || p.includes('tsk-0007')) {
-      return {
-        query: req.prompt,
-        answer: "### Task TSK-0007: Unscheduled Decision Analysis\n\n**Task Description:** Deep Track Screening & Ballast Cleaning (Engineering)\n**Target Section:** `SEC-NDLS-GZB` | **Required Duration:** 180 min  \n**Mandatory Flag:** Elective / Non-Mandatory  \n\n**Root-Cause Diagnostic Findings:**  \n- **Train Timetable Collision:** Continuous traffic occupancy by passenger express services (Train 12301 Rajdhani Express) on section SEC-NDLS-GZB prevented placing the required continuous 180-minute window + safety buffers.\n- **Reason Codes:** `TRAIN_MOVEMENT_CONFLICT`, `SECTION_OCCUPANCY_CONFLICT`\n\n**Mathematical Trace:**  \nCP-SAT solver tested multiple candidate placements; all were rejected to protect passenger headways.\n\n*Evidence Grounding:* [TASK:TSK-0007](source://maintenance_tasks)",
-        evidence: [
-          {
-            evidence_id: "TASK:TSK-0007",
-            evidence_type: "TASK_DECISION",
-            title: "Task Decision Record for TSK-0007",
-            data: { task_id: "TSK-0007", status: "UNSCHEDULED", section_id: "SEC-NDLS-GZB", duration_minutes: 180 },
-            source_reference: "maintenance_tasks",
-          },
-          {
-            evidence_id: "CONFLICTS:TSK-0007",
-            evidence_type: "CONFLICT",
-            title: "Blocking Conflicts for TSK-0007",
-            data: { reason_codes: ["TRAIN_MOVEMENT_CONFLICT", "SECTION_OCCUPANCY_CONFLICT"], blocking_trains: ["12301"] },
-            source_reference: "planning_runs::RUN-20261002-OPTIMAL",
-          }
-        ],
-        tool_calls_executed: ["get_task_decision", "get_conflicts_for_task"],
-        provider_used: "DETERMINISTIC_EVIDENCE_ENGINE (DEMO_FALLBACK)",
-        read_only_notice: "TrackMeld Copilot is strictly read-only. It cannot alter schedules or grant operational approval.",
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    return {
-      query: req.prompt,
-      answer: "### Task TSK-0001: Feasible & Scheduled\n\n**Work Description:** Track Tamping & Alignment\n**Department:** `ENGINEERING` | **Assigned Section:** `SEC-ETW-CNB`\n**Maintenance Window:** `01:00 UTC → 04:00 UTC` (180 min)\n**Possession Envelope:** `00:45 UTC → 04:15 UTC` (includes 15m setup & 15m clearance safety buffers)\n**Priority Score:** `98.50` (Mandatory: YES)\n\n**Verification Certificate:**  \nZero timetable collision with passenger trains. Power block requirements satisfied.\n\n*Evidence Grounding:* [TASK:TSK-0001](source://planning_runs::RUN-20261002-OPTIMAL)",
-      evidence: [
-        {
-          evidence_id: "TASK:TSK-0001",
-          evidence_type: "TASK_DECISION",
-          title: "Task Decision Record for TSK-0001",
-          data: { task_id: "TSK-0001", status: "SCHEDULED", start_time: "01:00 UTC", end_time: "04:00 UTC" },
-          source_reference: "planning_runs::RUN-20261002-OPTIMAL",
-        }
-      ],
-      tool_calls_executed: ["get_task_decision"],
-      provider_used: "DETERMINISTIC_EVIDENCE_ENGINE (DEMO_FALLBACK)",
-      read_only_notice: "TrackMeld Copilot is strictly read-only. It cannot alter schedules or grant operational approval.",
-      timestamp: new Date().toISOString(),
-    };
-  }
+  return await fetchJson<CopilotQueryResponse>('/copilot/explain', {
+    method: 'POST',
+    body: JSON.stringify(req),
+  });
 }
 

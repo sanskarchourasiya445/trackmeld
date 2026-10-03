@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     WORKER_MAX_ATTEMPTS: int = 3
     PLANNING_JOB_TIMEOUT_SECONDS: float = 120.0
 
+    # CORS configuration
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        """Parsed list of allowed origins for CORS validation."""
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() == "production"

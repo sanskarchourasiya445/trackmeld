@@ -45,6 +45,8 @@ class CreatePlanVersionRequest(BaseModel):
 class ApprovePlanRequest(BaseModel):
     """Request payload for an authorized human approval action."""
     comment: Optional[str] = Field(default=None, description="Optional human approval note or operational sign-off rationale")
+    declared_reviewer_name: Optional[str] = Field(default=None, description="Optional declared reviewing officer name for audit attestation")
+    declared_reviewer_role: Optional[str] = Field(default=None, description="Optional declared reviewing officer designation or role")
 
 
 class RejectPlanRequest(BaseModel):

@@ -138,6 +138,15 @@ class PlanningRunWorker:
                     },
                 )
 
+            # Check cancellation before starting scheduler
+            async with self.session_factory() as session:
+                repo = PlanningRunRepository(session)
+                current_run = await repo.get_by_run_id(run_id)
+                if current_run and current_run.status == PlanningRunStatus.CANCEL_REQUESTED.value:
+                    logger.info(f"[{self.worker_id}] Run '{run_id}' has CANCEL_REQUESTED before solve. Aborting and marking CANCELLED.")
+                    await repo.mark_cancelled(run_id, reason="Cancelled by user request before optimization.")
+                    return
+
             # -----------------------------------------------------------------
             # Step B: Start background heartbeat task
             # -----------------------------------------------------------------
@@ -158,8 +167,16 @@ class PlanningRunWorker:
             # -----------------------------------------------------------------
             # Step D: Independent Validation & Root-Cause Diagnostics
             # -----------------------------------------------------------------
-            async with AsyncSessionLocal() as session:
+            # Check authoritative state before entering VALIDATING
+            async with self.session_factory() as session:
                 repo = PlanningRunRepository(session)
+                current_run = await repo.get_by_run_id(run_id)
+                if not current_run:
+                    return
+                if current_run.status == PlanningRunStatus.CANCEL_REQUESTED.value:
+                    logger.info(f"[{self.worker_id}] Run '{run_id}' has CANCEL_REQUESTED after solve. Aborting validation and marking CANCELLED.")
+                    await repo.mark_cancelled(run_id, reason="Cancelled by user request before validation.")
+                    return
                 await repo.mark_validating(run_id)
 
             logger.info(f"[{self.worker_id}] Running Phase 7 Independent Validator for run '{run_id}'...")
@@ -209,6 +226,12 @@ class PlanningRunWorker:
 
             async with self.session_factory() as session:
                 repo = PlanningRunRepository(session)
+                current_run = await repo.get_by_run_id(run_id)
+                if current_run and current_run.status == PlanningRunStatus.CANCEL_REQUESTED.value:
+                    logger.info(f"[{self.worker_id}] Run '{run_id}' has CANCEL_REQUESTED before completion. Marking CANCELLED.")
+                    await repo.mark_cancelled(run_id, reason="Cancelled by user request before persistence.")
+                    return
+
                 await repo.mark_completed(
                     run_id=run_id,
                     schedule_result=schedule_result.model_dump(mode="json"),
@@ -229,15 +252,22 @@ class PlanningRunWorker:
 
         except Exception as e:
             logger.exception(f"[{self.worker_id}] Execution failed for run '{run_id}': {e}")
-            async with self.session_factory() as session:
-                repo = PlanningRunRepository(session)
-                await repo.mark_failed(
-                    run_id=run_id,
-                    error_code="WORKER_EXECUTION_EXCEPTION",
-                    error_message=str(e),
-                    stage=PlanningRunStage.FAILED,
-                    error_details={"exception_type": type(e).__name__},
-                )
+            try:
+                async with self.session_factory() as session:
+                    repo = PlanningRunRepository(session)
+                    current_run = await repo.get_by_run_id(run_id)
+                    if current_run and current_run.status in [PlanningRunStatus.CANCELLED.value, PlanningRunStatus.CANCEL_REQUESTED.value]:
+                        await repo.mark_cancelled(run_id, reason=f"Cancelled during exception handling: {e}")
+                    else:
+                        await repo.mark_failed(
+                            run_id=run_id,
+                            error_code="WORKER_EXECUTION_EXCEPTION",
+                            error_message=str(e),
+                            stage=PlanningRunStage.FAILED,
+                            error_details={"exception_type": type(e).__name__},
+                        )
+            except Exception as mark_err:
+                logger.error(f"[{self.worker_id}] Failed to record run failure status: {mark_err}")
         finally:
             if heartbeat_task and not heartbeat_task.done():
                 heartbeat_task.cancel()
