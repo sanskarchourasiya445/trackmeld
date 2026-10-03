@@ -178,6 +178,8 @@ class PlanningScenarioService:
                     "mandatory": t.mandatory,
                     "section_id": t.section_id,
                     "track_id": t.track_id,
+                    "from_km": t.from_km,
+                    "to_km": t.to_km,
                     "station_id": t.station_id,
 
                     "corridor_id": t.corridor_id,

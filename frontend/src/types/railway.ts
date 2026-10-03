@@ -104,6 +104,8 @@ export interface MaintenanceTask {
   department?: string;
   section_id?: string;
   track_id?: string;
+  from_km?: number;
+  to_km?: number;
   section_code?: string;
 
   station_id?: string;
@@ -159,4 +161,26 @@ export interface ScenarioPlanningBundle {
   sections: BlockSection[];
   train_movements: TrainMovement[];
   applicable_rules?: Record<string, unknown>[];
+  tracks?: Track[];
+}
+
+/**
+ * Truthful spatial display for maintenance tasks:
+ * - track assigned + range: "UP_MAIN · 12.4–15.8 km"
+ * - track assigned + no range: "UP_MAIN"
+ * - no track: "Whole section"
+ */
+export function formatTrackSpatial(task?: MaintenanceTask | null): string {
+  if (!task || !task.track_id) {
+    return 'Whole section';
+  }
+  let trackName = task.track_id;
+  if (trackName.endsWith('-UP')) trackName = 'UP_MAIN';
+  else if (trackName.endsWith('-DN')) trackName = 'DN_MAIN';
+  else if (trackName.endsWith('-SL')) trackName = 'SINGLE_LINE';
+
+  if (task.from_km !== undefined && task.from_km !== null && task.to_km !== undefined && task.to_km !== null) {
+    return `${trackName} · ${task.from_km}–${task.to_km} km`;
+  }
+  return trackName;
 }

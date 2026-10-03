@@ -131,6 +131,8 @@ class MaintenanceTaskResponse(BaseModel):
     mandatory: bool
     section_id: str
     track_id: Optional[str] = None
+    from_km: Optional[float] = None
+    to_km: Optional[float] = None
     station_id: Optional[str] = None
     corridor_id: Optional[str] = None
     scenario_id: str

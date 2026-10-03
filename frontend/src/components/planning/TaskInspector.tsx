@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MaintenanceTask, TrainMovement, BlockSection } from '@/types/railway';
+import { MaintenanceTask, TrainMovement, BlockSection, formatTrackSpatial } from '@/types/railway';
 import {
   ScheduledTaskInterval,
   UnscheduledTaskReport,
@@ -162,6 +162,10 @@ export const TaskInspector: React.FC<TaskInspectorProps> = ({
               <div className="col-span-2">
                 <span className="text-[10px] text-[#64748B] block font-mono">Block</span>
                 <span className="font-mono text-[#CBD5E1]">{currentBlock}</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-[10px] text-[#64748B] block font-mono">Track / Worksite</span>
+                <span className="font-mono text-[#38BDF8]">{formatTrackSpatial(task)}</span>
               </div>
               <div className="col-span-2">
                 <span className="text-[10px] text-[#64748B] block font-mono">Time Window</span>

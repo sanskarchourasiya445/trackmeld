@@ -64,6 +64,8 @@ class MaintenanceTask(BaseModel):
     classification: DataClass = Field(default=DataClass.SYNTHETIC, description="Must remain SYNTHETIC")
     source_id: str = Field(default="SRC-TRACKMELD-SYNTHETIC-GEN", description="Generator provenance source")
     track_id: Optional[str] = Field(default=None, description="Optional specific track assignment (e.g. TRK-NDLS-GZB-UP)")
+    from_km: Optional[float] = Field(default=None, description="Start chainage in km along track")
+    to_km: Optional[float] = Field(default=None, description="End chainage in km along track")
     affected_section_ids: List[str] = Field(default_factory=list, description="All block sections requiring spatial block")
     rule_references: List[str] = Field(default_factory=list, description="Rule IDs from railway_rules justifying constraints")
 
@@ -72,6 +74,19 @@ class MaintenanceTask(BaseModel):
         if self.window_start >= self.window_end:
             raise ValueError(f"window_start ({self.window_start}) must precede window_end ({self.window_end})")
         
+        # Spatial chainage invariants
+        if self.track_id is None:
+            if self.from_km is not None or self.to_km is not None:
+                raise ValueError("from_km and to_km must be None when track_id is None (whole-section task)")
+        else:
+            if self.from_km is not None and self.from_km < 0:
+                raise ValueError(f"from_km ({self.from_km}) cannot be negative")
+            if self.to_km is not None and self.to_km < 0:
+                raise ValueError(f"to_km ({self.to_km}) cannot be negative")
+            if self.from_km is not None and self.to_km is not None:
+                if self.from_km > self.to_km:
+                    raise ValueError(f"from_km ({self.from_km}) must be <= to_km ({self.to_km})")
+
         # Duration bounds check
         if self.minimum_duration_minutes and self.minimum_duration_minutes > self.estimated_duration_minutes:
             raise ValueError(f"minimum_duration ({self.minimum_duration_minutes}) cannot exceed estimated ({self.estimated_duration_minutes})")

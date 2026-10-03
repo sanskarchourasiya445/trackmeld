@@ -4,6 +4,7 @@ from sqlalchemy import (
     String,
     Text,
     Integer,
+    Float,
     Boolean,
     DateTime,
     ForeignKey,
@@ -30,6 +31,10 @@ class MaintenanceTaskModel(Base, TimestampMixin):
         CheckConstraint("estimated_duration_minutes > 0", name="ck_tasks_duration_positive"),
         CheckConstraint("window_start < window_end", name="ck_tasks_window_valid"),
         CheckConstraint("crew_size_required > 0", name="ck_tasks_crew_positive"),
+        CheckConstraint("from_km IS NULL OR to_km IS NULL OR from_km <= to_km", name="ck_tasks_chainage_range"),
+        CheckConstraint("from_km IS NULL OR from_km >= 0", name="ck_tasks_from_km_non_negative"),
+        CheckConstraint("to_km IS NULL OR to_km >= 0", name="ck_tasks_to_km_non_negative"),
+        CheckConstraint("track_id IS NOT NULL OR (from_km IS NULL AND to_km IS NULL)", name="ck_tasks_track_required_for_chainage"),
         Index("ix_tasks_scenario_status", "scenario_id", "status"),
         Index("ix_tasks_section_window", "section_id", "window_start", "window_end"),
     )
@@ -74,6 +79,8 @@ class MaintenanceTaskModel(Base, TimestampMixin):
         index=True,
         nullable=True,
     )
+    from_km: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    to_km: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     station_id: Mapped[Optional[str]] = mapped_column(
         String(32),

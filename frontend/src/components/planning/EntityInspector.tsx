@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MaintenanceTask, TrainMovement, BlockSection } from '@/types/railway';
+import { MaintenanceTask, TrainMovement, BlockSection, formatTrackSpatial } from '@/types/railway';
 import {
   ScheduledTaskInterval,
   UnscheduledTaskDiagnostic,
@@ -150,6 +150,12 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({
                 <span className="text-[#64748B]">Section:</span>
                 <span className="font-mono text-[#F8FAFC] font-medium">
                   {task.section_code || task.section_id || 'SEC-12'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[#64748B]">Track / Worksite:</span>
+                <span className="font-mono text-[#38BDF8] font-medium">
+                  {formatTrackSpatial(task)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
