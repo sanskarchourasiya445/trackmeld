@@ -67,7 +67,11 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
                 "message": str(exc.detail),
             }
         }
-    return JSONResponse(status_code=exc.status_code, content=payload)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=payload,
+        headers=getattr(exc, "headers", None),
+    )
 
 
 @app.exception_handler(RequestValidationError)

@@ -24,6 +24,7 @@ from backend.app.repositories.planning_run_repo import PlanningRunRepository
 from backend.app.domain.scheduling import (
     SchedulerType,
     SchedulerStatus,
+    SchedulerConfig,
     PriorityConfig,
     ScheduleResult,
 )

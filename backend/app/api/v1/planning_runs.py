@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.db.session import get_db_session
 from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.rate_limit import enforce_planning_rate_limit
 from backend.app.schemas.common import ErrorResponse
 from backend.app.schemas.planning_run import (
     PlanningRunStatus,
@@ -133,6 +134,7 @@ async def create_planning_run(
     idempotency_key_header: Optional[str] = Header(None, alias="Idempotency-Key"),
     session: AsyncSession = Depends(get_db_session),
     current_user: AuthUser = Depends(get_current_user),
+    _rate_limit: None = Depends(enforce_planning_rate_limit),
 ) -> CreatePlanningRunResponse:
     """Submit a planning run requisition to the persistent background worker queue.
     

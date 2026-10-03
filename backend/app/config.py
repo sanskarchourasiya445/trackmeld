@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     # CORS configuration
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
 
+    # Authentication credentials configuration (env-driven)
+    AUTH_ADMIN_TOKEN: str | None = None
+    AUTH_APPROVER_TOKEN: str | None = None
+    AUTH_PLANNER_TOKEN: str | None = None
+    AUTH_VIEWER_TOKEN: str | None = None
+
     @property
     def cors_allowed_origins(self) -> list[str]:
         """Parsed list of allowed origins for CORS validation."""
