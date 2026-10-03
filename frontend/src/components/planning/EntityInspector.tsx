@@ -30,6 +30,8 @@ interface EntityInspectorProps {
   onClose?: () => void;
   onNavigateToDiagnostics?: (taskId: string) => void;
   onNavigateToConflicts?: (taskId: string) => void;
+  isDrawer?: boolean;
+  hideHeader?: boolean;
 }
 
 export const EntityInspector: React.FC<EntityInspectorProps> = ({
@@ -41,6 +43,8 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({
   onClose,
   onNavigateToDiagnostics,
   onNavigateToConflicts,
+  isDrawer = false,
+  hideHeader = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -73,38 +77,46 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({
   return (
     <aside
       aria-label="Entity Inspector"
-      className={`h-full bg-[#0F172A] border-l border-[#1E2D4A] flex flex-col overflow-hidden select-none font-sans text-xs transition-all duration-200 ${
-        isExpanded ? 'w-full md:w-[480px]' : 'w-full md:w-[350px] lg:w-[370px]'
+      className={`h-full bg-[#0F172A] flex flex-col overflow-hidden select-none font-sans text-xs transition-all duration-200 ${
+        isDrawer
+          ? 'w-full'
+          : `border-l border-[#1E2D4A] ${
+              isExpanded
+                ? 'w-full md:w-[460px]'
+                : 'w-full md:w-[320px] xl:w-[350px] 2xl:w-[380px]'
+            }`
       }`}
     >
       {/* 1. Inspector Header */}
-      <div className="h-11 bg-[#141F36] border-b border-[#1E2D4A] px-3.5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-[#F8FAFC]">Entity Inspector</span>
-          <span className="text-[10px] font-mono text-[#64748B] bg-[#0A0E17] px-1.5 py-0.5 rounded border border-[#1E2D4A]">
-            {isTask ? 'TASK' : isTrain ? 'TRAIN' : isSection ? 'SECTION' : 'RESOURCE'}
-          </span>
-        </div>
+      {!hideHeader && (
+        <div className="h-11 bg-[#141F36] border-b border-[#1E2D4A] px-3.5 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-[#F8FAFC]">Entity Inspector</span>
+            <span className="text-[10px] font-mono text-[#64748B] bg-[#0A0E17] px-1.5 py-0.5 rounded border border-[#1E2D4A]">
+              {isTask ? 'TASK' : isTrain ? 'TRAIN' : isSection ? 'SECTION' : 'RESOURCE'}
+            </span>
+          </div>
 
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setIsExpanded((prev) => !prev)}
-            className="p-1 rounded text-[#94A3B8] hover:text-white hover:bg-[#1E2D4A] transition-colors"
-            title={isExpanded ? 'Restore width' : 'Expand width'}
-          >
-            {isExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-          </button>
-          {onClose && (
+          <div className="flex items-center gap-1">
             <button
-              onClick={onClose}
+              onClick={() => setIsExpanded((prev) => !prev)}
               className="p-1 rounded text-[#94A3B8] hover:text-white hover:bg-[#1E2D4A] transition-colors"
-              title="Close Inspector"
+              title={isExpanded ? 'Restore width' : 'Expand width'}
             >
-              <X className="w-4 h-4" />
+              {isExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
-          )}
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1 rounded text-[#94A3B8] hover:text-white hover:bg-[#1E2D4A] transition-colors"
+                title="Close Inspector"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 2. Inspector Content Body */}
       <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5">

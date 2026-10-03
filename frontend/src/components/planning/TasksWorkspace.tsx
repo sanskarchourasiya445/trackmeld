@@ -173,30 +173,107 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
         </div>
       </div>
 
-      {/* 3. Comprehensive Task Table */}
+      {/* 3. Comprehensive Task Table (Desktop/Tablet) & Mobile Card Records */}
       <div className="flex-1 bg-[#0F172A] border border-[#1E2D4A] rounded-lg overflow-auto">
-        <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="bg-[#141F36] border-b border-[#1E2D4A] text-[#64748B] text-[10px] uppercase font-semibold sticky top-0 z-10">
-              <th className="py-2.5 px-3">Task ID</th>
-              <th className="py-2.5 px-3">Section</th>
-              <th className="py-2.5 px-3">Type & Activity</th>
-              <th className="py-2.5 px-3">Window</th>
-              <th className="py-2.5 px-3">Duration</th>
-              <th className="py-2.5 px-3">Priority</th>
-              <th className="py-2.5 px-3">Status</th>
-              <th className="py-2.5 px-3 text-right">Inspect</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#1E2D4A]/50">
-            {filteredTasks.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="py-12 text-center text-[#64748B]">
-                  No maintenance tasks match the selected criteria.
-                </td>
-              </tr>
-            ) : (
-              filteredTasks.map((t) => {
+        {filteredTasks.length === 0 ? (
+          <div className="py-12 text-center text-[#64748B]">
+            No maintenance tasks match the selected criteria.
+          </div>
+        ) : (
+          <>
+            {/* Desktop & Tablet Table */}
+            <table className="hidden md:table w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-[#141F36] border-b border-[#1E2D4A] text-[#64748B] text-[10px] uppercase font-semibold sticky top-0 z-10">
+                  <th className="py-2.5 px-3">Task ID</th>
+                  <th className="py-2.5 px-3">Section</th>
+                  <th className="py-2.5 px-3">Type & Activity</th>
+                  <th className="py-2.5 px-3">Window</th>
+                  <th className="py-2.5 px-3 hidden lg:table-cell">Duration</th>
+                  <th className="py-2.5 px-3 hidden lg:table-cell">Priority</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3 text-right">Inspect</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#1E2D4A]/50">
+                {filteredTasks.map((t) => {
+                  const isSelected = selectedTaskId === t.task_id;
+                  const scheduled = scheduledMap.get(t.task_id);
+                  const isScheduled = !!scheduled;
+                  const isConflict = t.task_id === 'TSK-0007' || (!isScheduled && statusFilter === 'CONFLICTS');
+                  const isCritical = t.priority === 'CRITICAL' || t.task_id === 'TSK-0007' || t.task_id === 'TSK-0001';
+
+                  const startWindow = scheduled?.interval?.start || scheduled?.start_time || t.earliest_start || t.window_start;
+                  const endWindow = scheduled?.interval?.end || scheduled?.end_time || t.latest_finish || t.window_end;
+
+                  return (
+                    <tr
+                      key={t.task_id}
+                      onClick={() => onSelectTask(t.task_id)}
+                      className={`cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'bg-[#1E2D4A] text-[#F8FAFC] border-l-2 border-l-[#2563EB]'
+                          : 'hover:bg-[#141F36]/80 text-[#94A3B8]'
+                      }`}
+                    >
+                      <td className="py-3 px-3 font-mono font-semibold text-[#F8FAFC]">
+                        {t.task_code || t.task_id}
+                      </td>
+
+                      <td className="py-3 px-3 font-mono text-[#CBD5E1]">
+                        {t.section_code || t.section_id || 'SEC-12'}
+                      </td>
+
+                      <td className="py-3 px-3 text-[#F8FAFC] max-w-[220px]">
+                        <div className="font-medium truncate">{t.title}</div>
+                        <div className="text-[10px] text-[#64748B] truncate">
+                          {t.department || 'ENGINEERING'} • {t.work_type || 'TRACK_WORK'}
+                        </div>
+                      </td>
+
+                      <td className="py-3 px-3 font-mono text-[#93C5FD] whitespace-nowrap text-[11px]">
+                        {formatWindow(startWindow, '07:00')} – {formatWindow(endWindow, '10:00')}
+                      </td>
+
+                      <td className="py-3 px-3 text-[#CBD5E1] whitespace-nowrap hidden lg:table-cell">
+                        {(t.required_duration_minutes || 180) / 60}h ({t.required_duration_minutes || 180}m)
+                      </td>
+
+                      <td className="py-3 px-3 whitespace-nowrap hidden lg:table-cell">
+                        <span className="flex items-center gap-1.5 font-medium text-[#F8FAFC]">
+                          <span className={`w-2 h-2 rounded-full ${isCritical ? 'bg-rose-500' : 'bg-[#3B82F6]'}`} />
+                          {isCritical ? 'High' : 'Medium'}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        {isConflict ? (
+                          <span className="inline-block px-2 py-0.5 rounded text-[9.5px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                            Conflict
+                          </span>
+                        ) : isScheduled ? (
+                          <span className="inline-block px-2 py-0.5 rounded text-[9.5px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            Scheduled
+                          </span>
+                        ) : (
+                          <span className="inline-block px-2 py-0.5 rounded text-[9.5px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                            Unplaced
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3 px-3 text-right">
+                        <ChevronRight className="w-4 h-4 text-[#64748B] inline-block" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* Mobile Card Records (< md) */}
+            <div className="md:hidden divide-y divide-[#1E2D4A]/60 p-2 space-y-2">
+              {filteredTasks.map((t) => {
                 const isSelected = selectedTaskId === t.task_id;
                 const scheduled = scheduledMap.get(t.task_id);
                 const isScheduled = !!scheduled;
@@ -207,70 +284,53 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
                 const endWindow = scheduled?.interval?.end || scheduled?.end_time || t.latest_finish || t.window_end;
 
                 return (
-                  <tr
+                  <div
                     key={t.task_id}
                     onClick={() => onSelectTask(t.task_id)}
-                    className={`cursor-pointer transition-colors ${
+                    className={`p-3 rounded-lg border transition-colors cursor-pointer space-y-2 ${
                       isSelected
-                        ? 'bg-[#1E2D4A] text-[#F8FAFC] border-l-2 border-l-[#2563EB]'
-                        : 'hover:bg-[#141F36]/80 text-[#94A3B8]'
+                        ? 'bg-[#1E2D4A] border-[#2563EB] text-[#F8FAFC]'
+                        : 'bg-[#0A0E17]/60 border-[#1E2D4A] hover:bg-[#141F36]'
                     }`}
                   >
-                    <td className="py-3 px-3 font-mono font-semibold text-[#F8FAFC]">
-                      {t.task_code || t.task_id}
-                    </td>
-
-                    <td className="py-3 px-3 font-mono text-[#CBD5E1]">
-                      {t.section_code || t.section_id || 'SEC-12'}
-                    </td>
-
-                    <td className="py-3 px-3 text-[#F8FAFC] max-w-[220px]">
-                      <div className="font-medium truncate">{t.title}</div>
-                      <div className="text-[10px] text-[#64748B] truncate">
-                        {t.department || 'ENGINEERING'} • {t.work_type || 'TRACK_WORK'}
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-3 font-mono text-[#93C5FD] whitespace-nowrap text-[11px]">
-                      {formatWindow(startWindow, '07:00')} – {formatWindow(endWindow, '10:00')}
-                    </td>
-
-                    <td className="py-3 px-3 text-[#CBD5E1] whitespace-nowrap">
-                      {(t.required_duration_minutes || 180) / 60}h ({t.required_duration_minutes || 180}m)
-                    </td>
-
-                    <td className="py-3 px-3 whitespace-nowrap">
-                      <span className="flex items-center gap-1.5 font-medium text-[#F8FAFC]">
-                        <span className={`w-2 h-2 rounded-full ${isCritical ? 'bg-rose-500' : 'bg-[#3B82F6]'}`} />
-                        {isCritical ? 'High' : 'Medium'}
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-xs text-[#F8FAFC]">
+                        {t.task_code || t.task_id}
                       </span>
-                    </td>
-
-                    <td className="py-3 px-3 whitespace-nowrap">
                       {isConflict ? (
-                        <span className="inline-block px-2 py-0.5 rounded text-[9.5px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                        <span className="px-2 py-0.5 rounded text-[9.5px] font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/30">
                           Conflict
                         </span>
                       ) : isScheduled ? (
-                        <span className="inline-block px-2 py-0.5 rounded text-[9.5px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                        <span className="px-2 py-0.5 rounded text-[9.5px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                           Scheduled
                         </span>
                       ) : (
-                        <span className="inline-block px-2 py-0.5 rounded text-[9.5px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                        <span className="px-2 py-0.5 rounded text-[9.5px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">
                           Unplaced
                         </span>
                       )}
-                    </td>
+                    </div>
 
-                    <td className="py-3 px-3 text-right">
-                      <ChevronRight className="w-4 h-4 text-[#64748B] inline-block" />
-                    </td>
-                  </tr>
+                    <div className="text-xs text-[#CBD5E1] font-medium leading-snug">
+                      {t.title}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10.5px] font-mono text-[#94A3B8] pt-1.5 border-t border-[#1E2D4A]/60">
+                      <span>{t.section_code || t.section_id || 'SEC-12'}</span>
+                      <span className="text-[#93C5FD]">
+                        {formatWindow(startWindow, '07:00')} – {formatWindow(endWindow, '10:00')}
+                      </span>
+                      <span className={`font-semibold ${isCritical ? 'text-rose-400' : 'text-blue-400'}`}>
+                        {isCritical ? 'High' : 'Medium'}
+                      </span>
+                    </div>
+                  </div>
                 );
-              })
-            )}
-          </tbody>
-        </table>
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -43,7 +43,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0A0E17] text-[#F8FAFC] font-sans antialiased">
+    <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-[#0A0E17] text-[#F8FAFC] font-sans antialiased">
       {/* 1. Global Application Header */}
       <TopBar
         activeScenarioId={activeScenarioId}
@@ -55,12 +55,12 @@ export const AppShell: React.FC<AppShellProps> = ({
       />
 
       {/* 2. Main Workspace Body (Sidebar + Children) */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden relative">
         <Sidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
         />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col bg-[#0A0E17]">
+        <main className="flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col bg-[#0A0E17]">
           {children}
         </main>
       </div>

@@ -66,8 +66,8 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
         </div>
       </div>
 
-      {/* 2. Critical Governance Invariant Banner */}
-      <div className="bg-[#141F36] border border-[#2D436D] rounded-lg p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+      {/* 2. Critical Governance Invariant Banner & Summary KPI Strip */}
+      <div className="bg-[#141F36] border border-[#2D436D] rounded-lg p-3 sm:p-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-3 shrink-0">
         <div className="flex items-start sm:items-center gap-2.5">
           <div className="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
             <Lock className="w-3.5 h-3.5 text-amber-400" />
@@ -78,23 +78,33 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
               <span className="text-[10px] font-mono text-amber-400 font-bold">COMPLETED ≠ APPROVED</span>
             </div>
             <p className="text-[11px] text-[#94A3B8] mt-0.5 leading-relaxed">
-              The independent validator verifies mathematical and physical feasibility. The validator does NOT approve the schedule.
-              Operational release requires explicit human sign-off by an authorized operations officer.
+              The independent validator verifies mathematical and physical feasibility. Operational release requires human sign-off.
             </p>
           </div>
         </div>
 
-        <div className="font-mono text-[10px] text-[#64748B] bg-[#0A0E17] border border-[#1E2D4A] rounded px-2.5 py-1.5 shrink-0">
-          <div className="flex items-center gap-1.5 text-[#CBD5E1]">
-            <Fingerprint className="w-3.5 h-3.5 text-[#3B82F6]" />
-            <span>Fingerprint: {validationResult?.schedule_identity?.slice(0, 16) || 'bae346ecf37b1fd8'}...</span>
+        {/* Validation Summary Metrics */}
+        <div className="flex flex-wrap items-center gap-2 font-mono text-[10px]">
+          <span className="bg-[#0A0E17] border border-[#1E2D4A] px-2 py-1 rounded text-emerald-400">
+            Errors: <strong>0</strong>
+          </span>
+          <span className="bg-[#0A0E17] border border-[#1E2D4A] px-2 py-1 rounded text-amber-400">
+            Warnings: <strong>0</strong>
+          </span>
+          <span className="bg-[#0A0E17] border border-[#1E2D4A] px-2 py-1 rounded text-[#93C5FD]">
+            Audit: <strong>12/12 Passed</strong>
+          </span>
+          <div className="flex items-center gap-1 text-[#64748B] bg-[#0A0E17] border border-[#1E2D4A] px-2 py-1 rounded">
+            <Fingerprint className="w-3 h-3 text-[#3B82F6]" />
+            <span>{validationResult?.schedule_identity?.slice(0, 10) || 'bae346ecf3'}...</span>
           </div>
         </div>
       </div>
 
-      {/* 3. Hard Rules Audit Table */}
+      {/* 3. Hard Rules Audit Table (Desktop/Tablet) & Stacked Cards (Mobile) */}
       <div className="flex-1 bg-[#0F172A] border border-[#1E2D4A] rounded-lg overflow-auto">
-        <table className="w-full text-left text-xs border-collapse">
+        {/* Desktop/Tablet Table */}
+        <table className="hidden md:table w-full text-left text-xs border-collapse">
           <thead>
             <tr className="bg-[#141F36] border-b border-[#1E2D4A] text-[#64748B] text-[10px] uppercase font-semibold sticky top-0 z-10">
               <th className="py-2.5 px-3">Rule ID</th>
@@ -130,6 +140,26 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
             ))}
           </tbody>
         </table>
+
+        {/* Mobile Stacked Check Cards (< md) */}
+        <div className="md:hidden divide-y divide-[#1E2D4A]/60 p-2 space-y-2">
+          {HARD_RULES_AUDIT.map((rule) => (
+            <div key={rule.id} className="p-3 rounded-md bg-[#0A0E17]/60 border border-[#1E2D4A] space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-mono font-bold text-xs text-[#F8FAFC]">{rule.id}</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  <CheckCircle className="w-3 h-3 text-emerald-400" />
+                  {rule.status}
+                </span>
+              </div>
+              <div className="font-semibold text-xs text-[#F8FAFC]">{rule.name}</div>
+              <div className="text-[10px] font-mono text-[#3B82F6]">{rule.category} • {rule.items}</div>
+              <p className="text-[11px] text-[#94A3B8] leading-relaxed pt-1 border-t border-[#1E2D4A]/50">
+                {rule.desc}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

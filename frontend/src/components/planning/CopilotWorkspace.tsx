@@ -11,6 +11,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { askCopilot, CopilotEvidenceItem } from '@/lib/api/client';
+import { ResponsiveDrawer } from '@/components/common/ResponsiveDrawer';
 
 interface Message {
   id: string;
@@ -65,6 +66,7 @@ export const CopilotWorkspace: React.FC = () => {
   const [activeEvidence, setActiveEvidence] = useState<CopilotEvidenceItem[]>(
     INITIAL_MESSAGES[2].evidence || []
   );
+  const [isEvidenceDrawerOpen, setIsEvidenceDrawerOpen] = useState(false);
 
   const handleSend = async (queryText?: string) => {
     const text = (queryText || inputQuery).trim();
@@ -114,10 +116,61 @@ export const CopilotWorkspace: React.FC = () => {
     }
   };
 
+  const renderEvidenceList = () => (
+    <>
+      {activeEvidence.length === 0 ? (
+        <div className="py-8 text-center text-[#64748B]">
+          <HelpCircle className="w-6 h-6 mx-auto mb-1 opacity-50" />
+          <p>No active evidence records for this query.</p>
+        </div>
+      ) : (
+        activeEvidence.map((ev, idx) => (
+          <div
+            key={idx}
+            className="bg-[#0A0E17]/60 border border-[#1E2D4A] rounded-md p-3 space-y-1.5 text-xs"
+          >
+            <div className="flex justify-between items-center">
+              <span className="font-semibold text-[#F8FAFC]">{ev.title}</span>
+              <span className="text-[9.5px] font-mono text-[#3B82F6] bg-[#141F36] px-1.5 py-0.5 rounded border border-[#1E2D4A]">
+                {ev.evidence_type}
+              </span>
+            </div>
+
+            <div className="text-[10px] font-mono text-[#64748B]">ID: {ev.evidence_id}</div>
+
+            {ev.data && (
+              <pre className="bg-[#070B12] p-2 rounded text-[10px] font-mono text-[#94A3B8] overflow-x-auto">
+                {JSON.stringify(ev.data, null, 2)}
+              </pre>
+            )}
+
+            {ev.source_reference && (
+              <div className="text-[10px] text-[#64748B] flex items-center gap-1">
+                <span>Source:</span>
+                <span className="text-[#CBD5E1] font-mono">{ev.source_reference}</span>
+              </div>
+            )}
+          </div>
+        ))
+      )}
+
+      {/* Read-Only Safety Verification Notice */}
+      <div className="bg-[#141F36] border border-[#1E2D4A] rounded-md p-2.5 space-y-1 text-[10px] text-[#94A3B8]">
+        <div className="font-semibold text-[#F8FAFC] flex items-center gap-1">
+          <AlertTriangle className="w-3 h-3 text-amber-400" />
+          <span>Deterministic Safety Boundary</span>
+        </div>
+        <p className="leading-relaxed">
+          Copilot queries execute over verified snapshot facts. It has no tool bindings to modify database records or grant operational clearances.
+        </p>
+      </div>
+    </>
+  );
+
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0A0E17] p-4 gap-3 overflow-hidden select-none font-sans text-xs">
+    <div className="flex-1 flex flex-col h-full bg-[#0A0E17] p-3 sm:p-4 gap-3 overflow-hidden select-none font-sans text-xs">
       {/* 1. Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3.5 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3 sm:p-3.5 shrink-0">
         <div>
           <div className="flex items-center gap-2">
             <Bot className="w-5 h-5 text-[#2563EB]" />
@@ -131,8 +184,19 @@ export const CopilotWorkspace: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-3 py-1 rounded">
-          <span>Evidence Grounded • 0 Hallucinations</span>
+        <div className="flex items-center gap-2">
+          {/* Mobile/Tablet Evidence Drawer Trigger */}
+          <button
+            onClick={() => setIsEvidenceDrawerOpen(true)}
+            className="lg:hidden flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#141F36] hover:bg-[#1E2D4A] border border-[#2D436D] text-xs font-mono text-[#93C5FD] transition-colors"
+          >
+            <FileText className="w-3.5 h-3.5 text-[#3B82F6]" />
+            <span>Evidence ({activeEvidence.length})</span>
+          </button>
+
+          <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-3 py-1 rounded">
+            <span>Evidence Grounded • 0 Hallucinations</span>
+          </div>
         </div>
       </div>
 
@@ -270,63 +334,34 @@ export const CopilotWorkspace: React.FC = () => {
           </div>
         </div>
 
-        {/* Evidence & Provenance Panel */}
-        <div className="col-span-12 lg:col-span-4 bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3.5 flex flex-col overflow-hidden">
+        {/* Evidence & Provenance Panel (Desktop >= lg) */}
+        <div className="hidden lg:flex col-span-4 bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3.5 flex-col overflow-hidden">
           <div className="flex items-center gap-2 border-b border-[#1E2D4A] pb-2.5 mb-3 shrink-0">
             <FileText className="w-4 h-4 text-[#3B82F6]" />
             <span className="font-semibold text-xs text-[#F8FAFC]">Verified Evidence Records</span>
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-2.5">
-            {activeEvidence.length === 0 ? (
-              <div className="py-8 text-center text-[#64748B]">
-                <HelpCircle className="w-6 h-6 mx-auto mb-1 opacity-50" />
-                <p>No active evidence records for this query.</p>
-              </div>
-            ) : (
-              activeEvidence.map((ev, idx) => (
-                <div
-                  key={idx}
-                  className="bg-[#0A0E17]/60 border border-[#1E2D4A] rounded-md p-3 space-y-1.5 text-xs"
-                >
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-[#F8FAFC]">{ev.title}</span>
-                    <span className="text-[9.5px] font-mono text-[#3B82F6] bg-[#141F36] px-1.5 py-0.5 rounded border border-[#1E2D4A]">
-                      {ev.evidence_type}
-                    </span>
-                  </div>
-
-                  <div className="text-[10px] font-mono text-[#64748B]">ID: {ev.evidence_id}</div>
-
-                  {ev.data && (
-                    <pre className="bg-[#070B12] p-2 rounded text-[10px] font-mono text-[#94A3B8] overflow-x-auto">
-                      {JSON.stringify(ev.data, null, 2)}
-                    </pre>
-                  )}
-
-                  {ev.source_reference && (
-                    <div className="text-[10px] text-[#64748B] flex items-center gap-1">
-                      <span>Source:</span>
-                      <span className="text-[#CBD5E1] font-mono">{ev.source_reference}</span>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-
-            {/* Read-Only Safety Verification Notice */}
-            <div className="bg-[#141F36] border border-[#1E2D4A] rounded-md p-2.5 space-y-1 text-[10px] text-[#94A3B8]">
-              <div className="font-semibold text-[#F8FAFC] flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3 text-amber-400" />
-                <span>Deterministic Safety Boundary</span>
-              </div>
-              <p className="leading-relaxed">
-                Copilot queries execute over verified snapshot facts. It has no tool bindings to modify database records or grant operational clearances.
-              </p>
-            </div>
+            {renderEvidenceList()}
           </div>
         </div>
       </div>
+
+      {/* 4. Responsive Evidence Drawer (Tablet & Mobile) */}
+      <ResponsiveDrawer
+        isOpen={isEvidenceDrawerOpen}
+        onClose={() => setIsEvidenceDrawerOpen(false)}
+        title="Verified Evidence Records"
+        badge={
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 font-bold border border-blue-500/30">
+            {activeEvidence.length} SOURCES
+          </span>
+        }
+      >
+        <div className="p-3.5 space-y-2.5">
+          {renderEvidenceList()}
+        </div>
+      </ResponsiveDrawer>
     </div>
   );
 };

@@ -57,8 +57,10 @@ import {
   AlertTriangle,
   GitBranch,
   Bot,
+  PanelRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ResponsiveDrawer } from '@/components/common/ResponsiveDrawer';
 
 export type WorkspaceSubtab =
   | 'RAILWAY'
@@ -90,6 +92,7 @@ function PlanningPageContent() {
   const [selectedTrainId, setSelectedTrainId] = useState<string | null>(null);
   const [selectedSectionCode, setSelectedSectionCode] = useState<string | null>('SEC-12');
   const [isInspectorOpen, setIsInspectorOpen] = useState(true);
+  const [bottomPanelTab, setBottomPanelTab] = useState<'SPLIT' | 'TASKS' | 'TIMELINE'>('SPLIT');
 
   // Operations state
   const [isSolving, setIsSolving] = useState(false);
@@ -243,6 +246,19 @@ function PlanningPageContent() {
             </span>
 
             <div className="h-5 w-[1px] bg-[#1E2D4A] mx-1 hidden sm:block" />
+
+            {/* Entity Inspector Toggle Button */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsInspectorOpen((prev) => !prev)}
+              className={`border-[#2D436D] text-xs font-semibold h-8 ${
+                isInspectorOpen ? 'bg-[#141F36] text-white border-[#2563EB]' : 'text-[#CBD5E1] hover:text-white'
+              }`}
+            >
+              <PanelRight className="w-3.5 h-3.5 mr-1.5 text-[#3B82F6]" />
+              <span className="hidden sm:inline">Inspector</span>
+            </Button>
 
             {/* Run Optimization Button */}
             <Button
@@ -429,39 +445,93 @@ function PlanningPageContent() {
                   </div>
                 </div>
 
-                {/* Lower: Contextual Bottom Split (Task Overview 45% + Timeline 55%) */}
-                <div className="flex-[3] min-h-[200px] grid grid-cols-12 gap-3 shrink-0">
-                  {/* Bottom Left: Task Overview */}
-                  <div className="col-span-12 md:col-span-5 h-full overflow-hidden">
-                    <TaskQueueTable
-                      tasks={tasks}
-                      scheduleResult={scheduleResult}
-                      selectedTaskId={selectedTaskId}
-                      onSelectTask={handleSelectTask}
-                      isCollapsible={true}
-                    />
+                {/* Lower: Contextual Bottom Split (Task Overview + Timeline) */}
+                <div className="flex-[3] min-h-[220px] max-h-[300px] flex flex-col min-w-0 shrink-0">
+                  {/* Laptop/Tablet/Mobile: Tab Switcher Header */}
+                  <div className="flex xl:hidden items-center justify-between px-3 py-1.5 bg-[#0F172A] border border-[#1E2D4A] rounded-t-lg shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setBottomPanelTab('TASKS')}
+                        className={`px-2.5 py-1 text-[11px] font-medium rounded transition-colors ${
+                          bottomPanelTab !== 'TIMELINE'
+                            ? 'bg-[#2563EB] text-white font-semibold'
+                            : 'text-[#94A3B8] hover:text-[#F8FAFC]'
+                        }`}
+                      >
+                        Task Queue ({tasks.length})
+                      </button>
+                      <button
+                        onClick={() => setBottomPanelTab('TIMELINE')}
+                        className={`px-2.5 py-1 text-[11px] font-medium rounded transition-colors ${
+                          bottomPanelTab === 'TIMELINE'
+                            ? 'bg-[#2563EB] text-white font-semibold'
+                            : 'text-[#94A3B8] hover:text-[#F8FAFC]'
+                        }`}
+                      >
+                        Corridor Timeline
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Bottom Right: Timeline / Time-Space Schedule */}
-                  <div className="col-span-12 md:col-span-7 h-full overflow-hidden">
-                    <TimelineScheduleView
-                      trains={trains}
-                      tasks={tasks}
-                      scheduleResult={scheduleResult}
-                      selectedTaskId={selectedTaskId}
-                      selectedTrainId={selectedTrainId}
-                      selectedSectionCode={selectedSectionCode}
-                      onSelectTask={handleSelectTask}
-                      onSelectTrain={handleSelectTrain}
-                      onSwitchToTimeSpace={() => setActiveSubtab('TIMESPACE')}
-                    />
+                  {/* Content Container */}
+                  <div className="flex-1 min-h-0 min-w-0">
+                    {/* Desktop >= xl: Side-by-side Dual Split */}
+                    <div className="hidden xl:grid xl:grid-cols-12 gap-3 h-full">
+                      <div className="col-span-5 h-full overflow-hidden">
+                        <TaskQueueTable
+                          tasks={tasks}
+                          scheduleResult={scheduleResult}
+                          selectedTaskId={selectedTaskId}
+                          onSelectTask={handleSelectTask}
+                          isCollapsible={true}
+                        />
+                      </div>
+                      <div className="col-span-7 h-full overflow-hidden">
+                        <TimelineScheduleView
+                          trains={trains}
+                          tasks={tasks}
+                          scheduleResult={scheduleResult}
+                          selectedTaskId={selectedTaskId}
+                          selectedTrainId={selectedTrainId}
+                          selectedSectionCode={selectedSectionCode}
+                          onSelectTask={handleSelectTask}
+                          onSelectTrain={handleSelectTrain}
+                          onSwitchToTimeSpace={() => setActiveSubtab('TIMESPACE')}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Laptop/Tablet/Mobile < xl: Single Full-Width Tab */}
+                    <div className="xl:hidden h-full overflow-hidden">
+                      {bottomPanelTab !== 'TIMELINE' ? (
+                        <TaskQueueTable
+                          tasks={tasks}
+                          scheduleResult={scheduleResult}
+                          selectedTaskId={selectedTaskId}
+                          onSelectTask={handleSelectTask}
+                          isCollapsible={false}
+                        />
+                      ) : (
+                        <TimelineScheduleView
+                          trains={trains}
+                          tasks={tasks}
+                          scheduleResult={scheduleResult}
+                          selectedTaskId={selectedTaskId}
+                          selectedTrainId={selectedTrainId}
+                          selectedSectionCode={selectedSectionCode}
+                          onSelectTask={handleSelectTask}
+                          onSelectTrain={handleSelectTrain}
+                          onSwitchToTimeSpace={() => setActiveSubtab('TIMESPACE')}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Right: Contextual Entity Inspector (Slide-out or Collapsible) */}
+              {/* Right: Contextual Entity Inspector on Desktop >= xl */}
               {isInspectorOpen && (
-                <div className="hidden lg:block h-full shrink-0">
+                <div className="hidden xl:block h-full shrink-0">
                   <EntityInspector
                     task={selectedTask}
                     scheduledInterval={selectedScheduled}
@@ -543,6 +613,46 @@ function PlanningPageContent() {
           {/* MODE 7: COPILOT VIEW (DEDICATED READ-ONLY DECISION SUPPORT) */}
           {activeSubtab === 'COPILOT' && <CopilotWorkspace />}
         </div>
+      </div>
+
+      {/* Contextual Entity Inspector Drawer on Mobile, Tablet & Laptop (< xl) */}
+      <div className="xl:hidden">
+        <ResponsiveDrawer
+          isOpen={isInspectorOpen}
+          onClose={() => setIsInspectorOpen(false)}
+          title={
+            selectedTask
+              ? `Task Details: ${selectedTask.task_id}`
+              : selectedTrain
+              ? `Train Movement: ${selectedTrain.train_number}`
+              : selectedSection
+              ? `Section: ${selectedSection.name}`
+              : 'Entity Inspector'
+          }
+          maxWidth="max-w-md"
+        >
+          <EntityInspector
+            task={selectedTask}
+            scheduledInterval={selectedScheduled}
+            diagnostic={selectedDiagnostic}
+            conflictingTrains={trains.filter((tr) => tr.train_number === '02073')}
+            selectedTrain={selectedTrain}
+            selectedSection={selectedSection}
+            isDrawer={true}
+            hideHeader={true}
+            onClose={() => setIsInspectorOpen(false)}
+            onNavigateToDiagnostics={(tId) => {
+              setSelectedTaskId(tId);
+              setActiveSubtab('DIAGNOSTICS');
+              setIsInspectorOpen(false);
+            }}
+            onNavigateToConflicts={(tId) => {
+              setSelectedTaskId(tId);
+              setActiveSubtab('CONFLICTS');
+              setIsInspectorOpen(false);
+            }}
+          />
+        </ResponsiveDrawer>
       </div>
 
       {/* Benchmark Comparison Modal */}

@@ -128,11 +128,11 @@ export const TimelineScheduleView: React.FC<TimelineScheduleViewProps> = ({
           })}
 
           {/* Row 1: TRAINS */}
-          <div className="relative h-8 bg-[#0A0E17]/40 border border-[#1E2D4A]/80 rounded flex items-center px-2">
-            <span className="w-12 text-[10px] font-semibold uppercase text-[#64748B] shrink-0 font-mono">
+          <div className="relative h-8 bg-[#0A0E17]/40 border border-[#1E2D4A]/80 rounded flex items-center px-1.5 sm:px-2 min-w-0">
+            <span className="w-10 sm:w-12 text-[9px] sm:text-[10px] font-semibold uppercase text-[#64748B] shrink-0 font-mono truncate">
               Trains
             </span>
-            <div className="relative flex-1 h-5">
+            <div className="relative flex-1 h-5 min-w-0">
               {/* Train trajectory bars */}
               <div
                 onClick={() => onSelectTrain?.('12400')}

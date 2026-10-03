@@ -87,10 +87,10 @@ export const RailwayCanvas: React.FC<RailwayCanvasProps> = ({
   return (
     <div className="relative h-full w-full bg-[#070B12] border border-[#1E2D4A] rounded-lg overflow-hidden select-none font-sans flex flex-col">
       {/* 1. Railway View Top Toolbar (Direct match to reference comp) */}
-      <div className="h-10 bg-[#0F172A]/90 backdrop-blur-xs border-b border-[#1E2D4A] px-3.5 flex items-center justify-between z-20 shrink-0">
-        <div>
-          <span className="font-semibold text-xs text-[#F8FAFC]">Railway View</span>
-          <span className="text-[11px] text-[#64748B] ml-2 font-mono">
+      <div className="h-10 bg-[#0F172A]/90 backdrop-blur-xs border-b border-[#1E2D4A] px-2.5 sm:px-3.5 flex items-center justify-between z-20 shrink-0 gap-2">
+        <div className="flex items-center min-w-0">
+          <span className="font-semibold text-xs text-[#F8FAFC] truncate">Railway View</span>
+          <span className="text-[11px] text-[#64748B] ml-2 font-mono truncate hidden sm:inline">
             {corridor.name || 'Northern Corridor'} • {corridor.total_length_km || 440} km
           </span>
         </div>
