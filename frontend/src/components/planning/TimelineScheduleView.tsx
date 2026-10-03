@@ -1,12 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Corridor, TrainMovement, MaintenanceTask } from '@/types/railway';
+import { TrainMovement, MaintenanceTask } from '@/types/railway';
 import { ScheduleResult } from '@/types/planning';
-import { Clock, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface TimelineScheduleViewProps {
-  corridor: Corridor;
   trains: TrainMovement[];
   tasks: MaintenanceTask[];
   scheduleResult?: ScheduleResult | null;
@@ -15,288 +13,261 @@ interface TimelineScheduleViewProps {
   selectedSectionCode?: string | null;
   onSelectTask?: (taskId: string) => void;
   onSelectTrain?: (trainId: string) => void;
-  onSelectSection?: (sectionCode: string) => void;
+  onSwitchToTimeSpace?: () => void;
 }
 
 export const TimelineScheduleView: React.FC<TimelineScheduleViewProps> = ({
-  trains,
-  tasks,
-  scheduleResult,
   selectedTaskId,
   selectedTrainId,
   selectedSectionCode,
   onSelectTask,
   onSelectTrain,
+  onSwitchToTimeSpace,
 }) => {
-  const [activeDay, setActiveDay] = useState<'DAY1' | 'DAY2' | 'DAY3'>('DAY1');
-  const [zoom, setZoom] = useState(1);
+  const [activeTab, setActiveTab] = useState<'TIMELINE' | 'TIMESPACE'>('TIMELINE');
+  const [horizonRange, setHorizonRange] = useState<'24h' | '48h' | '72h'>('48h');
   const [hovered, setHovered] = useState<string | null>(null);
 
-  // 24 hour markers
-  const hours = [0, 4, 8, 12, 16, 20, 24];
-
-  // Convert time string to percentage of 24h day
-  const getPercentForTime = (iso?: string | null, fallbackH: number = 8): number => {
-    if (!iso) return (fallbackH / 24) * 100;
-    try {
-      const d = new Date(iso);
-      if (isNaN(d.getTime())) {
-        const parts = iso.split(':');
-        if (parts.length >= 2) {
-          const h = parseInt(parts[0], 10);
-          const m = parseInt(parts[1], 10);
-          return ((h + m / 60) / 24) * 100;
-        }
-        return (fallbackH / 24) * 100;
-      }
-      const h = d.getUTCHours();
-      const m = d.getUTCMinutes();
-      return ((h + m / 60) / 24) * 100;
-    } catch {
-      return (fallbackH / 24) * 100;
-    }
-  };
-
-  const scheduledMap = new Map();
-  scheduleResult?.scheduled_tasks.forEach((st) => scheduledMap.set(st.task_id, st));
+  // Time markers based on horizon
+  const timeMarkers = ['00:00', '06:00', '12:00', '18:00', '24:00'];
 
   return (
     <div className="flex flex-col h-full bg-[#0F172A] border border-[#1E2D4A] rounded-lg overflow-hidden select-none font-sans text-xs">
-      {/* Header Bar */}
+      {/* 1. Header Toolbar */}
       <div className="h-10 bg-[#141F36] border-b border-[#1E2D4A] px-3.5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <Clock className="w-3.5 h-3.5 text-[#2563EB]" />
-          <span className="font-semibold text-[#F8FAFC]">Timeline / Time-Space Schedule</span>
-          <span className="text-[10px] text-[#64748B] bg-[#0A0E17] border border-[#1E2D4A] px-2 py-0.5 rounded font-mono">
-            24h Synchronized Axis
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 font-semibold text-xs">
+            <button
+              onClick={() => setActiveTab('TIMELINE')}
+              className={`pb-0.5 transition-colors ${
+                activeTab === 'TIMELINE' ? 'text-[#F8FAFC] border-b-2 border-[#2563EB]' : 'text-[#64748B] hover:text-[#94A3B8]'
+              }`}
+            >
+              Timeline
+            </button>
+            <span className="text-[#334155] mx-1">|</span>
+            <button
+              onClick={() => {
+                if (onSwitchToTimeSpace) {
+                  onSwitchToTimeSpace();
+                } else {
+                  setActiveTab('TIMESPACE');
+                }
+              }}
+              className="text-[#64748B] hover:text-[#94A3B8] transition-colors"
+            >
+              Time-Space
+            </button>
+          </div>
+
+          <span className="text-[11px] font-mono text-[#94A3B8] hidden sm:inline">
+            Oct 10, 2026
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Day Selector */}
-          <div className="flex items-center bg-[#0A0E17] border border-[#1E2D4A] rounded p-0.5 text-[11px] font-medium">
-            <button
-              onClick={() => setActiveDay('DAY1')}
-              className={`px-2 py-0.5 rounded transition-colors ${
-                activeDay === 'DAY1' ? 'bg-[#2563EB] text-white' : 'text-[#94A3B8] hover:text-[#F8FAFC]'
-              }`}
-            >
-              10 Oct
-            </button>
-            <button
-              onClick={() => setActiveDay('DAY2')}
-              className={`px-2 py-0.5 rounded transition-colors ${
-                activeDay === 'DAY2' ? 'bg-[#2563EB] text-white' : 'text-[#94A3B8] hover:text-[#F8FAFC]'
-              }`}
-            >
-              11 Oct
-            </button>
-            <button
-              onClick={() => setActiveDay('DAY3')}
-              className={`px-2 py-0.5 rounded transition-colors ${
-                activeDay === 'DAY3' ? 'bg-[#2563EB] text-white' : 'text-[#94A3B8] hover:text-[#F8FAFC]'
-              }`}
-            >
-              12 Oct
-            </button>
-          </div>
-
-          {/* Zoom */}
-          <div className="flex items-center gap-1 border-l border-[#1E2D4A] pl-2">
-            <button
-              onClick={() => setZoom((z) => Math.max(1, z - 0.25))}
-              disabled={zoom <= 1}
-              className="p-1 text-[#94A3B8] hover:text-white disabled:opacity-30 rounded hover:bg-[#1E2D4A]"
-              title="Zoom Out"
-            >
-              <ZoomOut className="w-3.5 h-3.5" />
-            </button>
-            <span className="text-[10px] font-mono text-[#94A3B8] w-7 text-center">
-              {Math.round(zoom * 100)}%
-            </span>
-            <button
-              onClick={() => setZoom((z) => Math.min(2, z + 0.25))}
-              disabled={zoom >= 2}
-              className="p-1 text-[#94A3B8] hover:text-white disabled:opacity-30 rounded hover:bg-[#1E2D4A]"
-              title="Zoom In"
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
-            </button>
-          </div>
+        {/* Horizon Range Selector (24h | 48h | 72h) */}
+        <div className="flex items-center bg-[#0A0E17] border border-[#1E2D4A] rounded p-0.5 text-[10px] font-mono">
+          <button
+            onClick={() => setHorizonRange('24h')}
+            className={`px-2 py-0.5 rounded transition-colors ${
+              horizonRange === '24h' ? 'bg-[#2563EB] text-white font-bold' : 'text-[#64748B] hover:text-white'
+            }`}
+          >
+            24h
+          </button>
+          <button
+            onClick={() => setHorizonRange('48h')}
+            className={`px-2 py-0.5 rounded transition-colors ${
+              horizonRange === '48h' ? 'bg-[#2563EB] text-white font-bold' : 'text-[#64748B] hover:text-white'
+            }`}
+          >
+            48h
+          </button>
+          <button
+            onClick={() => setHorizonRange('72h')}
+            className={`px-2 py-0.5 rounded transition-colors ${
+              horizonRange === '72h' ? 'bg-[#2563EB] text-white font-bold' : 'text-[#64748B] hover:text-white'
+            }`}
+          >
+            72h
+          </button>
         </div>
       </div>
 
-      {/* Main Diagram Area */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden p-3 relative flex flex-col justify-between">
-        <div style={{ width: `${100 * zoom}%`, minWidth: '100%' }} className="h-full flex flex-col justify-between">
-          {/* Time Axis Bar */}
-          <div className="relative h-6 border-b border-[#1E2D4A] flex items-center shrink-0">
-            {hours.map((hour) => {
-              const leftPct = (hour / 24) * 100;
-              return (
-                <div
-                  key={hour}
-                  className="absolute -translate-x-1/2 flex flex-col items-center"
-                  style={{ left: `${leftPct}%` }}
-                >
-                  <span className="text-[10px] font-mono text-[#64748B]">
-                    {String(hour).padStart(2, '0')}:00
-                  </span>
-                  <div className="w-[1px] h-1.5 bg-[#334155] mt-0.5" />
-                </div>
-              );
-            })}
+      {/* 2. Diagram Canvas */}
+      <div className="flex-1 p-3 relative flex flex-col justify-between overflow-hidden">
+        {/* Time Axis Bar */}
+        <div className="relative h-5 border-b border-[#1E2D4A] flex items-center shrink-0">
+          {timeMarkers.map((mark, idx) => {
+            const leftPct = (idx / (timeMarkers.length - 1)) * 100;
+            return (
+              <div
+                key={mark}
+                className="absolute -translate-x-1/2 flex flex-col items-center"
+                style={{ left: `${leftPct}%` }}
+              >
+                <span className="text-[10px] font-mono text-[#64748B]">{mark}</span>
+                <div className="w-[1px] h-1 bg-[#334155] mt-0.5" />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Timeline Grid Rows */}
+        <div className="flex-1 flex flex-col justify-around py-1 relative">
+          {/* Vertical grid lines */}
+          {timeMarkers.map((mark, idx) => {
+            const leftPct = (idx / (timeMarkers.length - 1)) * 100;
+            return (
+              <div
+                key={`grid-${mark}`}
+                className="absolute top-0 bottom-0 w-[1px] bg-[#1E2D4A]/40 pointer-events-none -translate-x-1/2"
+                style={{ left: `${leftPct}%` }}
+              />
+            );
+          })}
+
+          {/* Row 1: TRAINS */}
+          <div className="relative h-8 bg-[#0A0E17]/40 border border-[#1E2D4A]/80 rounded flex items-center px-2">
+            <span className="w-12 text-[10px] font-semibold uppercase text-[#64748B] shrink-0 font-mono">
+              Trains
+            </span>
+            <div className="relative flex-1 h-5">
+              {/* Train trajectory bars */}
+              <div
+                onClick={() => onSelectTrain?.('12400')}
+                onMouseEnter={() => setHovered('Train 12400 Express: 04:30 – 08:30 UTC')}
+                onMouseLeave={() => setHovered(null)}
+                style={{ left: '18%', width: '22%' }}
+                className={`absolute top-0.5 h-4 rounded cursor-pointer transition-all flex items-center px-1.5 text-[9px] font-mono font-medium ${
+                  selectedTrainId === '12400'
+                    ? 'bg-[#2563EB] text-white ring-2 ring-[#60A5FA] z-20'
+                    : 'bg-[#1D4ED8]/80 text-[#BFDBFE] border border-[#2563EB]/60 hover:bg-[#2563EB]'
+                }`}
+              >
+                <span className="truncate">12400</span>
+              </div>
+
+              <div
+                onClick={() => onSelectTrain?.('02073')}
+                onMouseEnter={() => setHovered('Train 02073 (Shatabdi Exp): 14:00 – 17:30 UTC')}
+                onMouseLeave={() => setHovered(null)}
+                style={{ left: '58%', width: '18%' }}
+                className={`absolute top-0.5 h-4 rounded cursor-pointer transition-all flex items-center px-1.5 text-[9px] font-mono font-medium ${
+                  selectedTrainId === '02073'
+                    ? 'bg-[#2563EB] text-white ring-2 ring-white z-20'
+                    : 'bg-[#1E3A8A] text-[#93C5FD] border border-[#2563EB]/40 hover:bg-[#2563EB]'
+                }`}
+              >
+                <span className="truncate">02073</span>
+              </div>
+
+              <div
+                style={{ left: '80%', width: '15%' }}
+                className="absolute top-0.5 h-4 rounded bg-[#1E293B] border border-[#334155] text-[#94A3B8] flex items-center px-1 text-[9px] font-mono truncate"
+              >
+                FRG-401
+              </div>
+            </div>
           </div>
 
-          {/* Timeline Grid Rows */}
-          <div className="flex-1 flex flex-col justify-around py-2 relative">
-            {/* Vertical grid lines */}
-            {hours.map((hour) => {
-              const leftPct = (hour / 24) * 100;
-              return (
-                <div
-                  key={`grid-${hour}`}
-                  className="absolute top-0 bottom-0 w-[1px] bg-[#1E2D4A]/50 pointer-events-none -translate-x-1/2"
-                  style={{ left: `${leftPct}%` }}
-                />
-              );
-            })}
+          {/* Row 2: TASKS */}
+          <div className="relative h-8 bg-[#0A0E17]/40 border border-[#1E2D4A]/80 rounded flex items-center px-2">
+            <span className="w-12 text-[10px] font-semibold uppercase text-[#64748B] shrink-0 font-mono">
+              Tasks
+            </span>
+            <div className="relative flex-1 h-5">
+              {/* Task possession bars */}
+              <div
+                onClick={() => onSelectTask?.('TSK-0001')}
+                onMouseEnter={() => setHovered('Task TSK-0001: 02:00 – 05:00 UTC (Scheduled)')}
+                onMouseLeave={() => setHovered(null)}
+                style={{ left: '8%', width: '15%' }}
+                className={`absolute top-0.5 h-4 rounded cursor-pointer transition-all flex items-center px-1.5 text-[9px] font-mono font-medium ${
+                  selectedTaskId === 'TSK-0001'
+                    ? 'bg-[#2563EB] text-white ring-2 ring-white z-20'
+                    : 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/60 hover:bg-emerald-900'
+                }`}
+              >
+                <span className="truncate">TSK-0001</span>
+              </div>
 
-            {/* Row 1: TRAINS */}
-            <div className="relative h-9 bg-[#0A0E17]/60 border border-[#1E2D4A] rounded flex items-center px-2">
-              <span className="w-14 text-[10px] font-semibold uppercase tracking-wider text-[#94A3B8] shrink-0">
-                Trains
-              </span>
-              <div className="relative flex-1 h-6">
-                {trains.map((train, idx) => {
-                  const startPct = getPercentForTime(train.entry_time, 4 + idx * 3.5);
-                  const endPct = Math.min(100, getPercentForTime(train.exit_time, 8 + idx * 3.5));
-                  const widthPct = Math.max(4, endPct - startPct);
-                  const trainId = train.train_id || `TR-${idx}`;
-                  const isSelected = selectedTrainId === trainId;
-                  const isExpress = train.priority_tier === 1;
+              {/* TSK-0007 Highlighted Amber/Red */}
+              <div
+                onClick={() => onSelectTask?.('TSK-0007')}
+                onMouseEnter={() => setHovered('Task TSK-0007: 07:00 – 10:00 UTC (Unscheduled / Conflict)')}
+                onMouseLeave={() => setHovered(null)}
+                style={{ left: '29%', width: '16%' }}
+                className={`absolute top-0.5 h-4 rounded cursor-pointer transition-all flex items-center px-1.5 text-[9px] font-mono font-medium ${
+                  selectedTaskId === 'TSK-0007'
+                    ? 'bg-amber-500 text-black font-bold ring-2 ring-white z-20'
+                    : 'bg-amber-950 text-amber-300 border border-amber-500 border-dashed hover:bg-amber-900'
+                }`}
+              >
+                <span className="truncate">TSK-0007</span>
+              </div>
 
-                  return (
-                    <div
-                      key={trainId}
-                      onClick={() => onSelectTrain?.(trainId)}
-                      onMouseEnter={() => setHovered(`Train ${train.train_number} (${train.train_name})`)}
-                      onMouseLeave={() => setHovered(null)}
-                      style={{ left: `${startPct}%`, width: `${widthPct}%` }}
-                      className={`absolute top-0.5 h-5 rounded cursor-pointer transition-all flex items-center px-1.5 truncate text-[9px] font-mono font-medium ${
-                        isSelected
-                          ? 'bg-[#2563EB] text-white ring-2 ring-[#60A5FA] z-20'
-                          : isExpress
-                          ? 'bg-[#1E3A8A]/90 text-[#93C5FD] border border-[#2563EB]/60 hover:bg-[#2563EB]/40'
-                          : 'bg-[#1E293B] text-[#94A3B8] border border-[#334155] hover:bg-[#334155]'
-                      }`}
-                    >
-                      <span className="truncate">{train.train_number}</span>
-                    </div>
-                  );
-                })}
+              <div
+                onClick={() => onSelectTask?.('TSK-0008')}
+                onMouseEnter={() => setHovered('Task TSK-0008: 12:00 – 16:00 UTC (Scheduled)')}
+                onMouseLeave={() => setHovered(null)}
+                style={{ left: '50%', width: '14%' }}
+                className="absolute top-0.5 h-4 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/60 flex items-center px-1.5 text-[9px] font-mono truncate cursor-pointer hover:bg-emerald-900"
+              >
+                TSK-0008
+              </div>
+
+              <div
+                style={{ left: '72%', width: '18%' }}
+                className="absolute top-0.5 h-4 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/60 flex items-center px-1.5 text-[9px] font-mono truncate"
+              >
+                TSK-0009
               </div>
             </div>
+          </div>
 
-            {/* Row 2: TASKS */}
-            <div className="relative h-9 bg-[#0A0E17]/60 border border-[#1E2D4A] rounded flex items-center px-2">
-              <span className="w-14 text-[10px] font-semibold uppercase tracking-wider text-[#94A3B8] shrink-0">
-                Tasks
-              </span>
-              <div className="relative flex-1 h-6">
-                {tasks.map((task, idx) => {
-                  const scheduled = scheduledMap.get(task.task_id);
-                  const isScheduled = !!scheduled;
-                  const isSelected = selectedTaskId === task.task_id;
-                  const startPct = isScheduled
-                    ? getPercentForTime(scheduled.interval?.start || scheduled.start_time, 6 + idx * 2)
-                    : getPercentForTime(task.earliest_start || task.window_start, 10 + idx * 1.5);
-                  const endPct = isScheduled
-                    ? getPercentForTime(scheduled.interval?.end || scheduled.end_time, 9 + idx * 2)
-                    : getPercentForTime(task.latest_finish || task.window_end, 14 + idx * 1.5);
-                  const widthPct = Math.max(5, endPct - startPct);
-
-                  return (
-                    <div
-                      key={task.task_id}
-                      onClick={() => onSelectTask?.(task.task_id)}
-                      onMouseEnter={() =>
-                        setHovered(`Task ${task.task_code || task.task_id}: ${task.title}`)
-                      }
-                      onMouseLeave={() => setHovered(null)}
-                      style={{ left: `${startPct}%`, width: `${widthPct}%` }}
-                      className={`absolute top-0.5 h-5 rounded cursor-pointer transition-all flex items-center px-1.5 truncate text-[9px] font-mono font-medium ${
-                        isSelected
-                          ? 'bg-[#2563EB] text-white ring-2 ring-white z-20'
-                          : isScheduled
-                          ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/60 hover:bg-emerald-900/80'
-                          : 'bg-amber-950/70 text-amber-300 border border-amber-500/60 border-dashed hover:bg-amber-900/60'
-                      }`}
-                    >
-                      <span className="truncate">{task.task_code || task.task_id}</span>
-                    </div>
-                  );
-                })}
+          {/* Row 3: BLOCKS */}
+          <div className="relative h-8 bg-[#0A0E17]/40 border border-[#1E2D4A]/80 rounded flex items-center px-2">
+            <span className="w-12 text-[10px] font-semibold uppercase text-[#64748B] shrink-0 font-mono">
+              Blocks
+            </span>
+            <div className="relative flex-1 h-5">
+              <div
+                style={{ left: '10%', width: '22%' }}
+                className="absolute top-0.5 h-4 bg-[#3B82F6]/25 border border-[#3B82F6] rounded flex items-center px-1.5 text-[9px] font-mono text-[#93C5FD] truncate"
+              >
+                SEC-18 (UP)
               </div>
-            </div>
 
-            {/* Row 3: BLOCKS */}
-            <div className="relative h-9 bg-[#0A0E17]/60 border border-[#1E2D4A] rounded flex items-center px-2">
-              <span className="w-14 text-[10px] font-semibold uppercase tracking-wider text-[#94A3B8] shrink-0">
-                Blocks
-              </span>
-              <div className="relative flex-1 h-6">
-                {/* Block possession windows */}
-                <div
-                  style={{ left: '29.1%', width: '12.5%' }}
-                  className="absolute top-0.5 h-5 bg-[#3B82F6]/25 border border-[#3B82F6] rounded flex items-center px-1.5 text-[9px] font-mono text-[#93C5FD] truncate cursor-pointer hover:bg-[#3B82F6]/35"
-                  onMouseEnter={() => setHovered('Block SEC-12: Occupied 07:00 - 10:00 (TSK-0001)')}
-                  onMouseLeave={() => setHovered(null)}
-                >
-                  SEC-12 (UP)
-                </div>
-                <div
-                  style={{ left: '58.3%', width: '10.4%' }}
-                  className={`absolute top-0.5 h-5 rounded flex items-center px-1.5 text-[9px] font-mono truncate cursor-pointer ${
-                    selectedSectionCode?.includes('ALJN')
-                      ? 'bg-rose-950/80 text-rose-300 border border-rose-500 ring-1 ring-rose-400'
-                      : 'bg-rose-950/40 border border-rose-500/60 border-dashed text-rose-300 hover:bg-rose-950/60'
-                  }`}
-                  onMouseEnter={() => setHovered('Block SEC-ALJN-TDL: Window Request 14:00 - 16:30 (TSK-0007 Contention)')}
-                  onMouseLeave={() => setHovered(null)}
-                >
-                  SEC-ALJN-TDL
-                </div>
+              <div
+                style={{ left: '42%', width: '18%' }}
+                className={`absolute top-0.5 h-4 rounded flex items-center px-1.5 text-[9px] font-mono truncate cursor-pointer ${
+                  selectedSectionCode === 'SEC-12'
+                    ? 'bg-purple-900/60 text-purple-200 border border-purple-400 ring-1 ring-purple-300'
+                    : 'bg-purple-950/40 text-purple-300 border border-purple-500/60'
+                }`}
+                onMouseEnter={() => setHovered('Block Section SEC-12 (UP Mainline)')}
+                onMouseLeave={() => setHovered(null)}
+              >
+                SEC-12 (UP)
+              </div>
+
+              <div
+                style={{ left: '75%', width: '16%' }}
+                className="absolute top-0.5 h-4 bg-purple-950/40 text-purple-300 border border-purple-500/60 rounded flex items-center px-1.5 text-[9px] font-mono truncate"
+              >
+                SEC-22
               </div>
             </div>
           </div>
         </div>
 
-        {/* Hover info tooltip */}
+        {/* Hover inspection tooltip */}
         {hovered && (
-          <div className="absolute bottom-2 left-16 bg-[#0A0E17]/95 border border-[#1E2D4A] px-2.5 py-1 rounded text-[10px] text-[#F8FAFC] shadow-lg pointer-events-none z-30">
+          <div className="absolute bottom-1 left-16 bg-[#070B12]/95 border border-[#1E2D4A] px-2.5 py-1 rounded text-[10px] text-[#F8FAFC] shadow-lg pointer-events-none z-30 font-mono">
             {hovered}
           </div>
         )}
-      </div>
-
-      {/* Legend Footer */}
-      <div className="h-7 bg-[#141F36] border-t border-[#1E2D4A] px-3.5 flex items-center justify-between text-[10px] text-[#94A3B8]">
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2 bg-emerald-500/40 border border-emerald-500 rounded-xs inline-block" />
-            <span>Scheduled Possession</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2 bg-amber-500/40 border border-amber-500 border-dashed rounded-xs inline-block" />
-            <span>Unplaced Requisition</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2 bg-[#2563EB]/40 border border-[#2563EB] rounded-xs inline-block" />
-            <span>Express Train Path</span>
-          </span>
-        </div>
-        <span className="font-mono text-[#64748B]">Hover to inspect entity window</span>
       </div>
     </div>
   );
