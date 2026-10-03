@@ -159,6 +159,18 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({
                 </span>
               </div>
               <div className="flex justify-between items-center">
+                <span className="text-[#64748B]">Adjacent Track:</span>
+                <span className="font-mono text-[#38BDF8] font-medium">
+                  {task.adjacent_track_impact === 'NONE'
+                    ? 'None (Confined)'
+                    : task.adjacent_track_impact === 'CAUTION_ORDER'
+                    ? 'Caution order'
+                    : task.adjacent_track_impact === 'FULL_TRAFFIC_BLOCK'
+                    ? 'Full traffic block'
+                    : 'Not specified'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
                 <span className="text-[#64748B]">Window:</span>
                 <span className="font-mono text-[#93C5FD]">
                   {formatTime(task.earliest_start || task.window_start, '07:00')} –{' '}

@@ -14,6 +14,7 @@ from backend.app.domain.enums import (
     ResourceType,
     AvailabilityStatus,
     DependencyType,
+    AdjacentTrackImpact,
 )
 from backend.app.domain.provenance import ProvenanceMetadata, assert_classification_immutable
 from backend.app.domain.sources import SourceDocument
@@ -69,6 +70,7 @@ __all__ = [
     "ResourceType",
     "AvailabilityStatus",
     "DependencyType",
+    "AdjacentTrackImpact",
     "ProvenanceMetadata",
     "assert_classification_immutable",
     "SourceDocument",

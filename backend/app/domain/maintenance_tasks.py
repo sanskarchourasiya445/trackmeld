@@ -7,6 +7,7 @@ from backend.app.domain.enums import (
     TaskStatus,
     TaskPriority,
     DependencyType,
+    AdjacentTrackImpact,
 )
 
 
@@ -66,6 +67,10 @@ class MaintenanceTask(BaseModel):
     track_id: Optional[str] = Field(default=None, description="Optional specific track assignment (e.g. TRK-NDLS-GZB-UP)")
     from_km: Optional[float] = Field(default=None, description="Start chainage in km along track")
     to_km: Optional[float] = Field(default=None, description="End chainage in km along track")
+    adjacent_track_impact: Optional[AdjacentTrackImpact] = Field(
+        default=None,
+        description="Provisional operational impact on adjacent running line(s)"
+    )
     affected_section_ids: List[str] = Field(default_factory=list, description="All block sections requiring spatial block")
     rule_references: List[str] = Field(default_factory=list, description="Rule IDs from railway_rules justifying constraints")
 
@@ -74,10 +79,12 @@ class MaintenanceTask(BaseModel):
         if self.window_start >= self.window_end:
             raise ValueError(f"window_start ({self.window_start}) must precede window_end ({self.window_end})")
         
-        # Spatial chainage invariants
+        # Spatial chainage and adjacent track invariants
         if self.track_id is None:
             if self.from_km is not None or self.to_km is not None:
                 raise ValueError("from_km and to_km must be None when track_id is None (whole-section task)")
+            if self.adjacent_track_impact is not None:
+                raise ValueError("adjacent_track_impact must be None when track_id is None (whole-section task already possesses entire section)")
         else:
             if self.from_km is not None and self.from_km < 0:
                 raise ValueError(f"from_km ({self.from_km}) cannot be negative")

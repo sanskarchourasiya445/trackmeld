@@ -133,6 +133,7 @@ class MaintenanceTaskResponse(BaseModel):
     track_id: Optional[str] = None
     from_km: Optional[float] = None
     to_km: Optional[float] = None
+    adjacent_track_impact: Optional[str] = None
     station_id: Optional[str] = None
     corridor_id: Optional[str] = None
     scenario_id: str

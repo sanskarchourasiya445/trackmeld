@@ -180,6 +180,7 @@ class PlanningScenarioService:
                     "track_id": t.track_id,
                     "from_km": t.from_km,
                     "to_km": t.to_km,
+                    "adjacent_track_impact": t.adjacent_track_impact,
                     "station_id": t.station_id,
 
                     "corridor_id": t.corridor_id,

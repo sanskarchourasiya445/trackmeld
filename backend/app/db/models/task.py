@@ -81,6 +81,7 @@ class MaintenanceTaskModel(Base, TimestampMixin):
     )
     from_km: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     to_km: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    adjacent_track_impact: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
 
     station_id: Mapped[Optional[str]] = mapped_column(
         String(32),

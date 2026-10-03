@@ -828,7 +828,8 @@
       "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
       "track_id": "TRK-ETW-CNB-UP",
       "from_km": null,
-      "to_km": null
+      "to_km": null,
+      "adjacent_track_impact": "CAUTION_ORDER"
     },
     {
       "task_id": "TSK-0002",
@@ -863,7 +864,8 @@
       "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
       "track_id": "TRK-ARA-PNBE-DN",
       "from_km": 12.4,
-      "to_km": 15.8
+      "to_km": 15.8,
+      "adjacent_track_impact": "FULL_TRAFFIC_BLOCK"
     },
     {
       "task_id": "TSK-0003",
@@ -895,7 +897,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 6,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0004",
@@ -927,7 +930,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 10,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0005",
@@ -959,7 +963,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 14,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0006",
@@ -991,7 +996,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 14,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0007",
@@ -1023,7 +1029,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 10,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0008",
@@ -1055,7 +1062,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 8,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0009",
@@ -1087,7 +1095,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 4,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0010",
@@ -1119,7 +1128,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 6,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0011",
@@ -1151,7 +1161,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 6,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0012",
@@ -1183,7 +1194,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 6,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0013",
@@ -1215,7 +1227,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 6,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0014",
@@ -1247,7 +1260,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 4,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0015",
@@ -1279,7 +1293,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 6,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0016",
@@ -1311,7 +1326,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 6,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0017",
@@ -1343,7 +1359,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 5,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0018",
@@ -1375,7 +1392,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 5,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0019",
@@ -1407,7 +1425,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 5,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0020",
@@ -1439,7 +1458,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 5,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0021",
@@ -1471,7 +1491,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 5,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0022",
@@ -1503,7 +1524,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 5,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0023",
@@ -1535,7 +1557,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 10,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0024",
@@ -1567,7 +1590,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 10,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0025",
@@ -1599,7 +1623,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 6,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0026",
@@ -1631,7 +1656,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 6,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0027",
@@ -1663,7 +1689,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 6,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0028",
@@ -1695,7 +1722,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 6,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0029",
@@ -1727,7 +1755,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 4,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     },
     {
       "task_id": "TSK-0030",
@@ -1759,7 +1788,8 @@
       "safety_buffer_after_minutes": 15,
       "crew_size_required": 8,
       "classification": "SYNTHETIC",
-      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN"
+      "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+      "adjacent_track_impact": null
     }
   ],
   "task_resource_requirements": [

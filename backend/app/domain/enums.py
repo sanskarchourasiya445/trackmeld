@@ -137,3 +137,15 @@ class AvailabilityStatus(str, Enum):
 class DependencyType(str, Enum):
     """Temporal or logical sequencing relationship between tasks."""
     FINISH_TO_START = "FINISH_TO_START"
+
+
+class AdjacentTrackImpact(str, Enum):
+    """Provisional classification of maintenance impact on adjacent running line(s).
+    
+    NOTE: This is a provisional TrackMeld domain abstraction for decision support,
+    not a claim of complete or official railway safety-rule coverage.
+    """
+    NONE = "NONE"
+    CAUTION_ORDER = "CAUTION_ORDER"
+    FULL_TRAFFIC_BLOCK = "FULL_TRAFFIC_BLOCK"
+

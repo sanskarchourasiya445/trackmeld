@@ -107,6 +107,7 @@ export interface MaintenanceTask {
   track_id?: string;
   from_km?: number;
   to_km?: number;
+  adjacent_track_impact?: 'NONE' | 'CAUTION_ORDER' | 'FULL_TRAFFIC_BLOCK';
   section_code?: string;
 
   station_id?: string;

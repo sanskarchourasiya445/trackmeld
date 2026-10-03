@@ -168,6 +168,18 @@ export const TaskInspector: React.FC<TaskInspectorProps> = ({
                 <span className="font-mono text-[#38BDF8]">{formatTrackSpatial(task)}</span>
               </div>
               <div className="col-span-2">
+                <span className="text-[10px] text-[#64748B] block font-mono">Adjacent-Track Impact</span>
+                <span className="font-mono text-[#38BDF8]">
+                  {task?.adjacent_track_impact === 'NONE'
+                    ? 'None (Confined to track)'
+                    : task?.adjacent_track_impact === 'CAUTION_ORDER'
+                    ? 'Caution order (Speed restriction on adjacent line)'
+                    : task?.adjacent_track_impact === 'FULL_TRAFFIC_BLOCK'
+                    ? 'Full traffic block (Adjacent line closed)'
+                    : 'Not specified (Whole-section block applies)'}
+                </span>
+              </div>
+              <div className="col-span-2">
                 <span className="text-[10px] text-[#64748B] block font-mono">Time Window</span>
                 <span className="font-mono text-[#2563EB] font-medium">{windowText}</span>
               </div>
