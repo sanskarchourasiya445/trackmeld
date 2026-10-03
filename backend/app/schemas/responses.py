@@ -46,6 +46,50 @@ class TrackResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class TopologyNodeResponse(BaseModel):
+    node_id: str
+    node_name: str
+    station_id: Optional[str] = None
+    node_type: str
+    classification: str
+    source_id: str
+
+    model_config = {"from_attributes": True}
+
+
+class TrackEndpointResponse(BaseModel):
+    endpoint_id: str
+    track_id: str
+    endpoint_type: str
+    kilometrage: float
+
+    model_config = {"from_attributes": True}
+
+
+class TopologyConnectionResponse(BaseModel):
+    connection_id: str
+    node_id: str
+    from_endpoint_id: str
+    to_endpoint_id: str
+    connection_type: str
+    traversal_direction: str
+    max_diverging_speed_kmh: Optional[int] = None
+    classification: str
+
+    model_config = {"from_attributes": True}
+
+
+class TrackTopologyResponse(BaseModel):
+    track_id: str
+    section_id: str
+    endpoints: List[TrackEndpointResponse]
+    outgoing_connections: List[TopologyConnectionResponse]
+    incoming_connections: List[TopologyConnectionResponse]
+
+    model_config = {"from_attributes": True}
+
+
+
 class SectionResponse(BaseModel):
     section_id: str
     section_code: str

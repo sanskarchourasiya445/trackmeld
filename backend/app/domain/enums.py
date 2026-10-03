@@ -161,3 +161,32 @@ class TraversalResolutionStatus(str, Enum):
     EXPANDED_ROUTE = "EXPANDED_ROUTE"
     UNRESOLVED = "UNRESOLVED"
 
+
+class EndpointType(str, Enum):
+    """Boundary termination type for a running track."""
+    START = "START"
+    END = "END"
+
+
+class TopologyNodeType(str, Enum):
+    """Physical or operational junction point category."""
+    BOUNDARY_JOINT = "BOUNDARY_JOINT"
+    STATION_THROAT = "STATION_THROAT"
+    CROSSOVER_JUNCTION = "CROSSOVER_JUNCTION"
+
+
+class TopologyConnectionType(str, Enum):
+    """Physical nature of the rail connection between two track endpoints."""
+    CONTINUITY = "CONTINUITY"
+    TURNOUT_NORMAL = "TURNOUT_NORMAL"
+    TURNOUT_REVERSE = "TURNOUT_REVERSE"
+    CROSSOVER = "CROSSOVER"
+
+
+class TopologyTraversalDirection(str, Enum):
+    """Permitted traversal direction along a physical connection."""
+    FORWARD = "FORWARD"
+    REVERSE = "REVERSE"
+    BIDIRECTIONAL = "BIDIRECTIONAL"
+
+

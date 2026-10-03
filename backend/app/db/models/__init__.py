@@ -25,6 +25,12 @@ from backend.app.db.models.plan_version import (
     PlanReviewCommentModel,
     GovernanceAuditEventModel,
 )
+from backend.app.db.models.topology import (
+    TopologyNodeModel,
+    TrackEndpointModel,
+    TopologyConnectionModel,
+)
+
 
 __all__ = [
     "SourceDocumentModel",
@@ -49,5 +55,8 @@ __all__ = [
     "PlanVersionModel",
     "PlanReviewCommentModel",
     "GovernanceAuditEventModel",
+    "TopologyNodeModel",
+    "TrackEndpointModel",
+    "TopologyConnectionModel",
 ]
 

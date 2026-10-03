@@ -38,3 +38,4 @@ class TrackModel(Base, TimestampMixin):
     section = relationship("SectionModel", back_populates="tracks")
     tasks = relationship("MaintenanceTaskModel", back_populates="track")
     movements = relationship("TrainMovementModel", back_populates="track")
+    endpoints = relationship("TrackEndpointModel", back_populates="track", cascade="all, delete-orphan")

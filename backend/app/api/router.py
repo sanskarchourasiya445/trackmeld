@@ -17,6 +17,8 @@ from backend.app.api.v1.planning import router as planning_router
 from backend.app.api.v1.planning_runs import router as planning_runs_router
 from backend.app.api.v1.plan_versions import router as plan_versions_router
 from backend.app.api.v1.copilot import router as copilot_router
+from backend.app.api.v1.topology import router as topology_router
+
 
 api_router = APIRouter()
 
@@ -42,5 +44,7 @@ v1_router.include_router(planning_router)
 v1_router.include_router(planning_runs_router)
 v1_router.include_router(plan_versions_router)
 v1_router.include_router(copilot_router)
+v1_router.include_router(topology_router)
+
 
 api_router.include_router(v1_router)
