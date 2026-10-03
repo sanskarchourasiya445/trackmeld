@@ -36,6 +36,7 @@ class ValidationCategory(str, Enum):
     RULE = "RULE"
     PROVENANCE = "PROVENANCE"
     SOLVER_OUTPUT = "SOLVER_OUTPUT"
+    TRACK = "TRACK"
 
 
 class ValidationFinding(BaseModel):

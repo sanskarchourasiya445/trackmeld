@@ -57,6 +57,7 @@ class ScheduleCheckRunner:
         self._check_section_occupancy()
         self._check_multi_section_tasks()
         self._check_train_movements()
+        self._check_track_spatial_safety()
         self._check_resources()
         self._check_dependencies()
         self._check_mandatory_tasks()
@@ -393,6 +394,267 @@ class ScheduleCheckRunner:
                                     "possession_interval": f"[{st.possession_interval.start.isoformat()}, {st.possession_interval.end.isoformat()})",
                                     "overlap": f"[{overlap_start.isoformat()}, {overlap_end.isoformat()})",
                                 },
+                            )
+                        )
+
+    # -------------------------------------------------------------------------
+    # 7b. Track Spatial Safety Checks (Phase 16G-C)
+    # -------------------------------------------------------------------------
+    def _check_track_spatial_safety(self) -> None:
+        """Independent verification of track assignments, direction constraints, and adjacent track safety.
+
+        CRITICAL ARCHITECTURAL BOUNDARY:
+        - Independent post-solve audit: does NOT call CompatibilityEngine or CP-SAT.
+        - Uses pure, deterministic domain functions from backend.app.domain.spatial_compatibility.
+        - Additive diagnostic and safety layer: DOES NOT relax or replace section-level mutex.
+        - Whole-section checks (_check_section_occupancy, _check_train_movements) remain authoritative.
+        """
+        self.checks_executed.append("TRACK_SPATIAL_SAFETY")
+        tracks_map = getattr(self.snapshot, "tracks_map", {}) or {}
+
+        # 1. Audit Track Assignments and Direction Alignment on Scheduled Tasks
+        for st in self.schedule.scheduled_tasks:
+            orig = self.snapshot.tasks_map.get(st.task_id, {})
+            t_track_id = orig.get("track_id") if isinstance(orig, dict) else getattr(orig, "track_id", None)
+            sec_id = orig.get("section_id") if isinstance(orig, dict) else getattr(orig, "section_id", None)
+
+            if t_track_id:
+                # 1.1 Invalid Track Assignment
+                if t_track_id not in tracks_map:
+                    self.findings.append(
+                        ValidationFinding(
+                            code="INVALID_TRACK_ASSIGNMENT",
+                            severity=ValidationSeverity.ERROR,
+                            category=ValidationCategory.TRACK,
+                            message=f"Task '{st.task_id}' references unknown or invalid track '{t_track_id}' not found in planning snapshot infrastructure.",
+                            task_id=st.task_id,
+                            section_id=sec_id,
+                            actual=t_track_id,
+                            expected="Valid track ID from snapshot.tracks_map",
+                        )
+                    )
+                else:
+                    # 1.2 Direction conflict on unidirectional track
+                    track_obj = tracks_map[t_track_id]
+                    trk_dir = getattr(track_obj, "direction", None) or (track_obj.get("direction") if isinstance(track_obj, dict) else None)
+                    task_dir = orig.get("direction") if isinstance(orig, dict) else getattr(orig, "direction", None)
+                    if task_dir in ("UP", "DOWN") and trk_dir in ("UP", "DOWN") and task_dir != trk_dir:
+                        self.findings.append(
+                            ValidationFinding(
+                                code="TRACK_DIRECTION_CONFLICT",
+                                severity=ValidationSeverity.ERROR,
+                                category=ValidationCategory.TRACK,
+                                message=f"Task '{st.task_id}' direction '{task_dir}' conflicts with track '{t_track_id}' direction '{trk_dir}'.",
+                                task_id=st.task_id,
+                                section_id=sec_id,
+                                evidence={"task_direction": task_dir, "track_direction": trk_dir, "track_id": t_track_id},
+                            )
+                        )
+
+        # 2. Audit Track Assignments and Direction on Train Movements
+        raw_movs = getattr(self.snapshot, "train_movements", []) or []
+        for m in raw_movs:
+            m_id = getattr(m, "movement_id", None) or (m.get("movement_id") if isinstance(m, dict) else None)
+            m_track_id = getattr(m, "track_id", None) or (m.get("track_id") if isinstance(m, dict) else None)
+            if m_track_id:
+                if m_track_id not in tracks_map:
+                    self.findings.append(
+                        ValidationFinding(
+                            code="INVALID_TRACK_ASSIGNMENT",
+                            severity=ValidationSeverity.ERROR,
+                            category=ValidationCategory.TRACK,
+                            message=f"Train movement '{m_id}' references unknown or invalid track '{m_track_id}'.",
+                            train_movement_id=m_id,
+                            actual=m_track_id,
+                            expected="Valid track ID from snapshot.tracks_map",
+                        )
+                    )
+                else:
+                    track_obj = tracks_map[m_track_id]
+                    trk_dir = getattr(track_obj, "direction", None) or (track_obj.get("direction") if isinstance(track_obj, dict) else None)
+                    m_dir = getattr(m, "direction", None) or (m.get("direction") if isinstance(m, dict) else None)
+                    if m_dir in ("UP", "DOWN") and trk_dir in ("UP", "DOWN") and m_dir != trk_dir:
+                        self.findings.append(
+                            ValidationFinding(
+                                code="TRACK_DIRECTION_CONFLICT",
+                                severity=ValidationSeverity.ERROR,
+                                category=ValidationCategory.TRACK,
+                                message=f"Train movement '{m_id}' direction '{m_dir}' conflicts with track '{m_track_id}' direction '{trk_dir}'.",
+                                train_movement_id=m_id,
+                                evidence={"movement_direction": m_dir, "track_direction": trk_dir, "track_id": m_track_id},
+                            )
+                        )
+
+        # 3. Audit Train Passes and Traversals for Direction Conflict
+        for tp in getattr(self.snapshot, "train_passes", []) or []:
+            tp_track = getattr(tp, "track_id", None) or (tp.get("track_id") if isinstance(tp, dict) else None)
+            if tp_track:
+                if tp_track not in tracks_map:
+                    self.findings.append(
+                        ValidationFinding(
+                            code="INVALID_TRACK_ASSIGNMENT",
+                            severity=ValidationSeverity.ERROR,
+                            category=ValidationCategory.TRACK,
+                            message=f"Train pass '{tp.pass_id}' references unknown or invalid track '{tp_track}'.",
+                            train_movement_id=tp.train_id,
+                            actual=tp_track,
+                            expected="Valid track ID from snapshot.tracks_map",
+                        )
+                    )
+                else:
+                    track_obj = tracks_map[tp_track]
+                    trk_dir = getattr(track_obj, "direction", None) or (track_obj.get("direction") if isinstance(track_obj, dict) else None)
+                    tp_dir = getattr(tp, "direction", None) or (tp.get("direction") if isinstance(tp, dict) else None)
+                    if tp_dir in ("UP", "DOWN") and trk_dir in ("UP", "DOWN") and tp_dir != trk_dir:
+                        self.findings.append(
+                            ValidationFinding(
+                                code="TRACK_DIRECTION_CONFLICT",
+                                severity=ValidationSeverity.ERROR,
+                                category=ValidationCategory.TRACK,
+                                message=f"Train pass '{tp.pass_id}' direction '{tp_dir}' conflicts with track '{tp_track}' direction '{trk_dir}'.",
+                                train_movement_id=tp.train_id,
+                                evidence={"pass_direction": tp_dir, "track_direction": trk_dir, "track_id": tp_track},
+                            )
+                        )
+
+        # 4. Pairwise Adjacent Track Analysis Between Scheduled Tasks
+        tasks_by_sec = defaultdict(list)
+        for st in self.schedule.scheduled_tasks:
+            orig = self.snapshot.tasks_map.get(st.task_id, {})
+            sec_id = orig.get("section_id") if isinstance(orig, dict) else getattr(orig, "section_id", None)
+            if sec_id:
+                tasks_by_sec[sec_id].append(st)
+
+        from backend.app.domain.spatial_compatibility import (
+            evaluate_spatial_compatibility,
+            SpatialOccupant,
+            SpatialCompatibilityStatus,
+            SpatialCompatibilityReason,
+        )
+
+        for sec_id, task_list in tasks_by_sec.items():
+            if len(task_list) <= 1:
+                continue
+
+            for i in range(len(task_list)):
+                for j in range(i + 1, len(task_list)):
+                    st1 = task_list[i]
+                    st2 = task_list[j]
+
+                    # Temporal overlap check [start, end)
+                    if not (st1.possession_interval.start < st2.possession_interval.end and st2.possession_interval.start < st1.possession_interval.end):
+                        continue
+
+                    orig1 = self.snapshot.tasks_map.get(st1.task_id, {})
+                    orig2 = self.snapshot.tasks_map.get(st2.task_id, {})
+                    trk1_id = orig1.get("track_id") if isinstance(orig1, dict) else getattr(orig1, "track_id", None)
+                    trk2_id = orig2.get("track_id") if isinstance(orig2, dict) else getattr(orig2, "track_id", None)
+
+                    # If either has no track, section check already handles it
+                    if not trk1_id or not trk2_id or trk1_id not in tracks_map or trk2_id not in tracks_map:
+                        continue
+
+                    # If same track, SECTION_OCCUPANCY_CONFLICT already flags ERROR; avoid redundant duplicate finding
+                    if trk1_id == trk2_id:
+                        continue
+
+                    occ1 = SpatialOccupant.from_task(orig1, interval_override=(st1.possession_interval.start, st1.possession_interval.end))
+                    occ2 = SpatialOccupant.from_task(orig2, interval_override=(st2.possession_interval.start, st2.possession_interval.end))
+
+                    res = evaluate_spatial_compatibility(occ1, occ2, tracks_map)
+
+                    if res.status == SpatialCompatibilityStatus.INCOMPATIBLE:
+                        if res.reason == SpatialCompatibilityReason.ADJACENT_TRACK_FULL_BLOCK:
+                            self.findings.append(
+                                ValidationFinding(
+                                    code="ADJACENT_TRACK_FULL_BLOCK",
+                                    severity=ValidationSeverity.ERROR,
+                                    category=ValidationCategory.TRACK,
+                                    message=res.message,
+                                    task_id=st2.task_id,
+                                    section_id=sec_id,
+                                    evidence=res.evidence,
+                                )
+                            )
+                    elif res.status == SpatialCompatibilityStatus.COMPATIBLE and res.requires_caution_order:
+                        self.findings.append(
+                            ValidationFinding(
+                                code="ADJACENT_TRACK_CAUTION_REQUIRED",
+                                severity=ValidationSeverity.INFO,
+                                category=ValidationCategory.TRACK,
+                                message=res.message,
+                                task_id=st2.task_id,
+                                section_id=sec_id,
+                                evidence=res.evidence,
+                            )
+                        )
+                    elif res.status == SpatialCompatibilityStatus.INSUFFICIENT_DATA:
+                        if res.reason in (SpatialCompatibilityReason.MISSING_ADJACENCY_METADATA, SpatialCompatibilityReason.UNSPECIFIED_SPATIAL_RELATION):
+                            self.findings.append(
+                                ValidationFinding(
+                                    code="SPATIAL_METADATA_INCOMPLETE",
+                                    severity=ValidationSeverity.INFO,
+                                    category=ValidationCategory.TRACK,
+                                    message=res.message,
+                                    task_id=st2.task_id,
+                                    section_id=sec_id,
+                                    evidence=res.evidence,
+                                )
+                            )
+
+        # 5. Pairwise Adjacent Track Analysis Between Scheduled Tasks and Train Passes
+        for sec_id, task_list in tasks_by_sec.items():
+            train_passes_in_sec = [tp for tp in getattr(self.snapshot, "train_passes", []) if getattr(tp, "section_id", None) == sec_id]
+            for st in task_list:
+                orig = self.snapshot.tasks_map.get(st.task_id, {})
+                trk_id = orig.get("track_id") if isinstance(orig, dict) else getattr(orig, "track_id", None)
+                if not trk_id or trk_id not in tracks_map:
+                    continue
+
+                for tp in train_passes_in_sec:
+                    # Check temporal overlap
+                    if not (st.possession_interval.start < tp.interval.end and tp.interval.start < st.possession_interval.end):
+                        continue
+
+                    tp_track = getattr(tp, "track_id", None) or (tp.get("track_id") if isinstance(tp, dict) else None)
+                    if not tp_track or tp_track not in tracks_map:
+                        # Unresolved traversal/pass track: section check already covers it; do not fabricate
+                        continue
+
+                    # If same track, TRAIN_MOVEMENT_CONFLICT already flags it
+                    if trk_id == tp_track:
+                        continue
+
+                    occ_task = SpatialOccupant.from_task(orig, interval_override=(st.possession_interval.start, st.possession_interval.end))
+                    occ_train = SpatialOccupant.from_train_pass(tp)
+
+                    res = evaluate_spatial_compatibility(occ_task, occ_train, tracks_map)
+
+                    if res.status == SpatialCompatibilityStatus.INCOMPATIBLE:
+                        if res.reason == SpatialCompatibilityReason.ADJACENT_TRACK_FULL_BLOCK:
+                            self.findings.append(
+                                ValidationFinding(
+                                    code="ADJACENT_TRACK_FULL_BLOCK",
+                                    severity=ValidationSeverity.ERROR,
+                                    category=ValidationCategory.TRACK,
+                                    message=res.message,
+                                    task_id=st.task_id,
+                                    section_id=sec_id,
+                                    train_movement_id=tp.train_id,
+                                    evidence=res.evidence,
+                                )
+                            )
+                    elif res.status == SpatialCompatibilityStatus.COMPATIBLE and res.requires_caution_order:
+                        self.findings.append(
+                            ValidationFinding(
+                                code="ADJACENT_TRACK_CAUTION_REQUIRED",
+                                severity=ValidationSeverity.INFO,
+                                category=ValidationCategory.TRACK,
+                                message=res.message,
+                                task_id=st.task_id,
+                                section_id=sec_id,
+                                train_movement_id=tp.train_id,
+                                evidence=res.evidence,
                             )
                         )
 
