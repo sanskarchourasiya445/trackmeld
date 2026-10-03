@@ -17,6 +17,7 @@ from backend.app.db.models.resource import MaintenanceResourceModel, ResourceAva
 from backend.app.db.models.movement import TrainMovementModel
 from backend.app.db.models.rule import RailwayRuleModel
 from backend.app.db.models.section import SectionModel
+from backend.app.db.models.track import TrackModel
 
 
 @dataclass
@@ -32,6 +33,8 @@ class ScenarioPlanningBundle:
     sections: List[Dict[str, Any]]
     train_movements: List[Dict[str, Any]]
     applicable_rules: List[Dict[str, Any]]
+    tracks: List[Dict[str, Any]] = field(default_factory=list)
+
 
 
 class PlanningScenarioService:
@@ -103,6 +106,14 @@ class PlanningScenarioService:
             res_sec = await self.session.execute(stmt_sec)
             sections = res_sec.scalars().all()
 
+        # 6b. Fetch Tracks for affected sections
+        tracks = []
+        if section_ids:
+            stmt_trk = select(TrackModel).where(TrackModel.section_id.in_(section_ids)).order_by(TrackModel.track_id.asc())
+            res_trk = await self.session.execute(stmt_trk)
+            tracks = res_trk.scalars().all()
+
+
         # 7. Fetch Train Movements in affected stations
         train_movements = []
         if sections:
@@ -166,7 +177,9 @@ class PlanningScenarioService:
                     "priority": t.priority.value,
                     "mandatory": t.mandatory,
                     "section_id": t.section_id,
+                    "track_id": t.track_id,
                     "station_id": t.station_id,
+
                     "corridor_id": t.corridor_id,
                     "window_start": t.window_start.isoformat(),
                     "window_end": t.window_end.isoformat(),
@@ -268,4 +281,16 @@ class PlanningScenarioService:
                 }
                 for r in rules
             ],
+            tracks=[
+                {
+                    "track_id": trk.track_id,
+                    "section_id": trk.section_id,
+                    "track_code": trk.track_code,
+                    "direction": trk.direction,
+                    "electrified": trk.electrified,
+                    "max_speed_kmh": trk.max_speed_kmh,
+                }
+                for trk in tracks
+            ],
         )
+

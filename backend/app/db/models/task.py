@@ -68,6 +68,13 @@ class MaintenanceTaskModel(Base, TimestampMixin):
         index=True,
         nullable=False,
     )
+    track_id: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        ForeignKey("tracks.track_id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
+
     station_id: Mapped[Optional[str]] = mapped_column(
         String(32),
         ForeignKey("stations.station_id", ondelete="SET NULL"),
@@ -116,7 +123,9 @@ class MaintenanceTaskModel(Base, TimestampMixin):
     work_order = relationship("WorkOrderModel", back_populates="tasks")
     scenario = relationship("OperationalScenarioModel", back_populates="tasks")
     section = relationship("SectionModel", foreign_keys=[section_id])
+    track = relationship("TrackModel", foreign_keys=[track_id], back_populates="tasks")
     station = relationship("StationModel", foreign_keys=[station_id])
+
     corridor = relationship("CorridorModel", foreign_keys=[corridor_id])
     affected_sections = relationship("TaskSectionModel", back_populates="task", cascade="all, delete-orphan")
     rule_references = relationship("TaskRuleReferenceModel", back_populates="task", cascade="all, delete-orphan")

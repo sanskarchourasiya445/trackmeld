@@ -18,7 +18,8 @@ from backend.app.domain.enums import (
 from backend.app.domain.provenance import ProvenanceMetadata, assert_classification_immutable
 from backend.app.domain.sources import SourceDocument
 from backend.app.domain.stations import Station
-from backend.app.domain.sections import Section
+from backend.app.domain.sections import Section, Track, TrackDirection
+
 from backend.app.domain.trains import Train
 from backend.app.domain.movements import TrainMovement
 from backend.app.domain.rules import RailwayRule
@@ -73,7 +74,10 @@ __all__ = [
     "SourceDocument",
     "Station",
     "Section",
+    "Track",
+    "TrackDirection",
     "Train",
+
     "TrainMovement",
     "RailwayRule",
     "InfrastructureSpec",

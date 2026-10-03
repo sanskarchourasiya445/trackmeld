@@ -130,6 +130,7 @@ class MaintenanceTaskResponse(BaseModel):
     priority: TaskPriority
     mandatory: bool
     section_id: str
+    track_id: Optional[str] = None
     station_id: Optional[str] = None
     corridor_id: Optional[str] = None
     scenario_id: str
@@ -172,6 +173,8 @@ class ScenarioPlanningBundleResponse(BaseModel):
     sections: List[Dict[str, Any]]
     train_movements: List[Dict[str, Any]]
     applicable_rules: List[Dict[str, Any]]
+    tracks: List[Dict[str, Any]] = []
+
 
 
 class TaskEvaluationRequest(BaseModel):

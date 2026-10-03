@@ -41,6 +41,7 @@ from backend.app.db.models import (
     RailwayRuleModel,
     InfrastructureSpecModel,
     CorridorModel,
+    TrackModel,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -397,6 +398,50 @@ def ingest_infrastructure(session) -> int:
     return count
 
 
+def ingest_tracks(session) -> int:
+    logger.info("Ingesting Default Tracks for Sections...")
+    sections = session.execute(
+        select(
+            SectionModel.section_id,
+            SectionModel.section_code,
+            SectionModel.track_count,
+            SectionModel.electrified,
+        )
+    ).all()
+    count = 0
+    for sec_id, sec_code, trk_cnt, electrified in sections:
+        if trk_cnt and trk_cnt >= 2:
+            tracks_data = [
+                (f"TRK-{sec_code}-UP", "UP_MAIN", "UP", bool(electrified), 130),
+                (f"TRK-{sec_code}-DN", "DN_MAIN", "DOWN", bool(electrified), 130),
+            ]
+        else:
+            tracks_data = [
+                (f"TRK-{sec_code}-SL", "SINGLE_LINE", "BIDIRECTIONAL", bool(electrified), 100),
+            ]
+        for trk_id, trk_code, direction, is_elec, max_spd in tracks_data:
+            stmt = insert(TrackModel).values(
+                track_id=trk_id,
+                section_id=sec_id,
+                track_code=trk_code,
+                direction=direction,
+                electrified=is_elec,
+                max_speed_kmh=max_spd,
+            ).on_conflict_do_update(
+                index_elements=[TrackModel.track_id],
+                set_={
+                    "section_id": sec_id,
+                    "track_code": trk_code,
+                    "direction": direction,
+                    "electrified": is_elec,
+                    "max_speed_kmh": max_spd,
+                },
+            )
+            session.execute(stmt)
+            count += 1
+    return count
+
+
 def run_ingestion():
     start_time = time.perf_counter()
     logger.info("Beginning Deterministic Ingestion of Phase 0 Data Foundation...")
@@ -407,6 +452,7 @@ def run_ingestion():
             n_sources = ingest_sources(session)
             n_stations = ingest_stations(session)
             n_sections = ingest_sections(session)
+            n_tracks = ingest_tracks(session)
             n_trains = ingest_trains(session)
             n_movements = ingest_movements(session)
             n_rules = ingest_rules(session)
@@ -418,11 +464,12 @@ def run_ingestion():
     logger.info("Source Documents:   %d", n_sources)
     logger.info("Stations:           %d", n_stations)
     logger.info("Block Sections:     %d", n_sections)
+    logger.info("Tracks:             %d", n_tracks)
     logger.info("Trains:             %d", n_trains)
     logger.info("Train Movements:    %d", n_movements)
     logger.info("Railway Rules:      %d", n_rules)
     logger.info("Infrastructure:     %d (specs + corridors)", n_infra)
-    logger.info("Total Records:      %d", n_sources + n_stations + n_sections + n_trains + n_movements + n_rules + n_infra)
+    logger.info("Total Records:      %d", n_sources + n_stations + n_sections + n_tracks + n_trains + n_movements + n_rules + n_infra)
     logger.info("=" * 60)
 
 

@@ -1,6 +1,8 @@
+from enum import Enum
 from typing import Optional, List
 from pydantic import BaseModel, Field, model_validator
 from backend.app.domain.enums import DataClass
+
 
 
 class Section(BaseModel):
@@ -47,3 +49,21 @@ class Section(BaseModel):
         if self.length_km <= 0.0:
             raise ValueError(f"Section length must be strictly positive: {self.length_km}")
         return self
+
+
+class TrackDirection(str, Enum):
+    """Directional classification of railway running tracks."""
+    UP = "UP"
+    DOWN = "DOWN"
+    BIDIRECTIONAL = "BIDIRECTIONAL"
+
+
+class Track(BaseModel):
+    """Running track / line within a block section."""
+    track_id: str = Field(..., description="Unique track identifier (e.g. TRK-SEC-NDLS-MTJ-UP)")
+    section_id: str = Field(..., description="Parent section ID")
+    track_code: str = Field(..., description="Track code within section (e.g. UP_MAIN, DN_MAIN)")
+    direction: TrackDirection = Field(default=TrackDirection.BIDIRECTIONAL, description="Running direction")
+    electrified: bool = Field(default=True, description="25 kV AC OHE electrification status")
+    max_speed_kmh: Optional[int] = Field(default=None, ge=0, description="Maximum permissible line speed")
+

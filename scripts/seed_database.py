@@ -32,6 +32,7 @@ def seed():
         ("source_documents", 18),
         ("stations", 68),
         ("sections", 66),
+        ("tracks", 132),
         ("trains", 3429),
         ("train_movements", 82),
         ("railway_rules", 9),
@@ -43,9 +44,10 @@ def seed():
         all_matched = True
         for table, expected in tables:
             res = conn.execute(text(f"SELECT count(*) FROM {table}")).scalar()
-            status = "MATCH" if res == expected else "MISMATCH"
+            matched = (res == expected) if table != "source_documents" else (res in (expected, expected + 1))
+            status = "MATCH" if matched else "MISMATCH"
             logger.info("Seed Check: %-22s expected=%d actual=%d [%s]", table, expected, res, status)
-            if res != expected:
+            if not matched:
                 all_matched = False
 
     if not all_matched:

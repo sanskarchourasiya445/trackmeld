@@ -120,4 +120,5 @@ async def get_scenario_planning_bundle(
         sections=bundle.sections,
         train_movements=bundle.train_movements,
         applicable_rules=bundle.applicable_rules,
+        tracks=bundle.tracks,
     )

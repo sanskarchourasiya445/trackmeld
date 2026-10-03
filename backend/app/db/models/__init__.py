@@ -1,6 +1,7 @@
 from backend.app.db.models.source import SourceDocumentModel
 from backend.app.db.models.station import StationModel
 from backend.app.db.models.section import SectionModel
+from backend.app.db.models.track import TrackModel
 from backend.app.db.models.train import TrainModel
 from backend.app.db.models.movement import TrainMovementModel
 from backend.app.db.models.rule import RailwayRuleModel
@@ -29,6 +30,7 @@ __all__ = [
     "SourceDocumentModel",
     "StationModel",
     "SectionModel",
+    "TrackModel",
     "TrainModel",
     "TrainMovementModel",
     "RailwayRuleModel",
@@ -48,3 +50,4 @@ __all__ = [
     "PlanReviewCommentModel",
     "GovernanceAuditEventModel",
 ]
+

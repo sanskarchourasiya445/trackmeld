@@ -34,6 +34,9 @@ class PlanningSnapshot:
     sections_map: Dict[str, Any]
     rules_map: Dict[str, Any]
     train_passes: List[TrainPass]
+    tracks: List[Any] = field(default_factory=list)
+    tracks_map: Dict[str, Any] = field(default_factory=dict)
+
 
     def compute_snapshot_hash(self) -> str:
         """Compute authoritative 64-char SHA-256 fingerprint representing all immutable planning inputs."""
@@ -150,6 +153,14 @@ class PlanningSnapshot:
             horizon=horizon,
         )
 
+        # 7b. Tracks lookup
+        raw_tracks = getattr(bundle, "tracks", []) or []
+        tracks_map = {}
+        for trk in raw_tracks:
+            trk_id = getattr(trk, "track_id", None) or (trk.get("track_id") if isinstance(trk, dict) else None)
+            if trk_id:
+                tracks_map[trk_id] = trk
+
         # 8. Deterministic Snapshot ID computation
         hasher = hashlib.sha256()
         hasher.update(scenario_id.encode("utf-8"))
@@ -175,4 +186,7 @@ class PlanningSnapshot:
             sections_map=sections_map,
             rules_map=rules_map,
             train_passes=train_passes,
+            tracks=list(raw_tracks),
+            tracks_map=tracks_map,
         )
+

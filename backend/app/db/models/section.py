@@ -77,3 +77,5 @@ class SectionModel(Base, TimestampMixin):
         foreign_keys=[to_station_id],
         back_populates="incoming_sections",
     )
+    tracks = relationship("TrackModel", back_populates="section", cascade="all, delete-orphan")
+

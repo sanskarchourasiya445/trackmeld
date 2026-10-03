@@ -33,6 +33,17 @@ class StationResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class TrackResponse(BaseModel):
+    track_id: str
+    section_id: str
+    track_code: str
+    direction: str
+    electrified: bool
+    max_speed_kmh: Optional[int] = None
+
+    model_config = {"from_attributes": True}
+
+
 class SectionResponse(BaseModel):
     section_id: str
     section_code: str
@@ -56,8 +67,10 @@ class SectionResponse(BaseModel):
     derivation_method: Optional[str] = None
     input_source_ids: List[str]
     confidence: float
+    tracks: List[TrackResponse] = []
 
     model_config = {"from_attributes": True}
+
 
 
 class TrainResponse(BaseModel):

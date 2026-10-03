@@ -4,7 +4,8 @@
  * Never embeds administrative secrets in public client bundles.
  */
 
-import { Corridor, Scenario, MaintenanceTask, TrainMovement, BlockSection } from '@/types/railway';
+import { Corridor, Scenario, MaintenanceTask, TrainMovement, BlockSection, Track } from '@/types/railway';
+
 import {
   PlanningRun,
   PlanVersion,
@@ -402,16 +403,19 @@ export async function getScenarioBundle(scenarioId: string): Promise<{
   sections: BlockSection[];
   trains: TrainMovement[];
   tasks: MaintenanceTask[];
+  tracks: Track[];
 }> {
   const raw = await fetchJson<{
     scenario: Scenario;
     sections?: BlockSection[];
     train_movements?: TrainMovement[];
     tasks?: MaintenanceTask[];
+    tracks?: Track[];
   }>(`/scenarios/${scenarioId}/bundle`);
 
   const sections = raw.sections || DEMO_CORRIDOR.sections;
   const trains = raw.train_movements || [];
+  const tracks = raw.tracks || [];
   const tasks = (raw.tasks || []).map((t) => ({
     ...t,
     section_code: t.section_id || t.section_code || '',
@@ -430,8 +434,19 @@ export async function getScenarioBundle(scenarioId: string): Promise<{
     sections,
     trains,
     tasks,
+    tracks,
   };
 }
+
+export async function getTracks(sectionId?: string): Promise<Track[]> {
+  const query = sectionId ? `?section_id=${encodeURIComponent(sectionId)}` : '';
+  return await fetchJson<Track[]>(`/tracks${query}`);
+}
+
+export async function getTrack(trackId: string): Promise<Track> {
+  return await fetchJson<Track>(`/tracks/${encodeURIComponent(trackId)}`);
+}
+
 
 export async function optimizeSchedule(
   scenarioId: string,

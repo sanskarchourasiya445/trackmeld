@@ -14,6 +14,15 @@ export interface Station {
   division?: string;
 }
 
+export interface Track {
+  track_id: string;
+  section_id: string;
+  track_code: string;
+  direction: 'UP' | 'DOWN' | 'BIDIRECTIONAL' | string;
+  electrified: boolean;
+  max_speed_kmh?: number;
+}
+
 export interface BlockSection {
   id?: string;
   section_id?: string;
@@ -28,6 +37,7 @@ export interface BlockSection {
   to_station_name?: string;
   track_type?: 'UP' | 'DOWN' | 'SINGLE' | string;
   track_count?: number;
+  tracks?: Track[];
   length_km: number;
   speed_limit_kmh?: number;
   electrified?: boolean;
@@ -35,6 +45,7 @@ export interface BlockSection {
   zone?: string;
   classification?: string;
 }
+
 
 export interface Corridor {
   id: string;
@@ -92,7 +103,9 @@ export interface MaintenanceTask {
   task_type?: string;
   department?: string;
   section_id?: string;
+  track_id?: string;
   section_code?: string;
+
   station_id?: string;
   corridor_id?: string;
   status?: string;

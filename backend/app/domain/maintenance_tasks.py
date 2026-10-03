@@ -63,6 +63,7 @@ class MaintenanceTask(BaseModel):
     crew_size_required: int = Field(default=1, gt=0, description="Minimum headcount required")
     classification: DataClass = Field(default=DataClass.SYNTHETIC, description="Must remain SYNTHETIC")
     source_id: str = Field(default="SRC-TRACKMELD-SYNTHETIC-GEN", description="Generator provenance source")
+    track_id: Optional[str] = Field(default=None, description="Optional specific track assignment (e.g. TRK-NDLS-GZB-UP)")
     affected_section_ids: List[str] = Field(default_factory=list, description="All block sections requiring spatial block")
     rule_references: List[str] = Field(default_factory=list, description="Rule IDs from railway_rules justifying constraints")
 
