@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MaintenanceTask, TrainMovement, BlockSection, formatTrackSpatial } from '@/types/railway';
+import { MaintenanceTask, TrainMovement, BlockSection, TrainTraversal, formatTrackSpatial } from '@/types/railway';
 import {
   ScheduledTaskInterval,
   UnscheduledTaskDiagnostic,
@@ -27,6 +27,7 @@ interface EntityInspectorProps {
   conflictingTrains?: TrainMovement[];
   selectedTrain?: TrainMovement | null;
   selectedSection?: BlockSection | null;
+  traversals?: TrainTraversal[];
   onClose?: () => void;
   onNavigateToDiagnostics?: (taskId: string) => void;
   onNavigateToConflicts?: (taskId: string) => void;
@@ -40,6 +41,7 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({
   conflictingTrains = [],
   selectedTrain,
   selectedSection,
+  traversals = [],
   onClose,
   onNavigateToDiagnostics,
   onNavigateToConflicts,
@@ -427,6 +429,76 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({
                 <span className="font-mono text-[#93C5FD]">{formatTime(selectedTrain.exit_time)}</span>
               </div>
             </div>
+
+            {/* Physical Section Traversals */}
+            {(() => {
+              const trainTraversals = (traversals || []).filter(
+                (t) =>
+                  t.train_number === selectedTrain.train_number ||
+                  t.train_id === selectedTrain.train_id
+              );
+              if (trainTraversals.length === 0) return null;
+
+              return (
+                <div className="bg-[#0A0E17]/60 border border-[#1E2D4A] rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-[#CBD5E1] text-[11px]">
+                      Physical Section Traversals
+                    </span>
+                    <span className="text-[10px] font-mono text-[#38BDF8] bg-[#0F172A] px-1.5 py-0.5 rounded border border-[#1E2D4A]">
+                      {trainTraversals.length} sections
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                    {trainTraversals.map((trv) => (
+                      <div
+                        key={trv.traversal_id}
+                        className="bg-[#0F172A] p-2 rounded border border-[#1E2D4A] text-[10px] space-y-1"
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="font-mono font-semibold text-[#F8FAFC]">
+                            #{trv.sequence_order} {trv.section_id || 'UNRESOLVED'}
+                          </span>
+                          <span
+                            className={`px-1 py-0.5 rounded text-[9px] font-mono font-medium ${
+                              trv.resolution_status === 'DIRECT_SECTION'
+                                ? 'bg-cyan-950 text-cyan-400 border border-cyan-800'
+                                : trv.resolution_status === 'EXPANDED_ROUTE'
+                                ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                                : 'bg-amber-950 text-amber-400 border border-amber-800'
+                            }`}
+                          >
+                            {trv.resolution_status === 'DIRECT_SECTION'
+                              ? 'DIRECT'
+                              : trv.resolution_status === 'EXPANDED_ROUTE'
+                              ? 'EXPANDED'
+                              : 'UNRESOLVED'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[#94A3B8]">
+                          <span>
+                            {trv.from_station_id} → {trv.to_station_id}
+                          </span>
+                          <span className="font-mono text-[#93C5FD]">
+                            {formatTime(trv.entry_time)}–{formatTime(trv.exit_time)} ({trv.duration_minutes.toFixed(0)}m)
+                          </span>
+                        </div>
+                        {trv.traversal_track_id && (
+                          <div className="text-[9px] text-[#38BDF8] font-mono">
+                            Track: {trv.traversal_track_id}
+                          </div>
+                        )}
+                        {trv.unresolved_reason && (
+                          <div className="text-[9px] text-amber-400">
+                            {trv.unresolved_reason}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 

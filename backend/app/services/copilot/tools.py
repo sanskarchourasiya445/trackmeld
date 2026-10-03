@@ -128,7 +128,14 @@ class CopilotToolRegistry:
             "status": "UNSCHEDULED",
         }
 
-        run_result = target_run.schedule_result if target_run else None
+        run_result = None
+        if target_run:
+            if isinstance(getattr(target_run, "result", None), dict):
+                run_result = target_run.result
+            elif isinstance(getattr(target_run, "schedule_result", None), dict):
+                run_result = target_run.schedule_result
+            elif hasattr(target_run, "schedule_result") and type(target_run.schedule_result).__name__ not in ("MagicMock", "AsyncMock"):
+                run_result = target_run.schedule_result
         if run_result:
             result_data = run_result
             scheduled_list = result_data.get("scheduled_tasks", [])

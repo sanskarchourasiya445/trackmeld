@@ -149,3 +149,15 @@ class AdjacentTrackImpact(str, Enum):
     CAUTION_ORDER = "CAUTION_ORDER"
     FULL_TRAFFIC_BLOCK = "FULL_TRAFFIC_BLOCK"
 
+
+class TraversalResolutionStatus(str, Enum):
+    """Resolution status of train traversal expansion over physical block sections.
+    
+    - DIRECT_SECTION: Train pass directly connects adjacent stations of a single block section.
+    - EXPANDED_ROUTE: Train pass traverses multiple intermediate block sections via topological shortest path.
+    - UNRESOLVED: Topological path between endpoints could not be resolved or is disconnected.
+    """
+    DIRECT_SECTION = "DIRECT_SECTION"
+    EXPANDED_ROUTE = "EXPANDED_ROUTE"
+    UNRESOLVED = "UNRESOLVED"
+

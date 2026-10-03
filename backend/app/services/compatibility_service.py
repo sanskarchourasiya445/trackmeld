@@ -11,10 +11,10 @@ Guarantees:
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import List, Dict, Any, Optional, Set
+from typing import List, Dict, Any, Optional, Set, Tuple
 from collections import defaultdict
 
-from backend.app.domain.temporal import TimeInterval, PlanningHorizon, TrainPass
+from backend.app.domain.temporal import TimeInterval, PlanningHorizon, TrainPass, TrainTraversal
 from backend.app.domain.compatibility import (
     ConstraintSeverity,
     ReasonCode,
@@ -24,7 +24,7 @@ from backend.app.domain.compatibility import (
     ScheduledTaskPlacement,
     CompatibilityResult,
 )
-from backend.app.domain.enums import RuleClass, DataClass
+from backend.app.domain.enums import RuleClass, DataClass, TraversalResolutionStatus
 
 
 class CompatibilityEngine:
@@ -152,6 +152,192 @@ class CompatibilityEngine:
                     )
 
         return train_passes
+
+    @classmethod
+    def expand_train_traversals(
+        cls,
+        train_passes: List[TrainPass],
+        sections: List[Any],
+    ) -> List[TrainTraversal]:
+        """Deterministically expand train passes into ordered physical section traversals.
+        
+        Distinguishes:
+        - DIRECT_SECTION: Pass directly connects adjacent stations of a single block section.
+        - EXPANDED_ROUTE: Pass traverses multiple intermediate block sections via topological shortest path.
+        - UNRESOLVED: Topological path between endpoints could not be resolved.
+        """
+        import heapq
+
+        # 1. Build direct section lookup and adjacency graph
+        direct_lookup: Dict[Tuple[str, str], Tuple[str, float, Any]] = {}
+        # adj: station_id -> list of (neighbor_station_id, section_id, length_km, section_obj)
+        adj: Dict[str, List[Tuple[str, str, float, Any]]] = defaultdict(list)
+
+        for s in sections:
+            u = getattr(s, "from_station_id", None) or (s.get("from_station_id") if isinstance(s, dict) else None)
+            v = getattr(s, "to_station_id", None) or (s.get("to_station_id") if isinstance(s, dict) else None)
+            sec_id = getattr(s, "section_id", None) or (s.get("section_id") if isinstance(s, dict) else None)
+            raw_len = getattr(s, "length_km", None) or (s.get("length_km") if isinstance(s, dict) else 0.0)
+            length_km = float(raw_len or 0.0)
+            if u and v and sec_id:
+                direct_lookup[(u, v)] = (sec_id, length_km, s)
+                direct_lookup[(v, u)] = (sec_id, length_km, s)
+                adj[u].append((v, sec_id, length_km, s))
+                adj[v].append((u, sec_id, length_km, s))
+
+        # Sort adjacency for deterministic tie-breaking
+        for stn in adj:
+            adj[stn].sort(key=lambda x: (x[2], x[1]))
+
+        def find_section_path(start_stn: str, end_stn: str) -> Optional[List[Tuple[str, str, str, float]]]:
+            """Dijkstra shortest path by distance between start_stn and end_stn.
+            Returns ordered list of (from_stn, to_stn, section_id, length_km) or None.
+            """
+            if start_stn == end_stn:
+                return []
+            if start_stn not in adj or end_stn not in adj:
+                return None
+
+            pq: List[Tuple[float, str, List[Tuple[str, str, str, float]]]] = [(0.0, start_stn, [])]
+            best_dist: Dict[str, float] = {start_stn: 0.0}
+
+            while pq:
+                d, curr, path = heapq.heappop(pq)
+                if curr == end_stn:
+                    return path
+                if d > best_dist.get(curr, float("inf")):
+                    continue
+
+                for nbr, sec_id, length_km, _ in adj[curr]:
+                    new_dist = d + length_km
+                    if new_dist < best_dist.get(nbr, float("inf")):
+                        best_dist[nbr] = new_dist
+                        heapq.heappush(pq, (new_dist, nbr, path + [(curr, nbr, sec_id, length_km)]))
+            return None
+
+        traversals: List[TrainTraversal] = []
+
+        for p in train_passes:
+            from_stn = p.from_station_id or ""
+            to_stn = p.to_station_id or ""
+
+            # Extract day index from pass_id (e.g. PASS-12301-STN-A-STN-B-D0)
+            day_token = "D0"
+            if "-D" in p.pass_id:
+                day_token = "D" + p.pass_id.split("-D")[-1]
+
+            # Case A: Same station (dwell / zero-distance)
+            if from_stn == to_stn:
+                t_id = f"TRV-{p.train_number}-{p.section_id or 'STN'}-S1-{day_token}"
+                traversals.append(
+                    TrainTraversal(
+                        traversal_id=t_id,
+                        train_id=p.train_id,
+                        train_number=p.train_number,
+                        source_pass_id=p.pass_id,
+                        section_id=p.section_id,
+                        from_station_id=from_stn,
+                        to_station_id=to_stn,
+                        sequence_order=1,
+                        interval=p.interval,
+                        traversal_track_id=None,
+                        resolution_status=TraversalResolutionStatus.DIRECT_SECTION if p.section_id else TraversalResolutionStatus.UNRESOLVED,
+                        unresolved_reason=None if p.section_id else f"Station dwell or identical endpoints ({from_stn})",
+                        classification=DataClass.DERIVED,
+                    )
+                )
+                continue
+
+            # Case B: Direct single block section
+            if (from_stn, to_stn) in direct_lookup:
+                sec_id, length_km, _ = direct_lookup[(from_stn, to_stn)]
+                t_id = f"TRV-{p.train_number}-{sec_id}-S1-{day_token}"
+                traversals.append(
+                    TrainTraversal(
+                        traversal_id=t_id,
+                        train_id=p.train_id,
+                        train_number=p.train_number,
+                        source_pass_id=p.pass_id,
+                        section_id=sec_id,
+                        from_station_id=from_stn,
+                        to_station_id=to_stn,
+                        sequence_order=1,
+                        interval=p.interval,
+                        traversal_track_id=None,
+                        resolution_status=TraversalResolutionStatus.DIRECT_SECTION,
+                        unresolved_reason=None,
+                        classification=DataClass.DERIVED,
+                    )
+                )
+                continue
+
+            # Case C: Route expansion across multi-section path
+            path = find_section_path(from_stn, to_stn)
+            if path:
+                total_len = sum(h[3] for h in path)
+                total_duration_sec = p.interval.duration_seconds
+                num_hops = len(path)
+
+                # Partition total duration proportionally by section length
+                t_start = p.interval.start
+                t_end = p.interval.end
+
+                cum_sec = 0.0
+                timestamps = [t_start]
+                for hop in path[:-1]:
+                    hop_len = hop[3]
+                    frac = (hop_len / total_len) if total_len > 0 else (1.0 / num_hops)
+                    cum_sec += total_duration_sec * frac
+                    timestamps.append(t_start + timedelta(seconds=cum_sec))
+                timestamps.append(t_end)
+
+                for seq_idx, hop in enumerate(path, start=1):
+                    hop_from, hop_to, hop_sec_id, _ = hop
+                    hop_interval = TimeInterval(
+                        start=timestamps[seq_idx - 1],
+                        end=timestamps[seq_idx],
+                    )
+                    t_id = f"TRV-{p.train_number}-{hop_sec_id}-S{seq_idx}-{day_token}"
+                    traversals.append(
+                        TrainTraversal(
+                            traversal_id=t_id,
+                            train_id=p.train_id,
+                            train_number=p.train_number,
+                            source_pass_id=p.pass_id,
+                            section_id=hop_sec_id,
+                            from_station_id=hop_from,
+                            to_station_id=hop_to,
+                            sequence_order=seq_idx,
+                            interval=hop_interval,
+                            traversal_track_id=None,
+                            resolution_status=TraversalResolutionStatus.EXPANDED_ROUTE,
+                            unresolved_reason=None,
+                            classification=DataClass.DERIVED,
+                        )
+                    )
+                continue
+
+            # Case D: Unresolved route
+            t_id = f"TRV-{p.train_number}-UNRESOLVED-S1-{day_token}"
+            traversals.append(
+                TrainTraversal(
+                    traversal_id=t_id,
+                    train_id=p.train_id,
+                    train_number=p.train_number,
+                    source_pass_id=p.pass_id,
+                    section_id=None,
+                    from_station_id=from_stn,
+                    to_station_id=to_stn,
+                    sequence_order=1,
+                    interval=p.interval,
+                    traversal_track_id=None,
+                    resolution_status=TraversalResolutionStatus.UNRESOLVED,
+                    unresolved_reason=f"No topological section path found connecting station '{from_stn}' to '{to_stn}'",
+                    classification=DataClass.DERIVED,
+                )
+            )
+
+        return traversals
 
     @classmethod
     def evaluate_task_placement(

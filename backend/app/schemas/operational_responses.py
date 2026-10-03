@@ -177,6 +177,7 @@ class ScenarioPlanningBundleResponse(BaseModel):
     train_movements: List[Dict[str, Any]]
     applicable_rules: List[Dict[str, Any]]
     tracks: List[Dict[str, Any]] = []
+    train_traversals: List[Dict[str, Any]] = []
 
 
 

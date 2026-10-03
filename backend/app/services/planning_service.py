@@ -34,6 +34,7 @@ class ScenarioPlanningBundle:
     train_movements: List[Dict[str, Any]]
     applicable_rules: List[Dict[str, Any]]
     tracks: List[Dict[str, Any]] = field(default_factory=list)
+    train_traversals: List[Dict[str, Any]] = field(default_factory=list)
 
 
 
@@ -137,6 +138,77 @@ class PlanningScenarioService:
             stmt_rules = select(RailwayRuleModel)
             res_rules = await self.session.execute(stmt_rules)
             rules = res_rules.scalars().all()
+
+        # Derive Train Passes and Traversals for the scenario horizon
+        from backend.app.domain.temporal import PlanningHorizon
+        from backend.app.services.compatibility_service import CompatibilityEngine
+
+        horizon = PlanningHorizon(
+            start=scenario.planning_start,
+            end=scenario.planning_end,
+        )
+        raw_sections_data = [
+            {
+                "section_id": s.section_id,
+                "section_code": s.section_code,
+                "from_station_id": s.from_station_id,
+                "to_station_id": s.to_station_id,
+                "from_station_name": s.from_station_name,
+                "to_station_name": s.to_station_name,
+                "length_km": s.length_km,
+                "division": s.division,
+                "zone": s.zone,
+                "track_count": s.track_count,
+                "electrified": s.electrified,
+                "classification": s.classification.value,
+            }
+            for s in sections
+        ]
+        raw_movements_data = [
+            {
+                "movement_id": m.movement_id,
+                "train_id": m.train_id,
+                "train_number": m.train_number,
+                "train_name": m.train_name,
+                "station_id": m.station_id,
+                "station_code": m.station_code,
+                "scheduled_arrival": m.scheduled_arrival,
+                "scheduled_departure": m.scheduled_departure,
+                "day_offset": m.day_offset,
+                "track_id": m.track_id,
+                "classification": m.classification.value,
+            }
+            for m in train_movements
+        ]
+        derived_passes = CompatibilityEngine.derive_train_passes(
+            train_movements=raw_movements_data,
+            sections=raw_sections_data,
+            horizon=horizon,
+        )
+        derived_traversals = CompatibilityEngine.expand_train_traversals(
+            train_passes=derived_passes,
+            sections=raw_sections_data,
+        )
+        serialized_traversals = [
+            {
+                "traversal_id": trv.traversal_id,
+                "train_id": trv.train_id,
+                "train_number": trv.train_number,
+                "source_pass_id": trv.source_pass_id,
+                "section_id": trv.section_id,
+                "from_station_id": trv.from_station_id,
+                "to_station_id": trv.to_station_id,
+                "sequence_order": trv.sequence_order,
+                "entry_time": trv.entry_time.isoformat(),
+                "exit_time": trv.exit_time.isoformat(),
+                "duration_minutes": trv.duration_minutes,
+                "traversal_track_id": trv.traversal_track_id,
+                "resolution_status": trv.resolution_status.value,
+                "unresolved_reason": trv.unresolved_reason,
+                "classification": trv.classification.value,
+            }
+            for trv in derived_traversals
+        ]
 
         return ScenarioPlanningBundle(
             scenario={
@@ -296,5 +368,6 @@ class PlanningScenarioService:
                 }
                 for trk in tracks
             ],
+            train_traversals=serialized_traversals,
         )
 

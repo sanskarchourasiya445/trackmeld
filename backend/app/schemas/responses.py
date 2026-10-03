@@ -1,6 +1,7 @@
+from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
-from backend.app.domain.enums import DataClass, RuleClass, SourceClass
+from backend.app.domain.enums import DataClass, RuleClass, SourceClass, TraversalResolutionStatus
 
 
 
@@ -125,5 +126,25 @@ class RuleResponse(BaseModel):
     safety_critical: bool
     rule_class: RuleClass
     confidence: float
+
+    model_config = {"from_attributes": True}
+
+
+class TrainTraversalResponse(BaseModel):
+    traversal_id: str
+    train_id: str
+    train_number: str
+    source_pass_id: str
+    section_id: Optional[str] = None
+    from_station_id: str
+    to_station_id: str
+    sequence_order: int
+    entry_time: datetime
+    exit_time: datetime
+    duration_minutes: float
+    traversal_track_id: Optional[str] = None
+    resolution_status: TraversalResolutionStatus
+    unresolved_reason: Optional[str] = None
+    classification: DataClass
 
     model_config = {"from_attributes": True}

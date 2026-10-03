@@ -86,6 +86,26 @@ export interface TrainMovement {
   }[];
 }
 
+export type TraversalResolutionStatus = 'DIRECT_SECTION' | 'EXPANDED_ROUTE' | 'UNRESOLVED';
+
+export interface TrainTraversal {
+  traversal_id: string;
+  train_id: string;
+  train_number: string;
+  source_pass_id: string;
+  section_id?: string | null;
+  from_station_id: string;
+  to_station_id: string;
+  sequence_order: number;
+  entry_time: string;
+  exit_time: string;
+  duration_minutes: number;
+  traversal_track_id?: string | null;
+  resolution_status: TraversalResolutionStatus;
+  unresolved_reason?: string | null;
+  classification?: string;
+}
+
 export interface TaskResourceRequirement {
   requirement_id?: string;
   resource_type: string;
@@ -164,6 +184,7 @@ export interface ScenarioPlanningBundle {
   train_movements: TrainMovement[];
   applicable_rules?: Record<string, unknown>[];
   tracks?: Track[];
+  train_traversals?: TrainTraversal[];
 }
 
 /**

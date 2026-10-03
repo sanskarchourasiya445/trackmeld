@@ -10,7 +10,7 @@ Standardizes interval representation for TrackMeld:
 from datetime import datetime, timezone
 from typing import Optional, Tuple, List
 from pydantic import BaseModel, Field, model_validator
-from backend.app.domain.enums import DataClass
+from backend.app.domain.enums import DataClass, TraversalResolutionStatus
 
 
 class TimeInterval(BaseModel):
@@ -140,6 +140,41 @@ class TrainPass(BaseModel):
     movement_type: str = Field(default="SECTION_TRAVERSAL", description="SECTION_TRAVERSAL or STATION_DWELL")
     source_movement_ids: List[str] = Field(default_factory=list, description="IDs of underlying timetable records")
     classification: DataClass = Field(default=DataClass.REAL, description="Data provenance classification")
+
+    @property
+    def duration_minutes(self) -> float:
+        return self.interval.duration_minutes
+
+
+class TrainTraversal(BaseModel):
+    """Explicit ordered physical section traversal representation for a train pass.
+    
+    Distinguishes:
+    1. TrainMovement: Timetable station occurrence
+    2. TrainPass: Station-to-station timing interval
+    3. TrainTraversal: Physical block section traversal with deterministic transit intervals
+    """
+    traversal_id: str = Field(..., description="Unique traversal ID (e.g. TRV-12301-SEC-NDLS-GZB-S1-D0)")
+    train_id: str = Field(..., description="Train identifier")
+    train_number: str = Field(..., description="Official train number")
+    source_pass_id: str = Field(..., description="References parent TrainPass pass_id")
+    section_id: Optional[str] = Field(default=None, description="Physical block section traversed")
+    from_station_id: str = Field(..., description="Traversed segment origin station ID")
+    to_station_id: str = Field(..., description="Traversed segment destination station ID")
+    sequence_order: int = Field(..., description="1-based sequence order within the parent pass")
+    interval: TimeInterval = Field(..., description="Deterministic physical occupancy half-open interval [entry_time, exit_time)")
+    traversal_track_id: Optional[str] = Field(default=None, description="Physical running track ID (None in Phase 16E-B, unassigned)")
+    resolution_status: TraversalResolutionStatus = Field(default=TraversalResolutionStatus.DIRECT_SECTION, description="Expansion resolution status")
+    unresolved_reason: Optional[str] = Field(default=None, description="Diagnostic reason if traversal could not be resolved")
+    classification: DataClass = Field(default=DataClass.DERIVED, description="Data provenance classification")
+
+    @property
+    def entry_time(self) -> datetime:
+        return self.interval.start
+
+    @property
+    def exit_time(self) -> datetime:
+        return self.interval.end
 
     @property
     def duration_minutes(self) -> float:

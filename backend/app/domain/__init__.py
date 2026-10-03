@@ -15,6 +15,7 @@ from backend.app.domain.enums import (
     AvailabilityStatus,
     DependencyType,
     AdjacentTrackImpact,
+    TraversalResolutionStatus,
 )
 from backend.app.domain.provenance import ProvenanceMetadata, assert_classification_immutable
 from backend.app.domain.sources import SourceDocument
@@ -29,7 +30,7 @@ from backend.app.domain.scenarios import OperationalScenario
 from backend.app.domain.work_orders import WorkOrder
 from backend.app.domain.maintenance_tasks import WorkWindow, MaintenanceTask, TaskDependency
 from backend.app.domain.resources import MaintenanceResource, ResourceAvailability, TaskResourceRequirement
-from backend.app.domain.temporal import TimeInterval, PlanningHorizon, TrainPass
+from backend.app.domain.temporal import TimeInterval, PlanningHorizon, TrainPass, TrainTraversal
 from backend.app.domain.compatibility import (
     ConstraintSeverity,
     ReasonCode,
@@ -71,6 +72,7 @@ __all__ = [
     "AvailabilityStatus",
     "DependencyType",
     "AdjacentTrackImpact",
+    "TraversalResolutionStatus",
     "ProvenanceMetadata",
     "assert_classification_immutable",
     "SourceDocument",
@@ -95,6 +97,7 @@ __all__ = [
     "TimeInterval",
     "PlanningHorizon",
     "TrainPass",
+    "TrainTraversal",
     "ConstraintSeverity",
     "ReasonCode",
     "ConflictType",

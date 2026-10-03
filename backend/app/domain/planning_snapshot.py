@@ -38,6 +38,8 @@ class PlanningSnapshot:
     tracks_map: Dict[str, Any] = field(default_factory=dict)
     train_movements: List[Any] = field(default_factory=list)
     train_movements_map: Dict[str, Any] = field(default_factory=dict)
+    train_traversals: List[Any] = field(default_factory=list)
+    train_traversals_map: Dict[str, Any] = field(default_factory=dict)
 
 
     def compute_snapshot_hash(self) -> str:
@@ -171,6 +173,17 @@ class PlanningSnapshot:
             if m_id:
                 train_movements_map[m_id] = m
 
+        # 7d. Derive Train Traversals (Phase 16E-B)
+        train_traversals = CompatibilityEngine.expand_train_traversals(
+            train_passes=train_passes,
+            sections=bundle.sections,
+        )
+        train_traversals_map = {}
+        for trv in train_traversals:
+            t_id = getattr(trv, "traversal_id", None) or (trv.get("traversal_id") if isinstance(trv, dict) else None)
+            if t_id:
+                train_traversals_map[t_id] = trv
+
         # 8. Deterministic Snapshot ID computation
         hasher = hashlib.sha256()
         hasher.update(scenario_id.encode("utf-8"))
@@ -200,5 +213,7 @@ class PlanningSnapshot:
             tracks_map=tracks_map,
             train_movements=list(raw_movs),
             train_movements_map=train_movements_map,
+            train_traversals=train_traversals,
+            train_traversals_map=train_traversals_map,
         )
 

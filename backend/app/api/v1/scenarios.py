@@ -9,6 +9,7 @@ from backend.app.schemas.operational_responses import (
     ScenarioPlanningBundleResponse,
     ScenarioManifestResponse,
 )
+from backend.app.schemas.responses import TrainTraversalResponse
 from backend.app.schemas.common import ErrorResponse
 from backend.app.core.auth import get_current_user, AuthUser
 
@@ -121,4 +122,31 @@ async def get_scenario_planning_bundle(
         train_movements=bundle.train_movements,
         applicable_rules=bundle.applicable_rules,
         tracks=bundle.tracks,
+        train_traversals=bundle.train_traversals,
     )
+
+
+@router.get(
+    "/{scenario_id}/traversals",
+    response_model=List[TrainTraversalResponse],
+    responses={404: {"model": ErrorResponse}},
+)
+async def get_scenario_train_traversals(
+    scenario_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+) -> List[TrainTraversalResponse]:
+    """Retrieve derived physical section traversals for all trains in the scenario."""
+    service = PlanningScenarioService(session)
+    bundle = await service.get_planning_bundle(scenario_id)
+    if not bundle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": {
+                    "code": "SCENARIO_NOT_FOUND",
+                    "message": f"Operational scenario '{scenario_id}' not found.",
+                }
+            },
+        )
+    return [TrainTraversalResponse.model_validate(trv) for trv in bundle.train_traversals]

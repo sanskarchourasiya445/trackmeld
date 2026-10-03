@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MaintenanceTask, TrainMovement, BlockSection, formatTrackSpatial } from '@/types/railway';
+import { MaintenanceTask, TrainMovement, BlockSection, TrainTraversal, formatTrackSpatial } from '@/types/railway';
 import {
   ScheduledTaskInterval,
   UnscheduledTaskReport,
@@ -23,6 +23,7 @@ interface TaskInspectorProps {
   conflictingTrains?: TrainMovement[];
   selectedTrain?: TrainMovement | null;
   selectedSection?: BlockSection | null;
+  traversals?: TrainTraversal[];
   onClearSelection?: () => void;
   onSelectTask?: (taskId: string) => void;
 }
@@ -32,6 +33,7 @@ export const TaskInspector: React.FC<TaskInspectorProps> = ({
   scheduledInterval,
   selectedTrain,
   selectedSection,
+  traversals = [],
 }) => {
   const [activeTab, setActiveTab] = useState<'TASK' | 'TRAIN' | 'SECTION' | 'RESOURCE'>('TASK');
   const [copilotInput, setCopilotInput] = useState('');
@@ -234,6 +236,54 @@ export const TaskInspector: React.FC<TaskInspectorProps> = ({
               <span className="text-[#64748B]">Headway Buffer:</span>
               <span className="text-[#94A3B8]">30 min strict clearance</span>
             </div>
+
+            {/* Physical Section Traversals */}
+            {(() => {
+              const trainTraversals = (traversals || []).filter(
+                (t) =>
+                  t.train_number === selectedTrain?.train_number ||
+                  t.train_id === selectedTrain?.train_id
+              );
+              if (trainTraversals.length === 0) return null;
+
+              return (
+                <div className="pt-2 border-t border-[#1E2D4A]/60 space-y-1.5">
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="font-semibold text-[#CBD5E1]">
+                      Traversed Sections ({trainTraversals.length})
+                    </span>
+                    <span className="font-mono text-[#38BDF8]">
+                      Physical Route
+                    </span>
+                  </div>
+                  <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                    {trainTraversals.map((trv) => (
+                      <div
+                        key={trv.traversal_id}
+                        className="bg-[#0F172A] p-1.5 rounded border border-[#1E2D4A] text-[10px] space-y-0.5"
+                      >
+                        <div className="flex justify-between items-center font-mono">
+                          <span className="text-[#F8FAFC] font-semibold">
+                            #{trv.sequence_order} {trv.section_id || 'UNRESOLVED'}
+                          </span>
+                          <span className="text-[9px] text-[#38BDF8]">
+                            {trv.resolution_status}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[9px] text-[#94A3B8]">
+                          <span>
+                            {trv.from_station_id} → {trv.to_station_id}
+                          </span>
+                          <span className="font-mono text-[#93C5FD]">
+                            {formatTime(trv.entry_time)}–{formatTime(trv.exit_time)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
