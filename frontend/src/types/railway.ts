@@ -59,6 +59,8 @@ export interface TrainMovement {
   exit_station?: string;
   station_id?: string;
   station_code?: string;
+  stop_sequence?: number;
+  distance_km?: number;
   scheduled_arrival?: string;
   scheduled_departure?: string;
   day_offset?: number;

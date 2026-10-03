@@ -5,6 +5,7 @@ import { Corridor, TrainMovement, MaintenanceTask } from '@/types/railway';
 import { ScheduleResult, ScheduledTaskInterval } from '@/types/planning';
 import { Clock, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getTrainOccurrenceKey } from '@/lib/railway/identity';
 
 interface TimeSpaceChartProps {
   corridor: Corridor;
@@ -444,8 +445,12 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
 
           {/* 2. Train Trajectory Slopes */}
           {trains.map((train, idx) => {
-            const trainId = train.train_id || train.movement_id || `TRN-${idx}`;
-            const isSelected = selectedTrainId === trainId;
+            const occurrenceKey = getTrainOccurrenceKey(train, idx);
+            const trainServiceId = train.train_id || train.movement_id || `TRN-${idx}`;
+            const isSelected =
+              selectedTrainId === trainServiceId ||
+              (train.movement_id && selectedTrainId === train.movement_id) ||
+              selectedTrainId === occurrenceKey;
 
             // Parse entry and exit points
             let entryIso = train.entry_time;
@@ -495,8 +500,8 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
 
             return (
               <g
-                key={trainId}
-                onClick={() => onSelectTrain?.(trainId)}
+                key={occurrenceKey}
+                onClick={() => onSelectTrain?.(train.movement_id || trainServiceId)}
                 onMouseEnter={() => setHoveredEntity(`Train: ${train.train_number} (${train.train_name})`)}
                 onMouseLeave={() => setHoveredEntity(null)}
                 className="cursor-pointer group"
