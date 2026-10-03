@@ -21,6 +21,7 @@ export interface Track {
   direction: 'UP' | 'DOWN' | 'BIDIRECTIONAL' | string;
   electrified: boolean;
   max_speed_kmh?: number;
+  adjacent_track_ids?: string[] | null;
 }
 
 export interface BlockSection {

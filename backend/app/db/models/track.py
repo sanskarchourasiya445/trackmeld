@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy import (
     String,
     Integer,
@@ -7,6 +7,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Index,
     CheckConstraint,
+    JSON,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.app.db.base import Base, TimestampMixin
@@ -31,6 +32,7 @@ class TrackModel(Base, TimestampMixin):
     direction: Mapped[str] = mapped_column(String(32), default="BIDIRECTIONAL", nullable=False)
     electrified: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     max_speed_kmh: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    adjacent_track_ids: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True, default=None)
 
     # Relationships
     section = relationship("SectionModel", back_populates="tracks")

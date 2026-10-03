@@ -40,6 +40,14 @@ from backend.app.domain.compatibility import (
     ScheduledTaskPlacement,
     CompatibilityResult,
 )
+from backend.app.domain.spatial_compatibility import (
+    SpatialCompatibilityStatus,
+    SpatialCompatibilityReason,
+    SpatialOccupantType,
+    SpatialOccupant,
+    TrackSpatialCompatibilityResult,
+    evaluate_spatial_compatibility,
+)
 from backend.app.domain.planning_snapshot import PlanningSnapshot
 from backend.app.domain.scheduling import (
     SchedulerType,
@@ -105,6 +113,12 @@ __all__ = [
     "RuleEvidence",
     "ScheduledTaskPlacement",
     "CompatibilityResult",
+    "SpatialCompatibilityStatus",
+    "SpatialCompatibilityReason",
+    "SpatialOccupantType",
+    "SpatialOccupant",
+    "TrackSpatialCompatibilityResult",
+    "evaluate_spatial_compatibility",
     "PlanningSnapshot",
     "SchedulerType",
     "SchedulerStatus",

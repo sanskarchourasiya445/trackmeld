@@ -365,6 +365,7 @@ class PlanningScenarioService:
                     "direction": trk.direction,
                     "electrified": trk.electrified,
                     "max_speed_kmh": trk.max_speed_kmh,
+                    "adjacent_track_ids": trk.adjacent_track_ids,
                 }
                 for trk in tracks
             ],

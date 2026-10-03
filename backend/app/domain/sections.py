@@ -66,4 +66,9 @@ class Track(BaseModel):
     direction: TrackDirection = Field(default=TrackDirection.BIDIRECTIONAL, description="Running direction")
     electrified: bool = Field(default=True, description="25 kV AC OHE electrification status")
     max_speed_kmh: Optional[int] = Field(default=None, ge=0, description="Maximum permissible line speed")
+    adjacent_track_ids: Optional[List[str]] = Field(
+        default=None,
+        description="Explicit list of directly adjacent running track IDs in the same section, or empty list if isolated, or None if unspecified."
+    )
+
 

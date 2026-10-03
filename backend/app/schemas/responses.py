@@ -41,6 +41,7 @@ class TrackResponse(BaseModel):
     direction: str
     electrified: bool
     max_speed_kmh: Optional[int] = None
+    adjacent_track_ids: Optional[List[str]] = None
 
     model_config = {"from_attributes": True}
 

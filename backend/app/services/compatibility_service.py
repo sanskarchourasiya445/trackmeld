@@ -828,3 +828,22 @@ class CompatibilityEngine:
             affected_resources=list(affected_resources),
             rule_evidence=rule_evidence_list,
         )
+
+    @staticmethod
+    def evaluate_spatial_compatibility(
+        occupant_1: Any,
+        occupant_2: Any,
+        tracks_map: Dict[str, Any],
+    ) -> Any:
+        """Evaluate deterministic spatial compatibility between two occupants.
+
+        Part of Phase 16G-A: Rules classify compatibility. Optimization schedules.
+        Preserves whole-section solver and validator behavior without modification.
+        """
+        from backend.app.domain.spatial_compatibility import (
+            evaluate_spatial_compatibility as _eval_spatial,
+            SpatialOccupant,
+            TrackSpatialCompatibilityResult,
+        )
+        return _eval_spatial(occupant_1, occupant_2, tracks_map)
+
