@@ -93,4 +93,5 @@ class PlanningRunModel(Base):
 
     __table_args__ = (
         Index("ix_planning_runs_status_created", "status", "created_at"),
+        Index("ix_planning_runs_scenario_status_created", "scenario_id", "status", "created_at"),
     )

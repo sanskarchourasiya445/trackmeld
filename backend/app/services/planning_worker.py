@@ -154,16 +154,32 @@ class PlanningRunWorker:
             heartbeat_task = asyncio.create_task(self._heartbeat_loop(run_id))
 
             # -----------------------------------------------------------------
-            # Step C: Execute CPU-bound Scheduler outside DB transaction
+            # Step C: Execute CPU-bound Scheduler outside DB transaction with timeout
             # -----------------------------------------------------------------
             logger.info(f"[{self.worker_id}] Executing {scheduler_type} optimization for run '{run_id}' in thread pool...")
-            schedule_result = await asyncio.to_thread(
-                self._execute_scheduler_sync,
-                scheduler_type=scheduler_type,
-                snapshot=snapshot,
-                config_snapshot=config_snapshot,
-                random_seed=random_seed,
-            )
+            job_timeout = getattr(self.settings, "PLANNING_JOB_TIMEOUT_SECONDS", 120.0)
+            solve_start = time.perf_counter()
+            try:
+                schedule_result = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self._execute_scheduler_sync,
+                        scheduler_type=scheduler_type,
+                        snapshot=snapshot,
+                        config_snapshot=config_snapshot,
+                        random_seed=random_seed,
+                    ),
+                    timeout=job_timeout,
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"[{self.worker_id}] Run '{run_id}' timed out after {job_timeout}s.")
+                async with self.session_factory() as session:
+                    repo = PlanningRunRepository(session)
+                    await repo.mark_timed_out(
+                        run_id=run_id,
+                        error_message=f"Planning optimization exceeded maximum time limit of {job_timeout} seconds.",
+                    )
+                return
+            solve_duration_ms = round((time.perf_counter() - solve_start) * 1000.0, 2)
 
             # -----------------------------------------------------------------
             # Step D: Independent Validation & Root-Cause Diagnostics
@@ -181,11 +197,13 @@ class PlanningRunWorker:
                 await repo.mark_validating(run_id)
 
             logger.info(f"[{self.worker_id}] Running Phase 7 Independent Validator for run '{run_id}'...")
+            val_start = time.perf_counter()
             validation_res = await asyncio.to_thread(
                 IndependentScheduleValidator.validate,
                 snapshot,
                 schedule_result,
             )
+            validation_duration_ms = round((time.perf_counter() - val_start) * 1000.0, 2)
 
             diagnostics_summary = None
             if schedule_result.unscheduled_tasks:
@@ -196,6 +214,20 @@ class PlanningRunWorker:
 
             # Attach validation to ScheduleResult
             schedule_result.validation = validation_res.model_dump(mode="json")
+
+            # Compute structured operational telemetry metrics
+            raw_traversals = getattr(snapshot, "train_traversals", []) or []
+            unres_spatial_count = sum(
+                1 for trv in raw_traversals
+                if (getattr(trv, "resolution_status", None) or (trv.get("resolution_status") if isinstance(trv, dict) else None)) in ("UNRESOLVED", "AMBIGUOUS_ROUTE")
+            )
+            track_fallback_count = sum(
+                1 for st in schedule_result.scheduled_tasks
+                if getattr(st, "assigned_track_id", None) is None
+            )
+            solver_mode_used = config_snapshot.get("solver_mode") or (
+                config_snapshot.get("optimization_config", {}).get("solver_mode", "TRACK_AWARE_CONSERVATIVE")
+            )
 
             # -----------------------------------------------------------------
             # Step E: Persist Results and Mark Complete
@@ -209,12 +241,22 @@ class PlanningRunWorker:
                 "unscheduled_tasks": schedule_result.metrics.unscheduled_tasks,
                 "completion_rate": schedule_result.metrics.completion_rate,
                 "mandatory_completion_rate": schedule_result.metrics.mandatory_completion_rate,
+                "mandatory_tasks_count": schedule_result.metrics.mandatory_tasks,
+                "mandatory_tasks_scheduled": schedule_result.metrics.mandatory_scheduled,
+                "mandatory_tasks_unscheduled": schedule_result.metrics.mandatory_unscheduled,
                 "priority_score_capture_rate": schedule_result.metrics.priority_score_capture_rate,
                 "scheduled_priority_score": schedule_result.metrics.scheduled_priority_score,
                 "total_scheduled_duration_minutes": schedule_result.metrics.total_scheduled_duration_minutes,
                 "total_possession_duration_minutes": schedule_result.metrics.total_possession_duration_minutes,
                 "earliest_scheduled_start": schedule_result.metrics.earliest_scheduled_start.isoformat() if schedule_result.metrics.earliest_scheduled_start else None,
                 "latest_scheduled_end": schedule_result.metrics.latest_scheduled_end.isoformat() if schedule_result.metrics.latest_scheduled_end else None,
+                # Phase 20 Operational Observability Telemetry
+                "worker_id": self.worker_id,
+                "solver_mode": solver_mode_used,
+                "solve_duration_ms": solve_duration_ms,
+                "validation_duration_ms": validation_duration_ms,
+                "unresolved_spatial_entities_count": unres_spatial_count,
+                "track_aware_fallback_count": track_fallback_count,
             }
 
             validation_findings_summary = {
@@ -247,8 +289,8 @@ class PlanningRunWorker:
 
             logger.info(
                 f"[{self.worker_id}] Run '{run_id}' COMPLETED in {elapsed_ms}ms "
-                f"(Status: {schedule_result.status.value}, Validation: {validation_res.status.value}, "
-                f"Approvable: {validation_res.is_approvable})."
+                f"(Status: {schedule_result.status.value}, Mode: {solver_mode_used}, "
+                f"Validation: {validation_res.status.value}, Approvable: {validation_res.is_approvable})."
             )
 
         except Exception as e:
@@ -300,10 +342,13 @@ class PlanningRunWorker:
             workers = config_snapshot.get("num_search_workers") or opt_data.get("num_search_workers", 1)
             seed = random_seed if random_seed is not None else opt_data.get("random_seed", 0)
 
+            solver_mode = config_snapshot.get("solver_mode") or opt_data.get("solver_mode", "TRACK_AWARE_CONSERVATIVE")
+
             opt_cfg = OptimizationConfig(
                 time_limit_seconds=float(time_limit),
                 num_search_workers=int(workers),
                 random_seed=int(seed),
+                solver_mode=str(solver_mode),
             )
             solver = CPSATSolver(config=opt_cfg)
             return solver.solve(snapshot, config=opt_cfg)

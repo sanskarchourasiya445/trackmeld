@@ -146,8 +146,93 @@ class SyntheticOperationalDataProvider(OperationalDataProvider):
                 "station_code": m.station_code,
                 "scheduled_arrival": m.scheduled_arrival,
                 "scheduled_departure": m.scheduled_departure,
+                "track_id": m.track_id,
                 "classification": m.classification.value,
                 "source_id": m.source_id,
             }
             for m in movements
+        ]
+
+    async def get_train_services(
+        self,
+        train_type: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Retrieve synthetic train service definitions with operational characteristics."""
+        from backend.app.db.models.train import TrainModel
+        stmt = select(TrainModel)
+        if train_type:
+            stmt = stmt.where(TrainModel.train_type == train_type)
+        result = await self.session.execute(stmt)
+        trains = result.scalars().all()
+
+        return [
+            {
+                "train_id": tr.train_id,
+                "train_number": tr.train_number,
+                "train_name": tr.train_name,
+                "train_type": tr.train_type,
+                "source_station": tr.source_station,
+                "destination_station": tr.destination_station,
+                "running_days": tr.running_days,
+                "classification": tr.classification.value,
+                "source_id": tr.source_id,
+            }
+            for tr in trains
+        ]
+
+    async def get_task_dependencies(
+        self,
+        scenario_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Retrieve task precedence and sequence dependencies."""
+        from backend.app.db.models.task import TaskDependencyModel
+        target_scenario = scenario_id or self.scenario_id
+        stmt = select(TaskDependencyModel)
+        result = await self.session.execute(stmt)
+        deps = result.scalars().all()
+
+        return [
+            {
+                "dependency_id": d.dependency_id,
+                "predecessor_task_id": d.predecessor_task_id,
+                "successor_task_id": d.successor_task_id,
+                "dependency_type": d.dependency_type.value,
+                "classification": DataClass.SYNTHETIC.value,
+                "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+            }
+            for d in deps
+        ]
+
+    async def get_resource_contentions(
+        self,
+        scenario_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Identify resources with multiple competing task requisitions in the scenario."""
+        from backend.app.db.models.resource import TaskResourceRequirementModel
+        from backend.app.db.models.task import MaintenanceTaskModel
+        from sqlalchemy import func
+        target_scenario = scenario_id or self.scenario_id
+
+        stmt = (
+            select(
+                TaskResourceRequirementModel.resource_id,
+                func.count(TaskResourceRequirementModel.task_id).label("task_count"),
+            )
+            .join(MaintenanceTaskModel, TaskResourceRequirementModel.task_id == MaintenanceTaskModel.task_id)
+            .group_by(TaskResourceRequirementModel.resource_id)
+            .having(func.count(TaskResourceRequirementModel.task_id) > 1)
+        )
+        if target_scenario:
+            stmt = stmt.where(MaintenanceTaskModel.scenario_id == target_scenario)
+
+        result = await self.session.execute(stmt)
+        return [
+            {
+                "resource_id": row[0],
+                "competing_task_count": row[1],
+                "classification": DataClass.SYNTHETIC.value,
+                "source_id": "SRC-TRACKMELD-SYNTHETIC-GEN",
+            }
+            for row in result.all()
+            if row[0] is not None
         ]

@@ -80,9 +80,9 @@ export const TopBar: React.FC<TopBarProps> = ({
               <span className="text-[#334155]">•</span>
               <span className="shrink-0">{planningHorizon}</span>
               <span className="text-[#334155]">•</span>
-              <span className="inline-flex items-center gap-1 text-emerald-400 font-medium shrink-0">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Live Data (Synthetic)
+              <span className="inline-flex items-center gap-1 text-amber-400 font-medium shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                Synthetic Demo Dataset
               </span>
             </div>
 
@@ -90,7 +90,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             <div className="hidden md:flex xl:hidden items-center gap-1.5 text-[#94A3B8] text-[11px]">
               <span className="truncate">{scenarioName}</span>
               <span className="text-[#334155]">•</span>
-              <span className="text-emerald-400 font-mono text-[10px]">LIVE</span>
+              <span className="text-amber-400 font-mono text-[10px]">SYNTHETIC</span>
             </div>
           </div>
         </div>

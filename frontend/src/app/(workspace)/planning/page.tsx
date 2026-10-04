@@ -261,26 +261,30 @@ function PlanningPageContent() {
         {/* A. PLANNING WORKSPACE HEADER (Matching Reference Comp)          */}
         {/* ============================================================== */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F172A] border border-[#1E2D4A] rounded-lg px-4 py-2.5 shrink-0">
-          {/* Left: Title + LIVE status */}
+          {/* Left: Title + Synthetic Demo status */}
           <div className="flex items-center gap-2.5">
             <h1 className="text-base font-bold text-[#F8FAFC]">Planning Workspace</h1>
-            <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold border border-emerald-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              LIVE
+            <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30" title="Synthetic operational dataset — not connected to operational railway systems">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              SYNTHETIC DEMO
             </span>
           </div>
 
           {/* Right: Engine Status Badges & Action Buttons */}
           <div className="flex items-center gap-2.5 flex-wrap">
             {/* Engine Badges */}
-            <span className="text-[10px] font-mono font-bold px-2 py-1 rounded bg-[#141F36] text-[#93C5FD] border border-[#2D436D]">
-              CP-SAT
+            <span className="text-[10px] font-mono font-bold px-2 py-1 rounded bg-[#141F36] text-[#93C5FD] border border-[#2D436D]" title="Mathematical Constraint Programming Solver (Track-Aware Conservative Mode)">
+              CP-SAT (TRACK-AWARE)
             </span>
-            <span className="text-[10px] font-mono font-bold px-2 py-1 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-500/40">
-              VALID
+            <span className="text-[10px] font-mono font-bold px-2 py-1 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-500/40" title="Independent Automated Hard-Constraint Safety Gate">
+              {validationResult?.status === 'VALID' ? 'VALID (Automated)' : 'VALIDATION PENDING'}
             </span>
-            <span className="text-[10px] font-mono font-bold px-2 py-1 rounded bg-amber-950/80 text-amber-400 border border-amber-500/40">
-              {planVersion?.status === 'APPROVED' ? 'APPROVED' : 'PENDING REVIEW'}
+            <span className={`text-[10px] font-mono font-bold px-2 py-1 rounded border ${
+              planVersion?.status === 'APPROVED' 
+                ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40' 
+                : 'bg-amber-950/80 text-amber-400 border-amber-500/40'
+            }`} title="OPTIMAL != APPROVED — Formal Human Governance Required">
+              {planVersion?.status === 'APPROVED' ? 'APPROVED (Human Operator)' : 'NOT APPROVED (Pending Review)'}
             </span>
 
             <div className="h-5 w-[1px] bg-[#1E2D4A] mx-1 hidden sm:block" />

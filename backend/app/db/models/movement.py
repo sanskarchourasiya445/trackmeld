@@ -20,6 +20,7 @@ class TrainMovementModel(Base, TimestampMixin):
         CheckConstraint("stop_sequence >= 1", name="ck_movements_stop_sequence_positive"),
         Index("ix_movements_station_dep", "station_id", "scheduled_departure"),
         Index("ix_movements_train_seq", "train_id", "stop_sequence"),
+        Index("ix_movements_train_station", "train_id", "station_id"),
     )
 
     movement_id: Mapped[str] = mapped_column(String(64), primary_key=True)

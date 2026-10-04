@@ -171,9 +171,13 @@ async def create_planning_run(
             )
 
     # Assemble configuration snapshot
+    solver_mode = request.solver_mode or (
+        request.optimization_config.solver_mode if request.optimization_config else "TRACK_AWARE_CONSERVATIVE"
+    )
     config_snapshot = {
         "scheduler_type": request.scheduler_type.value,
         "validate_after_solve": request.validate_after_solve,
+        "solver_mode": solver_mode,
         "time_limit_seconds": request.time_limit_seconds or (
             request.optimization_config.time_limit_seconds if request.optimization_config else 30.0
         ),

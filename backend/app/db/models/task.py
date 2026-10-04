@@ -37,6 +37,7 @@ class MaintenanceTaskModel(Base, TimestampMixin):
         CheckConstraint("track_id IS NOT NULL OR (from_km IS NULL AND to_km IS NULL)", name="ck_tasks_track_required_for_chainage"),
         Index("ix_tasks_scenario_status", "scenario_id", "status"),
         Index("ix_tasks_section_window", "section_id", "window_start", "window_end"),
+        Index("ix_tasks_track_window", "track_id", "window_start", "window_end"),
     )
 
     task_id: Mapped[str] = mapped_column(String(64), primary_key=True)

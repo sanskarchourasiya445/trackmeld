@@ -82,6 +82,10 @@ class CreatePlanningRunRequest(BaseModel):
         max_length=128,
         description="Optional client idempotency key to prevent duplicate job creation"
     )
+    solver_mode: Optional[str] = Field(
+        default="TRACK_AWARE_CONSERVATIVE",
+        description="Spatial optimization mode: 'TRACK_AWARE_CONSERVATIVE' or 'WHOLE_SECTION'"
+    )
 
 
 class PlanningRunProgress(BaseModel):
