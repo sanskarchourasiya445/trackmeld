@@ -1,202 +1,355 @@
 # TrackMeld
 
-[![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1.svg?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Google OR-Tools](https://img.shields.io/badge/Google%20OR--Tools-CP--SAT-orange.svg)](https://developers.google.com/optimization)
-[![Next.js](https://img.shields.io/badge/Next.js-16%20App%20Router-black.svg?logo=next.js&logoColor=white)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Playwright](https://img.shields.io/badge/Playwright-E2E%20Verified-2EAD33.svg?logo=playwright&logoColor=white)](https://playwright.dev/)
-[![Tests Passing](https://img.shields.io/badge/Tests-472%20Passing-brightgreen.svg)]()
+**Railway possession planning and decision-support platform.** Combines deterministic domain rules, Google OR-Tools CP-SAT optimization, independent constraint validation, physical infrastructure topology modeling, and human-governed four-eyes approval into a structured, auditable planning workflow.
 
-> **Decision-support platform for railway maintenance possession planning, constraint programming, and four-eyes operational governance.**
-
----
-
-## 1. Overview
-
-Railway infrastructure maintenance requires taking tracks out of commercial service for fixed durations—known as **engineering possessions** or **track blocks**. In high-density mixed-traffic corridors, allocating these windows is one of the most operationally demanding combinatorial challenges in transport logistics.
-
-Track maintenance cannot be scheduled in isolation. Every possession request directly contends with scheduled commercial passenger and freight timetables, locomotive and gang availability, adjacent track safety clearances, electrical traction isolations (OHE power blocks), and physical track topology.
-
-### The Operational Problem
-
-When possession scheduling relies on manual deliberation or fragmented spreadsheets:
-- **Possessions are canceled late**, idling specialized heavy machinery (e.g., track tamping and ballast cleaning machines) and work gangs.
-- **Timetable punctuality collapses**, as unplanned speed restrictions (cautions) propagate cascading delay across contiguous blocks.
-- **Adjacent-track hazards arise**, when maintenance gangs work alongside live running lines without enforced safety buffers.
-
-TrackMeld solves this problem by formulating possession planning as a rigorous mathematical optimization task paired with an independent safety auditing engine and mandatory human approval controls.
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                    OPERATIONAL GOVERNANCE CHAIN                                         │
-│                                                                                                         │
-│  [Rules Classify] ──► [CP-SAT Optimizes] ──► [Independent Validator] ──► [Human Reviews] ──► [Approved] │
-│                                                                                                         │
-│  OPTIMAL ≠ APPROVED    │    FEASIBLE ≠ APPROVED    │    VALID ≠ APPROVED    │    CREATOR ≠ APPROVER     │
-└─────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-```
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![OR-Tools CP-SAT](https://img.shields.io/badge/Google%20OR--Tools-CP--SAT-F4B400)](https://developers.google.com/optimization)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Playwright](https://img.shields.io/badge/Playwright-E2E-45ba4b?logo=playwright&logoColor=white)](https://playwright.dev/)
 
 ---
 
-## 2. Core Architecture
+## What it does
 
-TrackMeld enforces strict separation between optimization, safety auditing, persistence, and human authorization.
+TrackMeld models the problem of scheduling railway engineering possessions — periods during which track sections are removed from commercial service for maintenance — against a live timetable of passenger and freight movements. It does not control or dispatch trains. It is a **decision-support system** that produces candidate maintenance schedules, validates them independently, and routes them through mandatory human approval before any operational action is taken.
+
+The system addresses a real coordination problem: multiple maintenance departments (P-Way, OHE Electrical, S&T Signalling) compete for the same track blocks. Their work windows are bounded by traffic headways, inter-train clearances, traction power isolations, gang availability, machinery schedules, and task dependency chains. A schedule that passes a calendar heuristic can still be infeasible under the full physical constraint set, and a schedule that the solver marks optimal is not operationally authorized until a human approves it.
+
+TrackMeld separates these concerns explicitly and architecturally.
+
+---
+
+## Core architectural principle
+
+```
+Rules classify
+  → Optimization proposes
+    → Independent Validator verifies
+      → Human reviews
+        → Human approves
+```
+
+These stages are architecturally isolated. Each consumes verified prior output without sharing internal state, heuristics, or assumptions with adjacent stages.
+
+> **OPTIMAL ≠ APPROVED**  
+> **FEASIBLE ≠ APPROVED**  
+> **VALID ≠ APPROVED**  
+> **APPROVABLE ≠ APPROVED**  
+> **AI EXPLAINS ≠ AI APPROVES**  
+> **CREATOR ≠ APPROVER**
+
+---
+
+## The planning problem
+
+A **block possession** requires exclusive occupancy of a track section for the duration of maintenance work, plus mandatory safety buffers before and after. Every possession must be placed within an allowed work window, must not collide with train movements on the same section, must not interfere with higher-priority possessions competing for overlapping blocks, must not exceed resource availability (machinery, gangs), and must satisfy task precedence dependencies.
+
+This problem cannot be solved by interval heuristics or greedy approaches at scale. The constraint graph is globally coupled: scheduling one task may eliminate feasible windows for three others by saturating a resource or triggering adjacent-track impact rules. The optimizer must find a globally consistent assignment, not local greedy placements.
+
+At the same time, **mathematical feasibility is not operational authorization**. A schedule can be solver-optimal, validator-valid, and still operationally wrong — because the domain data is synthetic, because a human reviewer spots a contextual issue, or because operational conditions changed. Human sign-off is therefore not cosmetic; it is the actual decision point.
+
+---
+
+## Architecture
+
+### End-to-end pipeline
+
+```mermaid
+flowchart LR
+    A([Scenario]) --> B[Planning Snapshot\nSHA-256 fingerprinted]
+    B --> C{Domain Rules\nCompatibility Engine}
+    B --> D[CP-SAT Optimizer\nOR-Tools Interval Model]
+    C -->|Constraint input| D
+    D --> E[Schedule Result\nOPTIMAL / FEASIBLE / INFEASIBLE]
+    E --> F[Independent Validator\n13 check categories]
+    F -->|VALID + is_approvable| G[Planning Run\nPersisted with fingerprint]
+    G --> H[Plan Version\nPENDING_REVIEW]
+    H --> I[Human Review\nUNDER_REVIEW]
+    I -->|APPROVED / REJECTED| J[Governance Audit\nAppend-only ledger]
+```
+
+### Layer separation
 
 ```mermaid
 flowchart TD
-    subgraph DataLayer["1. Data & Topology Layer"]
-        Postgres[(PostgreSQL 18 DB)]
-        Corridors["Corridors & Stations\n(NDLS - GZB - ALJN)"]
-        Tracks["Physical Running Tracks\n(132 Tracks / 264 Endpoints)"]
-        Topology["Topology Graph\n(Nodes & Turnout Connections)"]
-        Tasks["Maintenance Work Orders\n(P-Way, S&T, TRD)"]
-        Timetable["Commercial Timetable\n(Train Passes & Services)"]
-
-        Postgres --> Corridors & Tracks & Topology & Tasks & Timetable
+    subgraph DB["PostgreSQL 18"]
+        direction TB
+        S[Scenarios & Corridors]
+        T[Tracks & Topology]
+        M[Timetable & Train Movements]
+        W[Maintenance Work Orders]
+        R[Planning Runs & Plan Versions]
+        A[Audit Events]
     end
 
-    subgraph CoreEngine["2. Deterministic Engine Pipeline"]
-        Snapshot["Planning Snapshot\n(SHA-256 Content-Hashed)"]
-        Router["Deterministic Topology Router\n(Physical Traversal Resolution)"]
-        CPSAT["Google OR-Tools CP-SAT\n(Interval Variables & NoOverlap)"]
-        Validator["Independent Safety Validator\n(12 Invariant Checks)"]
-        Diagnostics["Causal Diagnostics\n(Unscheduled Reason Attribution)"]
-
-        Corridors & Tracks & Tasks & Timetable --> Snapshot
-        Topology --> Router
-        Router --> Snapshot
-        Snapshot --> CPSAT
-        CPSAT --> Validator
-        CPSAT --> Diagnostics
+    subgraph Backend["FastAPI Backend"]
+        direction TB
+        PS[PlanningSnapshot\nfrom_bundle → SHA-256]
+        CE[CompatibilityEngine\nTrainPass derivation]
+        TR[DeterministicTopologyRouter\nPhysical route resolution]
+        OPT[CPSATModelBuilder + CPSATSolver\nOptional interval variables]
+        VAL[IndependentScheduleValidator\nScheduleCheckRunner × 13 categories]
+        GOV[PlanGovernanceService\nFourEyes state machine]
+        COP[CopilotEngine\nRead-only, mutation-guarded]
+        WRK[PlanningRunWorker\nAsyncIO + thread-pool isolation]
     end
 
-    subgraph ServiceLayer["3. Application & Worker Layer"]
-        FastAPI["FastAPI Async API Server\n(/api/v1 REST Endpoints)"]
-        Worker["Background Planning Worker\n(Job Claiming & Timeout Trapping)"]
-        Governance["Four-Eyes Governance Engine\n(RBAC State Machine & Audit Log)"]
-        Copilot["Read-Only AI Copilot\n(Typed Diagnostic Tools)"]
-
-        CPSAT & Validator --> Worker
-        Worker --> Postgres
-        FastAPI --> Governance
-        Governance --> Postgres
-        FastAPI --> Copilot
+    subgraph Frontend["Next.js 16 Workstation"]
+        direction TB
+        PL[Planning Dashboard]
+        TV[Time-Space Canvas]
+        RV[Review & Approval UI]
+        CH[Copilot Drawer]
     end
 
-    subgraph PresentationLayer["4. Operational Workstation UI"]
-        NextJS["Next.js 16 (App Router + Turbopack)"]
-        TimeSpace["Multi-Track Time-Space Canvas\n(Distance vs. Time Conflict Grid)"]
-        ReviewUI["Four-Eyes Review & Promotion\n(Audit History & Invariant Badging)"]
-        CopilotChat["Grounded Copilot Drawer\n(Read-Only System Diagnostic Chat)"]
-
-        FastAPI <==> NextJS
-        NextJS --> TimeSpace & ReviewUI & CopilotChat
-    end
+    DB --> PS
+    PS --> CE
+    CE --> TR
+    TR --> OPT
+    OPT --> VAL
+    VAL --> GOV
+    GOV --> A
+    Backend <--> Frontend
 ```
 
 ---
 
-## 3. Key Technological Innovations
+## Component breakdown
 
-### 1. Deterministic Planning Snapshots (SHA-256)
-Optimization never operates directly against live mutating tables. Instead, an in-memory `PlanningSnapshot` is assembled, normalized, sorted, and fingerprinted with a 64-character SHA-256 hash. Any permutation of input records yields an identical fingerprint, ensuring 100% reproducible schedule outcomes across environments.
+### 1. Planning Snapshot (`PlanningSnapshot`)
 
-### 2. Track-Aware Mathematical Optimization (Google OR-Tools CP-SAT)
-Unlike naive interval schedulers that lock entire corridor sections, TrackMeld provides a **track-aware conservative optimization engine**:
-- **Discrete Interval Variables**: Models maintenance tasks and train occupancies as native CP-SAT interval variables.
-- **Disjunctive Multi-Track Constraints**: Enforces `AddNoOverlap` per physical running line (`UP_MAIN`, `DOWN_MAIN`, `LOOP`).
-- **Adjacent-Track Safety Buffer**: Automatically injects caution orders and dynamic safety margins on adjacent lines when heavy on-track machinery is scheduled.
-- **Whole-Section Fallback**: Automatically degrades to whole-section reservation whenever track assignment metadata is incomplete or ambiguous.
+Before any optimization begins, all scenario inputs are assembled into a `PlanningSnapshot` — a frozen Python dataclass. Tasks are sorted by `task_id`, dependencies are bidirectionally indexed, train passes are derived via `CompatibilityEngine.derive_train_passes`, and physical traversals are resolved via `CompatibilityEngine.expand_train_traversals`. A 64-character SHA-256 fingerprint is computed from the canonical content, independent of input ordering. Repeated solves against the same scenario and configuration produce identical fingerprints and identical results.
 
-### 3. Deterministic Topology Routing
-Commercial passenger timetables specify station stop times, not switch positions. TrackMeld's `DeterministicTopologyRouter` traverses physical `TrackEndpoint` and `TopologyConnection` entities to resolve timetable movements into explicit, timestamped `TrainTraversal` segments with track assignments.
+The snapshot is the only interface to the optimizer. No live database queries occur during scheduling.
 
-### 4. Independent Safety Validator (12 Verification Rules)
-TrackMeld does not trust the optimizer as the sole authority. An independent verification service audits candidate plans against 12 strict safety rules without sharing internal solver heuristics or state:
-- Same-track train/maintenance collision detection
-- Adjacent-track clearance and caution adherence
-- Task-to-task spatial overlap protection
-- Crew, gang, and fleet capacity limits
-- Work order earliest-start and latest-finish deadline adherence
+### 2. Domain Rules and Compatibility (`CompatibilityEngine`)
 
-### 5. Four-Eyes Human Governance & Immutable Audit Log
-No algorithm or AI agent can authorize a plan. Candidate plans transition through an explicit relational state machine:
-`CREATED` → `SUBMITTED` → `APPROVED` / `REJECTED`.
-- **Database-Level Segregation**: Enforces `CREATOR ≠ APPROVER` (the user who triggers a run cannot approve it).
-- **Append-Only Audit Ledger**: Persists actor identity, role, timestamp, transition state, and mandatory justification comments.
+The compatibility engine classifies pairs of time-interval occupants — tasks, train passes, traversals — by section, track, direction, and adjacent-track impact. Classifications use discrete enumerations (`BLOCKED`, `CAUTION_ORDER`, `COMPATIBLE`) derived from the domain model. These classifications are consumed by the CP-SAT model builder as hard constraint inputs, not as optimization hints.
 
-### 6. Read-Only Grounded AI Copilot
-The embedded AI Copilot is strictly bounded:
-- It has **zero write permissions** and cannot create, modify, or approve plans.
-- It queries the system exclusively through typed inspection tools returning deterministic structured data.
-- If evidence is absent, it reports the gap rather than hallucinating train paths.
+Rule provenance is tracked in `RuleClass`: `VERIFIED_SOURCE`, `ASSUMPTION`, `DEMO_ONLY`, or `UNVERIFIED`. No rule is silently promoted to safety-critical status.
+
+### 3. CP-SAT Optimization (`CPSATModelBuilder`, `CPSATSolver`)
+
+TrackMeld uses Google OR-Tools CP-SAT discrete interval optimization.
+
+**Model structure:**  
+- Each maintenance task receives an **optional interval variable** (`NewOptionalIntervalVar`) with a boolean presence variable.
+- Each task's interval is bounded strictly inside its allowed work window.
+- A **possession envelope** interval is computed by extending the work interval by `safety_buffer_before_minutes` and `safety_buffer_after_minutes`.
+- Sections are disjunctive: `AddNoOverlap` is applied per section across all possession envelopes of tasks and train passes sharing that section.
+- In `TRACK_AWARE_CONSERVATIVE` mode, individual running tracks (`UP_MAIN`, `DOWN_MAIN`, `LOOP`) receive their own `AddNoOverlap` groupings. Adjacent-track impact rules inject additional constraints.
+- Resources (machinery, gangs) use capacity constraints.
+- Task precedence dependencies add `AddLinearConstraint(start[succ] >= end[pred])`.
+- Mandatory tasks receive a hard `Add(presence == 1)` constraint.
+- The objective maximizes weighted sum of scheduled priority scores.
+
+**Solver configuration (`OptimizationConfig`):**  
+- `time_limit_seconds`: bounded wall-clock execution (default 30 s, maximum 300 s).
+- `num_search_workers`: default `1` for deterministic repeatability.
+- `random_seed`: fixed at `0` by default.
+- `solver_mode`: `TRACK_AWARE_CONSERVATIVE` (default) or `WHOLE_SECTION` fallback.
+
+**Solver status mapping:**  
+`OPTIMAL` | `FEASIBLE` | `INFEASIBLE` | `UNKNOWN` | `INVALID_INPUT` | `FAILED` — all handled explicitly with distinct downstream behavior.
+
+Priority scoring decomposes into named, weighted components (`mandatory_weight`, `urgency_weight`, `window_tightness_weight`, `dependency_weight`, `operational_impact_weight`). Weights are configurable, versioned, and documented as experimental scheduling heuristics — not as railway-calibrated operational policy.
+
+### 4. Deterministic Topology Routing (`DeterministicTopologyRouter`)
+
+Commercial train timetables specify station-to-station movements, not physical track assignments. TrackMeld resolves timetable movements into physical `TrainTraversal` records by graph-traversing explicit topology entities: `TopologyNode`, `TrackEndpoint`, and `TopologyConnection` (types: `CONTINUITY`, `TURNOUT_NORMAL`, `TURNOUT_REVERSE`, `CROSSOVER`).
+
+**Strict invariants:**  
+- Zero connectivity is inferred from section ordering, station ID patterns, track naming, or chainage proximity.  
+- If multiple valid physical routes exist without authoritative priority, the status is `AMBIGUOUS_ROUTE` and no track assignment is fabricated.  
+- If the corridor has no topology at all, a safe section-level fallback is used and the traversal is marked `UNRESOLVED`.  
+- Direction compatibility (`UP` / `DOWN` / `BIDIRECTIONAL`) is enforced at every hop.
+
+Resolution statuses: `DIRECT_SECTION` | `EXPANDED_ROUTE` | `UNRESOLVED` | `AMBIGUOUS_ROUTE`.
+
+### 5. Independent Schedule Validator (`IndependentScheduleValidator`, `ScheduleCheckRunner`)
+
+The validator runs after the solver and is architecturally isolated from it. It does not share the CP-SAT model, internal heuristics, or solver state. It re-derives all constraints from the raw `PlanningSnapshot` and applies 13 independent verification categories:
+
+| Category | What is checked |
+|---|---|
+| `STRUCTURAL` | Unknown tasks scheduled, duplicate placements, null intervals, invalid section references |
+| `HORIZON` | Work and possession intervals within planning horizon boundaries |
+| `TASK_WINDOW` | Work intervals strictly inside declared allowed windows |
+| `DURATION_AND_BUFFERS` | Scheduled duration matches task specification; possession envelope reflects buffer values |
+| `SECTION_OCCUPANCY` | No two possession intervals overlap on the same section (half-open interval semantics) |
+| `MULTI_SECTION` | Multi-section task references resolve to known corridor sections |
+| `TRAIN_MOVEMENT` | No possession interval overlaps with a derived train pass on the same section |
+| `TRACK_SPATIAL_SAFETY` | Invalid track assignments, direction conflicts, same-track overlaps, adjacent-track full blocks |
+| `RESOURCES` | No resource committed to two tasks simultaneously |
+| `DEPENDENCIES` | Successor tasks start after predecessor task completion |
+| `MANDATORY_TASKS` | All mandatory tasks are present in the scheduled set |
+| `DOMAIN_RULES` | Applicable domain rules are satisfied |
+| `SOLVER_OUTPUT_SANITY` | Schedule result internal consistency |
+
+Findings are classified `ERROR` | `WARNING` | `INFO`. Any `ERROR` finding sets `is_approvable = False` and blocks promotion to human review. The validator computes an independent SHA-256 **schedule identity fingerprint** that covers task placements, section assignments, resource assignments, possession intervals, and solver status — independent of non-identity fields such as execution time and priority breakdowns.
+
+### 6. Planning Run Persistence and Worker
+
+Planning runs are persisted state machines with explicit lifecycle stages:
+
+`QUEUED` → `CLAIMED` → `SNAPSHOT_BUILT` → `OPTIMIZING` → `VALIDATING` → `COMPLETED` | `FAILED` | `TIMED_OUT` | `CANCELLED`
+
+The worker (`PlanningRunWorker`) claims jobs atomically via `FOR UPDATE SKIP LOCKED`. CP-SAT execution runs in a thread pool via `asyncio.to_thread` to avoid blocking the event loop. A 120-second timeout enforces termination. Heartbeats prevent stale lock accumulation. Solver telemetry (objective value, optimality gap, constraint counts, wall time) is preserved in `solver_diagnostics`.
+
+### 7. Governance State Machine (`PlanGovernanceService`)
+
+Plan versions represent human-reviewable candidates derived from completed, validated planning runs. The governance service enforces multiple preconditions before any state transition:
+
+**Before creating a Plan Version from a run:**
+- Run status must be `COMPLETED`.
+- Run validation status must be `VALID` and `is_approvable = True`.
+- No duplicate Plan Version for the same run.
+
+**Before approving a Plan Version:**
+- Status must be `UNDER_REVIEW` (legal transition check).
+- Validation status must be `VALID`, `is_approvable = True`.
+- Zero `ERROR`-severity validation findings.
+- Cryptographic fingerprint of schedule identity must match source run.
+- SHA-256 snapshot hash and input configuration hash must match source run.
+- **Four-Eyes Principle**: `plan.created_by != actor.username` — enforced at the database row level. The planner who triggered the run cannot approve the resulting plan.
+
+Plan version lifecycle: `PENDING_REVIEW` → `UNDER_REVIEW` → `APPROVED` | `REJECTED` | `SUPERSEDED`.
+
+Every transition appends an immutable `GovernanceAuditEvent` recording: actor identity, role, timestamp, previous and new state, schedule identity fingerprint, snapshot hash, and justification text.
+
+### 8. Read-Only AI Copilot (`CopilotEngine`)
+
+The Copilot is evidence-grounded and strictly read-only. It does not share any state with the optimizer, validator, or governance service.
+
+**Mutation refusal**: The engine pattern-matches against write-intent patterns (`approve`, `sign off`, `reject`, `reschedule`, `force override`, etc.) and returns a hard refusal with a governance boundary notice before touching any data retrieval.
+
+**Evidence grounding**: All answers are assembled from typed `CopilotToolRegistry` calls against the database — `get_task_decision`, `get_run_summary`, `get_conflicts_for_task`, `get_plan_version_status`, `get_rule_provenance`. If evidence is absent, the response explicitly states the absence rather than inferring.
+
+**Uncertainty reporting**: If a task, run, or rule is not found, the Copilot returns an `UNCERTAINTY` evidence item and states it cannot provide explanation for records that do not exist.
+
+**Core boundary enforced in every response path**: `COMPLETED ≠ APPROVED`.
 
 ---
 
-## 4. Technology Stack
+## Data model highlights
+
+TrackMeld uses PostgreSQL 18 with SQLAlchemy 2.0 async ORM and 12 Alembic migrations.
+
+Key domain entities:
+- `Corridor` / `Section` / `Station` — corridor topology and operational boundaries
+- `Track` — physical running line with `direction` (`UP` / `DOWN` / `BIDIRECTIONAL`) and `adjacent_track_impact` metadata
+- `TopologyNode` / `TrackEndpoint` / `TopologyConnection` — physical infrastructure graph (Phases 16I–K)
+- `MaintenanceTask` / `WorkOrder` — work requisitions with department, priority, window, buffers, and dependencies
+- `TrainMovement` / `TrainTraversal` — timetable entries and resolved physical traversals
+- `PlanningRun` / `PlanVersionModel` / `GovernanceAuditEventModel` — governance lifecycle
+- `RailwayRule` — domain rules with `RuleClass` provenance
+
+All timestamps are UTC. The planning timezone is explicit per scenario. Foreign keys, unit boundaries, and interval semantics are validated at ingestion.
+
+---
+
+## RBAC and security
+
+Four roles enforced via `Authorization: Bearer <token>` on every API route:
+
+| Role | Permissions |
+|---|---|
+| `ADMIN` | All permissions (`*`) |
+| `MAINTENANCE_PLANNER` | Read reference & operational data, write operational data, review plans |
+| `OPERATOR` (Approver) | Read reference & operational data, review plans, approve or reject |
+| `VIEWER` | Read reference & operational data only |
+
+Tokens are resolved via `get_active_credentials()` which merges environment-configured production tokens over built-in demo credentials. In production mode, unauthenticated requests fail closed with HTTP 401. Permission violations return HTTP 403 with a structured error envelope. Secrets never appear in API responses, logs, or frontend bundles.
+
+---
+
+## Technology stack
 
 | Layer | Technologies |
 |---|---|
-| **Backend & Optimization** | Python 3.11+, FastAPI, Google OR-Tools (CP-SAT), Pydantic v2, SQLAlchemy 2.0 (AsyncIO), Alembic |
-| **Database** | PostgreSQL 18+ with compound operational indexes (`pg_trgm`, `btree`) |
-| **Frontend Workstation** | Next.js 16 (React 19, Turbopack), TypeScript 5, Tailwind CSS, Lucide Icons |
-| **Testing & QA** | Pytest, Pytest-AsyncIO, Playwright (Chromium/Firefox/WebKit E2E), ESLint, TSC |
+| Backend runtime | Python 3.11+, FastAPI 0.115, Pydantic v2, SQLAlchemy 2.0 (asyncio) |
+| Optimization | Google OR-Tools CP-SAT (via `ortools.sat.python.cp_model`) |
+| Database | PostgreSQL 18, Alembic migrations (12 applied) |
+| Frontend | Next.js 16 (App Router, Turbopack), React 19, TypeScript 5, Tailwind CSS |
+| Testing | Pytest, Pytest-AsyncIO, Playwright (Chromium / Firefox / WebKit) |
+| RBAC | Token-based bearer auth, `require_permission` FastAPI dependency |
 
 ---
 
-## 5. Quick Start & Setup
+## Test verification
 
-### Prerequisites
-- **Python 3.11+**
-- **Node.js 20+** and **npm**
-- **PostgreSQL 18+**
+```
+Backend unit tests (Pytest)           310 passed
+Backend integration tests (Pytest)    148 passed   [requires PostgreSQL]
+Browser E2E tests (Playwright)         14 passed   [requires running app stack]
+─────────────────────────────────────────────────
+Total                                 472 passed
 
-### 1. Clone & Configure Environment
-
-```bash
-git clone https://github.com/your-username/trackmeld.git
-cd Trackmeld
-
-# Create your local environment configuration
-cp .env.example .env
+TypeScript compilation                0 errors
+ESLint                                0 errors
 ```
 
-### 2. Backend Setup & Migrations
+Unit tests run without infrastructure dependencies and cover: snapshot fingerprinting, CP-SAT model correctness, validator check categories, governance preconditions, route resolution determinism, topology routing, track-aware optimization, and security invariants.
+
+Integration tests require a live PostgreSQL 18 instance and cover: API schema contracts, governance lifecycle (create → review → approve → supersede), rejection terminal immutability, RBAC boundary enforcement, concurrency safety, and worker job claiming.
+
+E2E Playwright specs: `01-happy-path-governance`, `02-auth-security`, `03-negative-governance`, `04-truthful-ui`, `05-train-occurrence-keys`. These require the full running stack (API server + planning worker + database).
+
+---
+
+## Running locally
+
+### Prerequisites
+
+- Python 3.11+
+- PostgreSQL 18+
+- Node.js 20+ with npm
+
+### 1. Clone and configure
 
 ```bash
-# Set up Python virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\Activate.ps1
+git clone https://github.com/sanskarchourasiya445/trackmeld.git
+cd trackmeld
+cp .env.example .env
+# Edit .env — set DATABASE_URL and DATABASE_URL_SYNC to your PostgreSQL instance
+```
 
-# Install backend dependencies
+### 2. Backend setup
+
+```bash
+python -m venv .venv
+.venv\Scripts\Activate.ps1        # Windows
+# source .venv/bin/activate        # macOS/Linux
+
 pip install -r backend/requirements.txt
 
-# Run database migrations
+# Apply all 12 schema migrations
 cd backend
 alembic upgrade head
 cd ..
 
-# Seed synthetic corridor data (NDLS-GZB-ALJN)
+# Seed synthetic corridor data (NDLS-GZB-ALJN corridor, SCN-DEMO-001)
 python -m backend.app.cli.seed
 ```
 
-### 3. Start the Background Worker & API Server
+### 3. Start the backend services
 
-In separate terminal sessions (or background processes):
+Two processes are required. Run each in a separate terminal:
 
 ```bash
-# Terminal 1: Background planning job worker
-python -m backend.app.services.planning_worker
+# Terminal 1: Background planning worker (claims and executes planning jobs)
+python -m backend.app.worker
 
 # Terminal 2: FastAPI application server
 uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-API documentation will be accessible at: `http://127.0.0.1:8000/docs`
+API documentation: `http://127.0.0.1:8000/docs`
 
-### 4. Frontend Workstation Setup
+### 4. Frontend
 
 ```bash
 cd frontend
@@ -204,68 +357,52 @@ npm install
 npm run dev
 ```
 
-The operational workstation will be running at: `http://localhost:3000`
+Operational workstation: `http://localhost:3000`
 
----
-
-## 6. Role-Based Access Control (RBAC)
-
-TrackMeld enforces role-based authorization headers for all mutations and reviews:
-
-| Role | Default Header Token | Permissions |
-|---|---|---|
-| **Planner** | `Bearer demo-planner-token` | Ingest work orders, configure parameters, trigger CP-SAT planning runs. |
-| **Approver** | `Bearer demo-approver-token` | Review candidate plans, inspect validator findings, issue Four-Eyes approval or rejection. |
-| **Admin** | `Bearer demo-admin-token` | Manage system configuration, reset stalled worker jobs. |
-| **Viewer** | `Bearer demo-viewer-token` | Read-only access to corridors, timetables, and approved plans. |
-
----
-
-## 7. Verification & Automated Test Suite
-
-TrackMeld maintains 100% pass rates across **472 automated tests**, spanning low-level discrete solver mathematics, database integrity, and full-stack browser workflows:
-
-```
-================================== TEST SUMMARY ==================================
-Backend Unit Tests               : 310 passed (Pytest)
-Backend Integration & API Tests  : 148 passed (Pytest + PostgreSQL)
-Browser E2E User Journeys        :  14 passed (Playwright)
-----------------------------------------------------------------------------------
-Total Automated Test Suite       : 472 passed (0 failures, 0 regressions)
-TypeScript Static Check          : Clean (0 errors)
-ESLint Code Quality              : Clean (0 errors)
-==================================================================================
-```
-
-### Running the Test Suite
+### 5. Run the test suite
 
 ```bash
-# Run all backend unit and integration tests
-pytest tests/ -v
+# Unit tests (no database required)
+pytest tests/unit/ -v
 
-# Run the Playwright browser E2E test suite
+# Integration tests (requires running PostgreSQL)
+pytest tests/integration/ -v
+
+# Playwright E2E (requires full stack running)
 cd frontend
 npx playwright test
 ```
 
 ---
 
-## 8. Responsible AI & Domain Boundaries
+## Known limitations and domain boundaries
 
-- **Prototype Decision Support**: TrackMeld is an advanced decision-support prototype built for maintenance planning and operational scheduling. It is **not** an operational railway interlocking or live signalling system.
-- **Synthetic Data Provenance**: All corridor topology, station names, train numbers, and maintenance schedules bundled with this repository are synthetic demo datasets created for reproducibility.
-- **Human Authority**: The system adheres to the iron rule: *Rules classify, optimization schedules, independent validator verifies, human approves, and AI explains.* Automated systems cannot sign off on operational possessions.
+**Prototype scope.** TrackMeld is a decision-support prototype. It is not a certified railway control system, does not interface with live signalling infrastructure, and does not produce binding operational orders.
+
+**Synthetic data only.** All corridor topology, station names, train numbers, maintenance schedules, and timetables in this repository are synthetic. They were generated for reproducibility and do not represent any real railway corridor. No operational inference should be drawn from them.
+
+**Topology coverage.** Physical topology connections cover three demonstration sections of the NDLS–GZB–ALJN corridor. Sections outside this curated corridor fall back to section-level occupancy modeling. Route resolution returns `UNRESOLVED` or `AMBIGUOUS_ROUTE` for corridors without explicit topology — it does not infer connections.
+
+**Rule provenance.** Domain rules are classified `VERIFIED_SOURCE`, `ASSUMPTION`, or `DEMO_ONLY`. No rule is automatically promoted to operationally binding status without a verifiable source reference. Safety-sensitive rule claims require independent verification before operational use.
+
+**Optimization weights.** Priority scoring weights are labeled explicitly as experimental scheduling heuristics. They are configurable and documented but are not calibrated to any railway operational policy.
+
+**Four-eyes governance.** The four-eyes enforcement separates the creator of a plan from its approver using username comparison persisted in the database. This is a prototype governance mechanism and is not a replacement for institutional authorization processes in an operational railway environment.
 
 ---
 
-## 9. Documentation Index
+## Documentation
 
-- **[System Architecture Reference](docs/TRACKMELD_FINAL_ARCHITECTURE.md)**: Deep dive into the mathematical formulation, topology graph structure, and state machine.
-- **[Design System Specification](DESIGN_SYSTEM.md)**: Visual language, time-space graph standards, and dark-theme tokens.
-- **[Historical Phase Archive](docs/archive/README.md)**: Full archive of 40+ implementation reports across all 21 development phases.
+- [`docs/TRACKMELD_FINAL_ARCHITECTURE.md`](docs/TRACKMELD_FINAL_ARCHITECTURE.md) — comprehensive system architecture reference
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — application boundary and service responsibility specification
+- [`PRD.md`](PRD.md) — product requirements and acceptance criteria
+- [`DATA_AND_DOMAIN_MODEL.md`](DATA_AND_DOMAIN_MODEL.md) — domain entity model, provenance policy, and data contracts
+- [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) — visual language, time-space diagram standards, and UI tokens
+- [`AGENTS.md`](AGENTS.md) — instructions for AI coding agents working in this repository
+- [`docs/archive/README.md`](docs/archive/README.md) — index of 40+ phase implementation reports from the development history
 
 ---
 
-## 10. License
+## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+[MIT](LICENSE)
