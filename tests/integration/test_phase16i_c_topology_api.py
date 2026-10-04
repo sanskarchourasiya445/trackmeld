@@ -78,23 +78,38 @@ async def test_track_endpoint_404(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_topology_nodes_truthfully_empty(client: AsyncClient):
-    """Confirm zero topology nodes are fabricated for synthetic sections."""
+    """Confirm only explicit curated DEMO_ONLY nodes exist, with zero fabricated nodes for other stations."""
     response = await client.get("/api/v1/topology/nodes")
     assert response.status_code == 200
     nodes = response.json()
     assert isinstance(nodes, list)
-    # Default synthetic seed has 0 nodes
-    assert len(nodes) == 0
+    # Only the 2 curated DEMO_ONLY nodes exist
+    assert len(nodes) == 2
+    node_ids = {n["node_id"] for n in nodes}
+    assert node_ids == {"NODE-GZB-THROAT", "NODE-KRJ-THROAT"}
+    for n in nodes:
+        assert n["classification"] == "DEMO_ONLY"
 
 
 @pytest.mark.asyncio
 async def test_topology_connections_truthfully_empty(client: AsyncClient):
-    """CRITICAL SAFETY TEST: Confirm zero connections are inferred from adjacency or station sharing."""
+    """CRITICAL SAFETY TEST: Confirm only explicit curated DEMO_ONLY connections exist, with zero inferred connections."""
     response = await client.get("/api/v1/topology/connections")
     assert response.status_code == 200
     conns = response.json()
     assert isinstance(conns, list)
-    assert len(conns) == 0
+    # Only the 5 curated DEMO_ONLY connections exist
+    assert len(conns) == 5
+    conn_ids = {c["connection_id"] for c in conns}
+    assert conn_ids == {
+        "CONN-GZB-DN-THROUGH",
+        "CONN-GZB-UP-THROUGH",
+        "CONN-GZB-CROSSOVER-DN-UP",
+        "CONN-KRJ-DN-THROUGH",
+        "CONN-KRJ-UP-THROUGH",
+    }
+    for c in conns:
+        assert c["classification"] == "DEMO_ONLY"
 
 
 @pytest.mark.asyncio
