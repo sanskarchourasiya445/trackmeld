@@ -118,6 +118,10 @@ class ScheduledTaskResult(BaseModel):
     sequence_order: int = Field(..., description="1-indexed sequence order in which task was scheduled")
     scheduling_reason: str = Field(default="FEASIBLE")
     rule_evidence_ids: List[str] = Field(default_factory=list)
+    assigned_track_id: Optional[str] = Field(
+        default=None,
+        description="Physical running track ID if assigned and verified"
+    )
 
 
 class UnscheduledTaskResult(BaseModel):

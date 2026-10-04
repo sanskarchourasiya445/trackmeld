@@ -52,5 +52,9 @@ class OptimizationConfig(BaseModel):
         ge=0,
         description="Secondary penalty weight per minute of work duration for tighter packing"
     )
+    solver_mode: str = Field(
+        default="TRACK_AWARE_CONSERVATIVE",
+        description="Spatial optimization mode: 'TRACK_AWARE_CONSERVATIVE' or 'WHOLE_SECTION'"
+    )
 
     model_config = {"frozen": True}

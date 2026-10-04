@@ -22,3 +22,4 @@ class SolverDiagnostics(BaseModel):
     random_seed: int = Field(default=0, description="Seed used for search")
     model_version: str = Field(default="1.0.0", description="Mathematical model formulation version")
     solver_version: str = Field(default="1.0.0", description="Solver engine wrapper version")
+    solver_mode: str = Field(default="TRACK_AWARE_CONSERVATIVE", description="Spatial scheduling mode")

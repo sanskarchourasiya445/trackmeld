@@ -179,12 +179,17 @@ class CPSATSolver:
             random_seed=cfg.random_seed,
             model_version=cfg.model_version,
             solver_version=cfg.solver_version,
+            solver_mode=cfg.solver_mode,
         )
 
         sequence_counter = 1
 
         if has_solution:
-            for task in snapshot.tasks:
+            sorted_tasks = sorted(
+                snapshot.tasks,
+                key=lambda t: t.get("task_id", "") if isinstance(t, dict) else getattr(t, "task_id", "")
+            )
+            for task in sorted_tasks:
                 task_id = task.get("task_id", "UNKNOWN") if isinstance(task, dict) else getattr(task, "task_id", "UNKNOWN")
                 task_code = task.get("task_code", task_id) if isinstance(task, dict) else getattr(task, "task_code", task_id)
                 is_mandatory = task.get("mandatory", False) if isinstance(task, dict) else getattr(task, "mandatory", False)
@@ -210,6 +215,15 @@ class CPSATSolver:
                     affected_sections = builder.task_affected_sections.get(task_id, [])
                     assigned_resources = builder.task_resources.get(task_id, [])
 
+                    task_track_id = task.get("track_id") if isinstance(task, dict) else getattr(task, "track_id", None)
+                    assigned_track = None
+                    if task_track_id and task_track_id in snapshot.tracks_map:
+                        trk_obj = snapshot.tracks_map[task_track_id]
+                        trk_sec = getattr(trk_obj, "section_id", None) if not isinstance(trk_obj, dict) else trk_obj.get("section_id")
+                        primary_sec = task.get("section_id") if isinstance(task, dict) else getattr(task, "section_id", None)
+                        if trk_sec == primary_sec:
+                            assigned_track = task_track_id
+
                     scheduled_results.append(
                         ScheduledTaskResult(
                             task_id=task_id,
@@ -224,6 +238,7 @@ class CPSATSolver:
                             sequence_order=sequence_counter,
                             scheduling_reason="OPTIMAL" if raw_status == cp_model.OPTIMAL else "FEASIBLE",
                             rule_evidence_ids=[],
+                            assigned_track_id=assigned_track,
                         )
                     )
 
