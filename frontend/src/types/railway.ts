@@ -87,7 +87,7 @@ export interface TrainMovement {
   }[];
 }
 
-export type TraversalResolutionStatus = 'DIRECT_SECTION' | 'EXPANDED_ROUTE' | 'UNRESOLVED';
+export type TraversalResolutionStatus = 'DIRECT_SECTION' | 'EXPANDED_ROUTE' | 'UNRESOLVED' | 'AMBIGUOUS_ROUTE';
 
 export interface TrainTraversal {
   traversal_id: string;

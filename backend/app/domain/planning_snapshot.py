@@ -40,6 +40,9 @@ class PlanningSnapshot:
     train_movements_map: Dict[str, Any] = field(default_factory=dict)
     train_traversals: List[Any] = field(default_factory=list)
     train_traversals_map: Dict[str, Any] = field(default_factory=dict)
+    topology_nodes: List[Any] = field(default_factory=list)
+    topology_connections: List[Any] = field(default_factory=list)
+    track_endpoints: List[Any] = field(default_factory=list)
 
 
     def compute_snapshot_hash(self) -> str:
@@ -173,10 +176,18 @@ class PlanningSnapshot:
             if m_id:
                 train_movements_map[m_id] = m
 
-        # 7d. Derive Train Traversals (Phase 16E-B)
+        # 7d. Derive Train Traversals (Phase 16E-B / Phase 17)
+        raw_nodes = getattr(bundle, "topology_nodes", []) or []
+        raw_conns = getattr(bundle, "topology_connections", []) or []
+        raw_endpoints = getattr(bundle, "track_endpoints", []) or []
+
         train_traversals = CompatibilityEngine.expand_train_traversals(
             train_passes=train_passes,
             sections=bundle.sections,
+            tracks=raw_tracks,
+            topology_nodes=raw_nodes,
+            topology_connections=raw_conns,
+            track_endpoints=raw_endpoints,
         )
         train_traversals_map = {}
         for trv in train_traversals:
@@ -215,5 +226,8 @@ class PlanningSnapshot:
             train_movements_map=train_movements_map,
             train_traversals=train_traversals,
             train_traversals_map=train_traversals_map,
+            topology_nodes=list(raw_nodes),
+            topology_connections=list(raw_conns),
+            track_endpoints=list(raw_endpoints),
         )
 

@@ -178,6 +178,9 @@ class ScenarioPlanningBundleResponse(BaseModel):
     applicable_rules: List[Dict[str, Any]]
     tracks: List[Dict[str, Any]] = []
     train_traversals: List[Dict[str, Any]] = []
+    topology_nodes: List[Dict[str, Any]] = []
+    topology_connections: List[Dict[str, Any]] = []
+    track_endpoints: List[Dict[str, Any]] = []
 
 
 

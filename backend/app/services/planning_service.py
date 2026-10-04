@@ -35,6 +35,9 @@ class ScenarioPlanningBundle:
     applicable_rules: List[Dict[str, Any]]
     tracks: List[Dict[str, Any]] = field(default_factory=list)
     train_traversals: List[Dict[str, Any]] = field(default_factory=list)
+    topology_nodes: List[Dict[str, Any]] = field(default_factory=list)
+    topology_connections: List[Dict[str, Any]] = field(default_factory=list)
+    track_endpoints: List[Dict[str, Any]] = field(default_factory=list)
 
 
 
@@ -114,6 +117,31 @@ class PlanningScenarioService:
             res_trk = await self.session.execute(stmt_trk)
             tracks = res_trk.scalars().all()
 
+        # 6c. Fetch Topology for affected tracks if present (Phase 17)
+        track_ids = [trk.track_id for trk in tracks]
+        endpoints = []
+        connections = []
+        nodes = []
+        if track_ids:
+            from backend.app.db.models.topology import TrackEndpointModel, TopologyNodeModel, TopologyConnectionModel
+            stmt_ep = select(TrackEndpointModel).where(TrackEndpointModel.track_id.in_(track_ids))
+            res_ep = await self.session.execute(stmt_ep)
+            endpoints = res_ep.scalars().all()
+
+            endpoint_ids = [ep.endpoint_id for ep in endpoints]
+            if endpoint_ids:
+                stmt_conn = select(TopologyConnectionModel).where(
+                    (TopologyConnectionModel.from_endpoint_id.in_(endpoint_ids)) |
+                    (TopologyConnectionModel.to_endpoint_id.in_(endpoint_ids))
+                )
+                res_conn = await self.session.execute(stmt_conn)
+                connections = res_conn.scalars().all()
+
+                node_ids = list(set(c.node_id for c in connections))
+                if node_ids:
+                    stmt_nodes = select(TopologyNodeModel).where(TopologyNodeModel.node_id.in_(node_ids))
+                    res_nodes = await self.session.execute(stmt_nodes)
+                    nodes = res_nodes.scalars().all()
 
         # 7. Fetch Train Movements in affected stations
         train_movements = []
@@ -164,6 +192,50 @@ class PlanningScenarioService:
             }
             for s in sections
         ]
+        raw_tracks_data = [
+            {
+                "track_id": trk.track_id,
+                "section_id": trk.section_id,
+                "track_code": trk.track_code,
+                "direction": trk.direction,
+                "electrified": trk.electrified,
+                "max_speed_kmh": trk.max_speed_kmh,
+                "adjacent_track_ids": trk.adjacent_track_ids,
+            }
+            for trk in tracks
+        ]
+        raw_nodes_data = [
+            {
+                "node_id": n.node_id,
+                "node_name": n.node_name,
+                "station_id": n.station_id,
+                "node_type": n.node_type,
+                "classification": n.classification,
+            }
+            for n in nodes
+        ]
+        raw_conns_data = [
+            {
+                "connection_id": c.connection_id,
+                "node_id": c.node_id,
+                "from_endpoint_id": c.from_endpoint_id,
+                "to_endpoint_id": c.to_endpoint_id,
+                "connection_type": c.connection_type,
+                "traversal_direction": c.traversal_direction,
+                "max_diverging_speed_kmh": c.max_diverging_speed_kmh,
+                "classification": c.classification,
+            }
+            for c in connections
+        ]
+        raw_endpoints_data = [
+            {
+                "endpoint_id": ep.endpoint_id,
+                "track_id": ep.track_id,
+                "endpoint_type": ep.endpoint_type,
+                "kilometrage": ep.kilometrage,
+            }
+            for ep in endpoints
+        ]
         raw_movements_data = [
             {
                 "movement_id": m.movement_id,
@@ -188,6 +260,10 @@ class PlanningScenarioService:
         derived_traversals = CompatibilityEngine.expand_train_traversals(
             train_passes=derived_passes,
             sections=raw_sections_data,
+            tracks=raw_tracks_data,
+            topology_nodes=raw_nodes_data,
+            topology_connections=raw_conns_data,
+            track_endpoints=raw_endpoints_data,
         )
         serialized_traversals = [
             {
@@ -357,18 +433,10 @@ class PlanningScenarioService:
                 }
                 for r in rules
             ],
-            tracks=[
-                {
-                    "track_id": trk.track_id,
-                    "section_id": trk.section_id,
-                    "track_code": trk.track_code,
-                    "direction": trk.direction,
-                    "electrified": trk.electrified,
-                    "max_speed_kmh": trk.max_speed_kmh,
-                    "adjacent_track_ids": trk.adjacent_track_ids,
-                }
-                for trk in tracks
-            ],
+            tracks=raw_tracks_data,
             train_traversals=serialized_traversals,
+            topology_nodes=raw_nodes_data,
+            topology_connections=raw_conns_data,
+            track_endpoints=raw_endpoints_data,
         )
 

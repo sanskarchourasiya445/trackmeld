@@ -123,6 +123,9 @@ async def get_scenario_planning_bundle(
         applicable_rules=bundle.applicable_rules,
         tracks=bundle.tracks,
         train_traversals=bundle.train_traversals,
+        topology_nodes=bundle.topology_nodes,
+        topology_connections=bundle.topology_connections,
+        track_endpoints=bundle.track_endpoints,
     )
 
 

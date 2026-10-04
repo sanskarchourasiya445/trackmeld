@@ -156,10 +156,12 @@ class TraversalResolutionStatus(str, Enum):
     - DIRECT_SECTION: Train pass directly connects adjacent stations of a single block section.
     - EXPANDED_ROUTE: Train pass traverses multiple intermediate block sections via topological shortest path.
     - UNRESOLVED: Topological path between endpoints could not be resolved or is disconnected.
+    - AMBIGUOUS_ROUTE: Multiple valid candidate routes found without authoritative priority.
     """
     DIRECT_SECTION = "DIRECT_SECTION"
     EXPANDED_ROUTE = "EXPANDED_ROUTE"
     UNRESOLVED = "UNRESOLVED"
+    AMBIGUOUS_ROUTE = "AMBIGUOUS_ROUTE"
 
 
 class EndpointType(str, Enum):

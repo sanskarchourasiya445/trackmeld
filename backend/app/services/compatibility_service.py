@@ -158,15 +158,31 @@ class CompatibilityEngine:
         cls,
         train_passes: List[TrainPass],
         sections: List[Any],
+        tracks: Optional[List[Any]] = None,
+        topology_nodes: Optional[List[Any]] = None,
+        topology_connections: Optional[List[Any]] = None,
+        track_endpoints: Optional[List[Any]] = None,
     ) -> List[TrainTraversal]:
         """Deterministically expand train passes into ordered physical section traversals.
         
         Distinguishes:
         - DIRECT_SECTION: Pass directly connects adjacent stations of a single block section.
         - EXPANDED_ROUTE: Pass traverses multiple intermediate block sections via topological shortest path.
+        - AMBIGUOUS_ROUTE: Multiple valid physical paths found through topology without authoritative priority.
         - UNRESOLVED: Topological path between endpoints could not be resolved.
         """
         import heapq
+
+        router = None
+        if tracks:
+            from backend.app.services.topology_routing import DeterministicTopologyRouter
+            router = DeterministicTopologyRouter(
+                sections=sections,
+                tracks=tracks,
+                topology_nodes=topology_nodes,
+                topology_connections=topology_connections,
+                track_endpoints=track_endpoints,
+            )
 
         # 1. Build direct section lookup and adjacency graph
         direct_lookup: Dict[Tuple[str, str], Tuple[str, float, Any]] = {}
@@ -247,6 +263,91 @@ class CompatibilityEngine:
                     )
                 )
                 continue
+
+            # Case B: Deterministic Topology Router (Phase 17)
+            if router is not None:
+                res = router.resolve_pass_route(p)
+                if not res.fallback_to_section:
+                    if res.status in (TraversalResolutionStatus.DIRECT_SECTION, TraversalResolutionStatus.EXPANDED_ROUTE):
+                        total_len = sum(h.length_km for h in res.hops)
+                        total_duration_sec = p.interval.duration_seconds
+                        num_hops = len(res.hops)
+
+                        t_start = p.interval.start
+                        t_end = p.interval.end
+
+                        cum_sec = 0.0
+                        timestamps = [t_start]
+                        for hop in res.hops[:-1]:
+                            frac = (hop.length_km / total_len) if total_len > 0 else (1.0 / num_hops)
+                            cum_sec += total_duration_sec * frac
+                            timestamps.append(t_start + timedelta(seconds=cum_sec))
+                        timestamps.append(t_end)
+
+                        for seq_idx, hop in enumerate(res.hops, start=1):
+                            hop_interval = TimeInterval(
+                                start=timestamps[seq_idx - 1],
+                                end=timestamps[seq_idx],
+                            )
+                            t_id = f"TRV-{p.train_number}-{hop.section_id}-S{seq_idx}-{day_token}"
+                            traversals.append(
+                                TrainTraversal(
+                                    traversal_id=t_id,
+                                    train_id=p.train_id,
+                                    train_number=p.train_number,
+                                    source_pass_id=p.pass_id,
+                                    section_id=hop.section_id,
+                                    from_station_id=hop.from_station_id,
+                                    to_station_id=hop.to_station_id,
+                                    sequence_order=seq_idx,
+                                    interval=hop_interval,
+                                    traversal_track_id=hop.track_id,
+                                    resolution_status=res.status,
+                                    unresolved_reason=None,
+                                    classification=DataClass.DERIVED,
+                                )
+                            )
+                        continue
+                    elif res.status == TraversalResolutionStatus.AMBIGUOUS_ROUTE:
+                        t_id = f"TRV-{p.train_number}-{p.section_id or 'AMBIGUOUS'}-S1-{day_token}"
+                        traversals.append(
+                            TrainTraversal(
+                                traversal_id=t_id,
+                                train_id=p.train_id,
+                                train_number=p.train_number,
+                                source_pass_id=p.pass_id,
+                                section_id=p.section_id,
+                                from_station_id=from_stn,
+                                to_station_id=to_stn,
+                                sequence_order=1,
+                                interval=p.interval,
+                                traversal_track_id=None,
+                                resolution_status=TraversalResolutionStatus.AMBIGUOUS_ROUTE,
+                                unresolved_reason=res.unresolved_reason,
+                                classification=DataClass.DERIVED,
+                            )
+                        )
+                        continue
+                    elif res.status == TraversalResolutionStatus.UNRESOLVED:
+                        t_id = f"TRV-{p.train_number}-UNRESOLVED-S1-{day_token}"
+                        traversals.append(
+                            TrainTraversal(
+                                traversal_id=t_id,
+                                train_id=p.train_id,
+                                train_number=p.train_number,
+                                source_pass_id=p.pass_id,
+                                section_id=None,
+                                from_station_id=from_stn,
+                                to_station_id=to_stn,
+                                sequence_order=1,
+                                interval=p.interval,
+                                traversal_track_id=None,
+                                resolution_status=TraversalResolutionStatus.UNRESOLVED,
+                                unresolved_reason=res.unresolved_reason,
+                                classification=DataClass.DERIVED,
+                            )
+                        )
+                        continue
 
             # Case B: Direct single block section
             if (from_stn, to_stn) in direct_lookup:
