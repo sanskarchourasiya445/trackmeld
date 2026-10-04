@@ -103,6 +103,6 @@ async def test_corridor_scenario_resolves_physical_tracks(client: AsyncClient, d
 
     finally:
         # Restore original section assignments
-        await db_session.execute(text("UPDATE maintenance_tasks SET section_id = 'SEC-KOTA-RTM' WHERE task_id = 'TSK-0001'"))
-        await db_session.execute(text("UPDATE maintenance_tasks SET section_id = 'SEC-KOTA-RTM' WHERE task_id = 'TSK-0002'"))
+        await db_session.execute(text("UPDATE maintenance_tasks SET section_id = 'SEC-ETW-CNB' WHERE task_id = 'TSK-0001'"))
+        await db_session.execute(text("UPDATE maintenance_tasks SET section_id = 'SEC-ARA-PNBE' WHERE task_id = 'TSK-0002'"))
         await db_session.commit()

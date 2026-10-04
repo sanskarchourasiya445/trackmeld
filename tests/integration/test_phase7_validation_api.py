@@ -28,9 +28,7 @@ async def test_validate_schedule_api_valid(client: AsyncClient):
     resp_val = await client.post("/api/v1/planning/validate", json=val_payload)
     assert resp_val.status_code == 200
     val_data = resp_val.json()
-
-    # 3. Assert independent validation findings
-    assert val_data["status"] == "VALID"
+    assert val_data["status"] == "VALID", "; ".join(f"{f['code']}: {f['message']}" for f in val_data['findings'] if f['severity'] == 'ERROR')
     assert val_data["valid"] is True
     assert val_data["is_approvable"] is True
     assert val_data["error_count"] == 0
