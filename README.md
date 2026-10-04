@@ -59,7 +59,7 @@ TrackMeld is an operational **decision-support platform**, not an autonomous rai
 - **`VALID ≠ APPROVED`**: Certification by the independent validator proves that zero hard safety or domain invariants were violated in the model. Approval remains a separate, human action.
 - **`APPROVABLE ≠ APPROVED`**: A plan marked `is_approvable = True` meets all preconditions to enter the formal review workflow. It is eligible for approval, not approved.
 - **`AI EXPLAINS ≠ AI APPROVES`**: The AI Copilot is strictly read-only and assists human operators by providing grounded causal explanations and diagnostics. It has zero mutation privileges and cannot approve, reject, or modify schedules.
-- **`CREATOR ≠ APPROVER`**: A maintenance planner who constructs or triggers a planning run is barred by database-level constraints from approving the resulting plan candidate (Four-Eyes Principle).
+- **`CREATOR ≠ APPROVER`**: A maintenance planner who constructs or triggers a planning run is barred by the transactional governance approval path from approving the resulting plan candidate (Four-Eyes Principle).
 
 ---
 
@@ -98,7 +98,7 @@ flowchart LR
         J -- Yes --> K[Plan Version Candidate]
         K --> L[Operational Review]
         L --> M[Four-Eyes Approval]
-        M --> N[(Immutable Audit Ledger)]
+        M --> N[(Append-Only Audit Ledger)]
         J -- No --> O[Diagnostics & Root-Cause]
     end
 
@@ -195,7 +195,7 @@ TrackMeld's domain models reflect physical railway operational entities and thei
 | **`PlanningSnapshot`** | `domain.planning_snapshot` | Frozen, immutable data container grouping all inputs for a scenario, sealed with a 64-character SHA-256 fingerprint. |
 | **`PlanningRun`** | `db.models.planning_run` | Asynchronous execution record tracking the solver lifecycle, configuration parameters, and schedule result. |
 | **`PlanVersion`** | `db.models.plan_version` | Human-reviewable candidate plan derived from a completed, certified planning run. Governed by a strict state machine. |
-| **`GovernanceAuditEvent`** | `db.models.plan_version` | Tamper-evident append-only ledger record documenting every state transition, actor identity, timestamp, and justification. |
+| **`GovernanceAuditEvent`** | `db.models.plan_version` | Append-only governance audit record documenting every state transition, actor identity, timestamp, and justification. |
 
 ---
 
@@ -325,7 +325,7 @@ Understanding TrackMeld requires distinguishing three distinct train representat
 
 ## 10. Independent Schedule Validation
 
-The **`IndependentScheduleValidator`** is an isolated safety auditor. It executes after the solver and **does not share solver memory, constraints, or heuristics**. It inspects the generated schedule against the raw `PlanningSnapshot` across **13 independent check categories**:
+The **`IndependentScheduleValidator`** is an isolated safety auditor. It executes after the solver and **does not share solver memory, constraints, or heuristics**. It inspects the generated schedule against the raw `PlanningSnapshot` through an **independent validation layer containing 13 check categories**:
 
 ```mermaid
 flowchart TD
@@ -351,7 +351,7 @@ flowchart TD
     Gate -- No --> Certified[is_approvable = TRUE: Certified Valid Candidate]
 ```
 
-### Cryptographic Schedule Identity Fingerprint
+### Deterministic Schedule Identity Fingerprint (SHA-256)
 
 The validator computes an independent 64-character SHA-256 fingerprint over the identity-bearing decisions of the schedule:
 - Canonical task placements (sorted `task_id`, work start/end, possession start/end, sections, assigned resources).
@@ -378,7 +378,7 @@ To assist maintenance engineers in negotiating track blocks, the `RelaxationAnal
 4. `IGNORE_DEPENDENCIES`: Tests if predecessor delays are the sole blocker.
 5. `WIDEN_TASK_WINDOW`: Tests if widening the work window by $\pm 2$ hours yields feasibility.
 
-> **CRITICAL SAFETY INVARIANT**: Relaxation analysis is **purely diagnostic**. It evaluates hypothetical possibilities to explain infeasibility. It **NEVER** alters production schedules and explicitly flags all relaxation placements as unapprovable.
+> **CRITICAL SAFETY INVARIANT**: Relaxation analysis is **purely diagnostic**. It evaluates hypothetical possibilities to explain infeasibility. It **NEVER** alters candidate or approved schedules and explicitly flags all relaxation placements as unapprovable.
 
 ---
 
@@ -420,16 +420,16 @@ Before `approve_plan()` transitions a plan to `APPROVED`, all 7 preconditions mu
 3. **Legal State Transition**: Must be in `UNDER_REVIEW` state.
 4. **Certified Valid**: Run validation status must be `VALID` and `is_approvable == True`.
 5. **Zero Errors**: Total validation `error_count == 0`.
-6. **Cryptographic Identity Match**: Schedule fingerprint, snapshot hash, and input hash must match source run records bit-for-bit.
+6. **Schedule Identity & Hash Match**: Schedule fingerprint, snapshot hash, and input hash must match source run records bit-for-bit.
 7. **Four-Eyes Segregation**: **`plan.created_by != actor.username`**. The user who triggered the planning run cannot approve the resulting plan. Operational approval requires independent human review.
 
-### Immutable Audit Ledger
+### Append-Only Governance Audit Ledger
 
-Every governance action appends an immutable `GovernanceAuditEvent` record capturing:
+Every governance action appends an application-level `GovernanceAuditEvent` record capturing:
 - Unique event ID and timestamp (UTC).
 - Actor ID, username, and assigned role.
 - Transition states (`previous_state` $\to$ `new_state`).
-- Cryptographic schedule identity and snapshot hashes.
+- Schedule identity and snapshot hashes (SHA-256).
 - Mandatory reviewer justification comments.
 
 ---
@@ -445,7 +445,7 @@ TrackMeld implements role-based access control and API-level defense-in-depth:
   - `VIEWER`: Read-only access to corridors, timetables, and approved plans.
 - **Fail-Closed Security**: In production mode (`ENVIRONMENT=production`), unauthenticated requests are strictly rejected with HTTP 401. Prototype environments fall back to a read-only viewer.
 - **Governance Concurrency Protection**: Database row locks prevent approval/rejection race conditions.
-- **Security Headers & Rate Limiting**: Production middleware enforces CSP, X-Frame-Options, HSTS, and route-level token bucket rate limits on heavy optimization endpoints.
+- **Security Headers & Rate Limiting**: Production-oriented middleware applies HTTP security headers (CSP, X-Frame-Options, Referrer-Policy, Permissions-Policy) and route-level sliding-window rate limiting on heavy optimization and planning endpoints.
 - **Static Secret Scanning**: Automated test suites scan codebase and configuration to prevent credentials or private keys from entering source control.
 
 ---
@@ -543,7 +543,7 @@ The FastAPI backend exposes typed REST endpoints documented with OpenAPI at `/do
 | `POST` | `/api/v1/plan-versions/{plan_version_id}/comments` | Attach human reviewer commentary entry | `PLANNER` |
 | `POST` | `/api/v1/plan-versions/{plan_version_id}/approve` | Formally approve plan (Four-Eyes enforced) | `OPERATOR` |
 | `POST` | `/api/v1/plan-versions/{plan_version_id}/reject` | Formally reject plan with mandatory rationale | `OPERATOR` |
-| `GET` | `/api/v1/plan-versions/{plan_version_id}/audit` | Retrieve immutable append-only governance audit log | `VIEWER` |
+| `GET` | `/api/v1/plan-versions/{plan_version_id}/audit` | Retrieve append-only governance audit log | `VIEWER` |
 | `POST` | `/api/v1/copilot/explain` | Submit inquiry to read-only AI decision-support Copilot | `VIEWER` |
 | `GET` | `/api/v1/copilot/tools` | Inspect specifications of read-only Copilot tools | `VIEWER` |
 
@@ -715,7 +715,7 @@ All settings are managed via `backend/app/config.py` using Pydantic `BaseSetting
 
 ## 22. Testing & Final Verification
 
-TrackMeld's Phase 21 release verification established complete test coverage across all architectural tiers:
+Phase 21 final integration verification reported 472/472 automated tests passing across backend unit, backend integration, and Playwright E2E suites:
 
 ```
 ================================= TEST VERIFICATION SUMMARY =================================
@@ -732,7 +732,7 @@ Code Quality & Linting (ESLint)        0    CLEAN     Next.js / React hooks reco
 =============================================================================================
 ```
 
-*Note: The 310 unit tests execute independently of external databases. The 148 integration tests and 14 Playwright E2E tests require an active PostgreSQL 18 instance and running services.*
+*Note: The 472-test total reflects the Phase 21 release verification report. During the latest documentation accuracy pass, backend unit tests (310 passed) and integration tests (148 passed) were freshly re-executed and verified green.*
 
 ---
 
@@ -746,7 +746,7 @@ The following performance profile was measured on the `SCN-DEMO-001` synthetic c
 | **Planning Snapshot Assembly** | $\approx 4.7\text{ ms}$ | Canonical sorting, traversal expansion, and SHA-256 fingerprinting |
 | **CP-SAT Mathematical Solve** | $\approx 20.0\text{ ms}$ | OR-Tools discrete interval search, yielding `OPTIMAL` (29/30 tasks scheduled) |
 | **Independent Validation Audit** | $\approx 2.1\text{ ms}$ | Recomputing all 13 check categories across raw snapshot data (`VALID`) |
-| **Typical API Endpoint Response** | $< 45\text{ ms}$ | P95 REST latency across corridor, track, and run detail queries |
+| **Typical API Response** | $< 45\text{ ms}$ | Measured GET / POST response latency in the Phase 21 demo benchmark |
 
 > *Notice: These figures reflect performance on the curated demonstration corridor in the Phase 21 benchmark environment. They are scenario- and hardware-specific and do not constitute universal production SLAs.*
 
@@ -757,7 +757,7 @@ The following performance profile was measured on the `SCN-DEMO-001` synthetic c
 1. **Deterministic Snapshots over Live Queries**: Optimization against live mutating database tables leads to unreproducible race conditions. Assembling an immutable, fingerprinted snapshot guarantees that schedules can be verified and re-solved bit-for-bit.
 2. **CP-SAT over Greedy Heuristics**: Greedy schedulers make early suboptimal decisions that strand high-priority tasks. CP-SAT searches globally across the constraint graph, maximizing priority capture while proving feasibility.
 3. **Independent Validator over Solver Self-Trust**: Solvers are complex and may contain modeling bugs or subtle formulation relaxations. An isolated validator that re-evaluates raw snapshot data ensures that a bug in the model builder cannot result in an invalid schedule being certified.
-4. **Enforced Four-Eyes Governance over Automation**: No algorithm or AI system possesses the operational context, legal responsibility, or safety mandate to approve railway possessions. The system enforces `CREATOR ≠ APPROVER` at the database level.
+4. **Enforced Four-Eyes Governance over Automation**: No algorithm or AI system possesses the operational context, legal responsibility, or safety mandate to approve railway possessions. The system enforces `CREATOR ≠ APPROVER` through the transactional governance approval path.
 5. **Conservative Spatial Fallback**: Full track-circuit interlocking is outside the scope of planning decision support. Where spatial data is complete, TrackMeld optimizes per-track; where data is incomplete, it safely falls back to whole-section reservation.
 6. **Read-Only AI Copilot**: LLMs can hallucinate plausible-sounding routes or rules. By denying the Copilot all write permissions and grounding responses in typed tool queries, TrackMeld eliminates hallucinated approvals.
 
