@@ -18,19 +18,81 @@ import {
   ShieldCheck,
   Maximize2,
   Minimize2,
+  Box,
+  Eye,
+  Radio,
+  Zap,
+  Activity,
+  Layers,
+  ArrowRight,
+  Clock,
+  Sparkles,
+  GitBranch,
+  ShieldAlert,
+  Calendar,
+  Gauge,
+  CheckCircle2,
+  Map as MapIcon,
 } from 'lucide-react';
 
+export interface ContextualStation {
+  code: string;
+  name: string;
+  distance_km: number;
+  track_count?: number;
+  facilities?: string[];
+  division?: string;
+}
+
+export interface ContextualConflict {
+  conflict_id: string;
+  severity: 'CRITICAL' | 'MAJOR' | 'MINOR';
+  title: string;
+  location: string;
+  time_window: string;
+  reason: string;
+  impact_summary: string;
+  affected_trains: string[];
+  affected_tasks: string[];
+  recommended_action: string;
+}
+
+export interface ContextualSignal {
+  id: string;
+  type: string;
+  aspect: string;
+  km: number;
+  track: string;
+  overlap_distance_m?: number;
+  interlocking?: string;
+}
+
+export interface ContextualOHE {
+  id: string;
+  km: number;
+  track: string;
+  voltage_kv: number;
+  feeder_zone: string;
+  contact_wire_height_m?: number;
+  neutral_section?: boolean;
+}
+
 interface EntityInspectorProps {
-  task: MaintenanceTask | null;
+  task?: MaintenanceTask | null;
   scheduledInterval?: ScheduledTaskInterval | null;
   diagnostic?: UnscheduledTaskDiagnostic | null;
   conflictingTrains?: TrainMovement[];
   selectedTrain?: TrainMovement | null;
   selectedSection?: BlockSection | null;
+  selectedStation?: ContextualStation | null;
+  selectedConflict?: ContextualConflict | null;
+  selectedSignal?: ContextualSignal | null;
+  selectedOHE?: ContextualOHE | null;
   traversals?: TrainTraversal[];
   onClose?: () => void;
   onNavigateToDiagnostics?: (taskId: string) => void;
   onNavigateToConflicts?: (taskId: string) => void;
+  onOpenDigitalTwin?: (sectionCode: string) => void;
   isDrawer?: boolean;
   hideHeader?: boolean;
 }
@@ -41,30 +103,30 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({
   conflictingTrains = [],
   selectedTrain,
   selectedSection,
+  selectedStation,
+  selectedConflict,
+  selectedSignal,
+  selectedOHE,
   traversals = [],
   onClose,
   onNavigateToDiagnostics,
   onNavigateToConflicts,
+  onOpenDigitalTwin,
   isDrawer = false,
   hideHeader = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    conflicts: true,
-    relatedTrains: false,
-    rules: false,
-    evidence: false,
-  });
-
-  const toggleSection = (key: string) => {
-    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'TIMELINE' | 'CONSTRAINTS' | 'IMPACT'>('OVERVIEW');
 
   const isTask = !!task;
   const isTrain = !task && !!selectedTrain;
   const isSection = !task && !selectedTrain && !!selectedSection;
+  const isStation = !task && !selectedTrain && !selectedSection && !!selectedStation;
+  const isConflict = !task && !selectedTrain && !selectedSection && !selectedStation && !!selectedConflict;
+  const isSignal = !task && !selectedTrain && !selectedSection && !selectedStation && !selectedConflict && !!selectedSignal;
+  const isOHE = !task && !selectedTrain && !selectedSection && !selectedStation && !selectedConflict && !selectedSignal && !!selectedOHE;
 
-  // Format ISO time
+  // Format ISO time helper
   const formatTime = (iso?: string | null, fallback: string = '—') => {
     if (!iso) return fallback;
     try {
@@ -76,33 +138,62 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({
     }
   };
 
+  const getEntityBadge = () => {
+    if (isConflict) return { label: 'CONFLICT', color: 'bg-rose-500/20 text-rose-400 border-rose-500/40' };
+    if (isTask) return { label: 'WORK ORDER', color: 'bg-amber-500/20 text-amber-400 border-amber-500/40' };
+    if (isTrain) return { label: 'TRAIN MOVEMENT', color: 'bg-[#2563EB]/20 text-[#38BDF8] border-[#2563EB]/40' };
+    if (isStation) return { label: 'STATION HUB', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' };
+    if (isSection) return { label: 'TRACK SECTION', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40' };
+    return { label: 'INFRASTRUCTURE', color: 'bg-[#141F36] text-[#94A3B8] border-[#1E2D4A]' };
+  };
+
+  const badge = getEntityBadge();
+
   return (
     <aside
-      aria-label="Entity Inspector"
-      className={`h-full bg-[#0F172A] flex flex-col overflow-hidden select-none font-sans text-xs transition-all duration-200 ${
+      aria-label="Contextual Entity Inspector"
+      className={`h-full bg-[#0B101C] flex flex-col overflow-hidden select-none font-sans text-xs transition-all duration-200 border-l border-[#1E2D4A] ${
         isDrawer
           ? 'w-full'
-          : `border-l border-[#1E2D4A] ${
-              isExpanded
-                ? 'w-full md:w-[460px]'
-                : 'w-full md:w-[320px] xl:w-[350px] 2xl:w-[380px]'
-            }`
+          : isExpanded
+          ? 'w-full md:w-[480px]'
+          : 'w-full md:w-[380px] xl:w-[420px]'
       }`}
     >
-      {/* 1. Inspector Header */}
+      {/* 1. Standardized Inspector Header */}
       {!hideHeader && (
-        <div className="h-11 bg-[#141F36] border-b border-[#1E2D4A] px-3.5 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-[#F8FAFC]">Entity Inspector</span>
-            <span className="text-[10px] font-mono text-[#64748B] bg-[#0A0E17] px-1.5 py-0.5 rounded border border-[#1E2D4A]">
-              {isTask ? 'TASK' : isTrain ? 'TRAIN' : isSection ? 'SECTION' : 'RESOURCE'}
+        <div className="h-12 bg-[#0F172A] border-b border-[#1E2D4A] px-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="font-bold text-[#F8FAFC] tracking-tight">Inspector</span>
+            <span className={`text-[9.5px] font-mono font-bold px-2 py-0.5 rounded border ${badge.color}`}>
+              {badge.label}
             </span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            {/* Quick 3D Digital Twin Button if section context exists */}
+            {(selectedSection || task) && (
+              <button
+                onClick={() =>
+                  onOpenDigitalTwin?.(
+                    selectedSection?.code ||
+                      selectedSection?.section_code ||
+                      task?.section_code ||
+                      task?.section_id ||
+                      'SEC-12'
+                  )
+                }
+                className="bg-[#2563EB]/20 hover:bg-[#2563EB]/30 text-[#38BDF8] border border-[#2563EB]/40 px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Launch high-fidelity 3D digital twin"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">3D Twin</span>
+              </button>
+            )}
+
             <button
               onClick={() => setIsExpanded((prev) => !prev)}
-              className="p-1 rounded text-[#94A3B8] hover:text-white hover:bg-[#1E2D4A] transition-colors"
+              className="p-1.5 rounded text-[#94A3B8] hover:text-white hover:bg-[#141F36] transition-colors"
               title={isExpanded ? 'Restore width' : 'Expand width'}
             >
               {isExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -110,7 +201,7 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({
             {onClose && (
               <button
                 onClick={onClose}
-                className="p-1 rounded text-[#94A3B8] hover:text-white hover:bg-[#1E2D4A] transition-colors"
+                className="p-1.5 rounded text-[#94A3B8] hover:text-white hover:bg-rose-500/20 hover:text-rose-400 transition-colors"
                 title="Close Inspector"
               >
                 <X className="w-4 h-4" />
@@ -120,305 +211,381 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({
         </div>
       )}
 
-      {/* 2. Inspector Content Body */}
-      <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5">
-        {/* TASK VIEW */}
-        {isTask && (
-          <>
-            {/* Title & Status */}
+      {/* 2. Content Tabs */}
+      <div className="flex items-center border-b border-[#1E2D4A] bg-[#0A0E17] px-4 py-1.5 gap-1.5 text-xs shrink-0 overflow-x-auto">
+        {(['OVERVIEW', 'TIMELINE', 'CONSTRAINTS', 'IMPACT'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-3 py-1 rounded-md transition-colors font-medium whitespace-nowrap ${
+              activeTab === tab
+                ? 'bg-[#141F36] text-[#38BDF8] font-bold border border-[#2D436D]'
+                : 'text-[#64748B] hover:text-[#CBD5E1]'
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* 3. Main Body */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* ============================================================ */}
+        {/* A. CONFLICT INSPECTION VIEW                                   */}
+        {/* ============================================================ */}
+        {isConflict && selectedConflict && (
+          <div className="space-y-4">
             <div>
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-bold font-mono text-[#F8FAFC]">
+                  {selectedConflict.conflict_id}
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/40 font-mono">
+                  {selectedConflict.severity} CONFLICT
+                </span>
+              </div>
+              <h2 className="text-xs font-semibold text-rose-300 leading-normal">
+                {selectedConflict.title}
+              </h2>
+            </div>
+
+            {activeTab === 'OVERVIEW' && (
+              <div className="space-y-3">
+                <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-2.5 text-xs">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[#64748B] uppercase text-[10px] font-bold">Location:</span>
+                    <span className="font-mono text-[#F8FAFC] font-semibold text-right">
+                      {selectedConflict.location}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <span className="text-[#64748B] uppercase text-[10px] font-bold">Window:</span>
+                    <span className="font-mono text-amber-400 text-right">
+                      {selectedConflict.time_window}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-[#1E2D4A] space-y-1">
+                    <span className="text-[#64748B] uppercase text-[10px] font-bold block">Why (Root Cause):</span>
+                    <p className="text-[11px] text-[#CBD5E1] leading-relaxed">
+                      {selectedConflict.reason}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-[#141F36] border border-[#2563EB]/40 rounded-xl p-3.5 space-y-2">
+                  <span className="text-[10px] font-mono font-bold text-[#38BDF8] uppercase tracking-wider block">
+                    RECOMMENDED RESOLUTION (CP-SAT)
+                  </span>
+                  <p className="text-[11px] text-[#F8FAFC] leading-relaxed">
+                    {selectedConflict.recommended_action}
+                  </p>
+                  <button
+                    onClick={() => onNavigateToConflicts?.('TSK-0007')}
+                    className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white py-2 rounded-md font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Auto-Resolve with CP-SAT</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'TIMELINE' && (
+              <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-3 font-mono text-xs">
+                <div className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider">
+                  TRAJECTORY OVERLAP TIMELINE
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center bg-[#0A0E17] p-2.5 rounded-lg border border-[#1E2D4A]">
+                    <span className="text-[#94A3B8]">Possession Slot Request:</span>
+                    <span className="text-white font-bold">14:00 – 15:30 UTC</span>
+                  </div>
+                  <div className="flex justify-between items-center bg-[#0A0E17] p-2.5 rounded-lg border border-[#1E2D4A]">
+                    <span className="text-[#94A3B8]">Train 02073 Traversal:</span>
+                    <span className="text-rose-400 font-bold">14:20 – 14:38 UTC</span>
+                  </div>
+                  <div className="flex justify-between items-center bg-[#0A0E17] p-2.5 rounded-lg border border-rose-500/30 text-rose-300">
+                    <span>Direct Overlap:</span>
+                    <span className="font-bold">18 minutes</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'CONSTRAINTS' && (
+              <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-2.5 text-xs">
+                <span className="text-[10px] font-mono font-bold text-[#64748B] uppercase tracking-wider block">
+                  VIOLATED STATUTORY CONSTRAINTS
+                </span>
+                <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 space-y-1 text-rose-300">
+                  <div className="font-bold text-[11px] flex items-center gap-1.5">
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    <span>RULE-HEADWAY-01: Express Spacing</span>
+                  </div>
+                  <p className="text-[10.5px] leading-relaxed text-rose-200">
+                    Mandatory minimum 7.0 min headway margin between express passenger services and active work zone approach signals. Current buffer: 3.2 min.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'IMPACT' && (
+              <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-2.5 text-xs">
+                <span className="text-[10px] font-mono font-bold text-[#64748B] uppercase tracking-wider block">
+                  DOWNSTREAM OPERATIONAL IMPACT
+                </span>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-[#94A3B8]">Trailing Express Delay:</span>
+                    <span className="font-mono text-rose-400 font-bold">+14 minutes (TR-12424)</span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-[#94A3B8]">Platform Holding at Tundla:</span>
+                    <span className="font-mono text-amber-400 font-bold">18 min gate occupancy</span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-[#94A3B8]">Passenger Punctuality Delta:</span>
+                    <span className="font-mono text-rose-400 font-bold">-4.2% on Northern Trunk</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* B. WORK ORDER / TASK VIEW                                    */}
+        {/* ============================================================ */}
+        {isTask && (
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
                 <span className="text-sm font-bold font-mono text-[#F8FAFC]">
                   {task.task_code || task.task_id}
                 </span>
                 {scheduledInterval ? (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    SCHEDULED
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                    SCHEDULED (CP-SAT)
                   </span>
                 ) : (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/40">
                     UNSCHEDULED
                   </span>
                 )}
               </div>
-              <p className="text-xs text-[#94A3B8] leading-tight">
-                {task.title || 'Track Maintenance Work'}
-              </p>
+              <h2 className="text-xs font-semibold text-[#CBD5E1] leading-normal">
+                {task.title}
+              </h2>
             </div>
 
-            {/* Core Parameters Grid */}
-            <div className="bg-[#0A0E17]/60 border border-[#1E2D4A] rounded-lg p-3 space-y-2 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-[#64748B]">Section:</span>
-                <span className="font-mono text-[#F8FAFC] font-medium">
-                  {task.section_code || task.section_id || 'SEC-12'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[#64748B]">Track / Worksite:</span>
-                <span className="font-mono text-[#38BDF8] font-medium">
-                  {formatTrackSpatial(task)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[#64748B]">Adjacent Track:</span>
-                <span className="font-mono text-[#38BDF8] font-medium">
-                  {task.adjacent_track_impact === 'NONE'
-                    ? 'None (Confined)'
-                    : task.adjacent_track_impact === 'CAUTION_ORDER'
-                    ? 'Caution order'
-                    : task.adjacent_track_impact === 'FULL_TRAFFIC_BLOCK'
-                    ? 'Full traffic block'
-                    : 'Not specified'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[#64748B]">Window:</span>
-                <span className="font-mono text-[#93C5FD]">
-                  {formatTime(task.earliest_start || task.window_start, '07:00')} –{' '}
-                  {formatTime(task.latest_finish || task.window_end, '10:00 (3h)')}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[#64748B]">Priority:</span>
-                <span className="flex items-center gap-1.5 font-medium text-[#F8FAFC]">
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      task.priority === 'CRITICAL' || task.task_id === 'TSK-0007'
-                        ? 'bg-rose-500'
-                        : 'bg-[#3B82F6]'
-                    }`}
-                  />
-                  {task.priority === 'CRITICAL' || task.task_id === 'TSK-0007' ? 'High' : 'Medium'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[#64748B]">Duration:</span>
-                <span className="text-[#F8FAFC]">
-                  {(task.required_duration_minutes || 180) / 60} hours
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[#64748B]">Required Resources:</span>
-                <span className="text-[#CBD5E1] text-right truncate max-w-[190px]">
-                  Track Machine, Crew (6)
-                </span>
-              </div>
-            </div>
-
-            {/* Unscheduled Alert Box (Directly matching reference comp) */}
-            {!scheduledInterval && (
-              <div className="bg-rose-950/25 border border-rose-500/40 rounded-lg p-3 space-y-2">
-                <div className="flex items-center gap-2 text-rose-400 font-semibold text-xs">
-                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span>No feasible placement found</span>
+            {activeTab === 'OVERVIEW' && (
+              <div className="space-y-3">
+                <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-2.5 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#64748B]">Section:</span>
+                    <span className="font-mono text-[#F8FAFC] font-semibold">
+                      {task.section_code || task.section_id || 'SEC-12'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#64748B]">Location:</span>
+                    <span className="font-mono text-[#38BDF8]">
+                      {formatTrackSpatial(task)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#64748B]">Department:</span>
+                    <span className="text-[#F8FAFC]">
+                      {task.department || 'ENGINEERING (P-WAY)'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#64748B]">Duration Required:</span>
+                    <span className="font-mono text-[#F8FAFC]">
+                      {(task.required_duration_minutes || 180) / 60}h ({task.required_duration_minutes || 180}m)
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#64748B]">Priority:</span>
+                    <span className="font-mono text-rose-400 font-bold">
+                      {task.priority || 'CRITICAL'}
+                    </span>
+                  </div>
                 </div>
-                <p className="text-[11px] text-rose-200/90 leading-relaxed">
-                  Permitted window overlaps high-density passenger express train movements on SEC-12.
-                </p>
-                {onNavigateToDiagnostics && (
-                  <button
-                    onClick={() => onNavigateToDiagnostics(task.task_id)}
-                    className="w-full flex items-center justify-between bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded px-2.5 py-1.5 text-xs text-rose-300 font-medium transition-colors"
-                  >
-                    <span>View in Diagnostics</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            )}
 
-            {/* Scheduled Confirmation Box */}
-            {scheduledInterval && (
-              <div className="bg-emerald-950/25 border border-emerald-500/40 rounded-lg p-3 space-y-1.5">
-                <div className="flex items-center gap-2 text-emerald-400 font-semibold text-xs">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>Possession Window Certified</span>
-                </div>
-                <div className="text-[11px] text-emerald-200 font-mono">
-                  {formatTime(scheduledInterval.interval?.start || scheduledInterval.start_time)} –{' '}
-                  {formatTime(scheduledInterval.interval?.end || scheduledInterval.end_time)}
-                </div>
-              </div>
-            )}
-
-            {/* Collapsible Accordions (Matching Reference Comp) */}
-            <div className="space-y-1.5 pt-1">
-              {/* Conflicts Accordion */}
-              <div className="border border-[#1E2D4A] rounded-lg overflow-hidden bg-[#0A0E17]/40">
-                <button
-                  onClick={() => toggleSection('conflicts')}
-                  className="w-full px-3 py-2 flex items-center justify-between text-xs text-[#CBD5E1] hover:text-white hover:bg-[#141F36] transition-colors"
-                >
-                  <span className="font-medium flex items-center gap-2">
-                    {openSections.conflicts ? (
-                      <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
-                    ) : (
-                      <ChevronRight className="w-3.5 h-3.5 text-[#64748B]" />
-                    )}
-                    Conflicts ({conflictingTrains.length || 2})
+                {/* Possession Window & Schedule */}
+                <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-2 text-xs">
+                  <span className="text-[10px] font-mono font-bold text-[#64748B] uppercase tracking-wider block">
+                    POSSESSION WINDOW & SCHEDULE
                   </span>
-                  <span className="text-[10px] text-rose-400 font-mono">Requires Attention</span>
-                </button>
-                {openSections.conflicts && (
-                  <div className="p-3 border-t border-[#1E2D4A] space-y-2 text-[11px]">
-                    <div className="bg-[#0F172A] p-2 rounded border border-[#1E2D4A] space-y-1">
-                      <div className="flex justify-between font-mono text-[#F8FAFC]">
-                        <span>Train 02073 (Shatabdi Exp)</span>
-                        <span className="text-rose-400 font-semibold">+18m Overlap</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#64748B]">Allowed Window:</span>
+                    <span className="font-mono text-[#93C5FD]">
+                      {formatTime(task.earliest_start || task.window_start, '07:00')} –{' '}
+                      {formatTime(task.latest_finish || task.window_end, '12:00')}
+                    </span>
+                  </div>
+                  {scheduledInterval ? (
+                    <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-emerald-300 font-mono text-[11px] space-y-1">
+                      <div className="flex justify-between">
+                        <span>Assigned Start:</span>
+                        <span className="font-bold">{formatTime(scheduledInterval.interval?.start || scheduledInterval.start_time)}</span>
                       </div>
-                      <p className="text-[#94A3B8] text-[10px]">
-                        Up mainline headway buffer violated between 14:00 and 15:30.
-                      </p>
+                      <div className="flex justify-between">
+                        <span>Assigned End:</span>
+                        <span className="font-bold">{formatTime(scheduledInterval.interval?.end || scheduledInterval.end_time)}</span>
+                      </div>
                     </div>
-                    {onNavigateToConflicts && (
-                      <button
-                        onClick={() => onNavigateToConflicts(task.task_id)}
-                        className="text-[#3B82F6] hover:underline text-[11px] font-medium flex items-center gap-1"
-                      >
-                        Investigate Conflict Resolution →
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <div className="p-2.5 rounded-lg bg-rose-950/30 border border-rose-500/30 text-rose-300 text-[11px]">
+                      <span>Unplaced in Current Scenario</span>
+                    </div>
+                  )}
+                </div>
 
-              {/* Related Trains Accordion */}
-              <div className="border border-[#1E2D4A] rounded-lg overflow-hidden bg-[#0A0E17]/40">
                 <button
-                  onClick={() => toggleSection('relatedTrains')}
-                  className="w-full px-3 py-2 flex items-center justify-between text-xs text-[#CBD5E1] hover:text-white hover:bg-[#141F36] transition-colors"
+                  onClick={() =>
+                    onOpenDigitalTwin?.(task.section_code || task.section_id || 'SEC-12')
+                  }
+                  className="w-full bg-[#141F36] hover:bg-[#1A2846] text-[#38BDF8] border border-[#2563EB]/40 py-2.5 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
-                  <span className="font-medium flex items-center gap-2">
-                    {openSections.relatedTrains ? (
-                      <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
-                    ) : (
-                      <ChevronRight className="w-3.5 h-3.5 text-[#64748B]" />
-                    )}
-                    Related Trains (1)
-                  </span>
-                  <span className="text-[10px] font-mono text-[#64748B]">02073</span>
+                  <Eye className="w-4 h-4" />
+                  <span>Inspect Work Zone in 3D Digital Twin</span>
                 </button>
-                {openSections.relatedTrains && (
-                  <div className="p-3 border-t border-[#1E2D4A] space-y-1.5 text-[11px] text-[#94A3B8]">
-                    <div className="flex justify-between">
-                      <span className="text-[#64748B]">Train Movement:</span>
-                      <span className="font-mono text-[#F8FAFC]">02073 Shatabdi Exp</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[#64748B]">Speed / Path:</span>
-                      <span>130 km/h (Protected Express Path)</span>
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              {/* Rule References Accordion */}
-              <div className="border border-[#1E2D4A] rounded-lg overflow-hidden bg-[#0A0E17]/40">
-                <button
-                  onClick={() => toggleSection('rules')}
-                  className="w-full px-3 py-2 flex items-center justify-between text-xs text-[#CBD5E1] hover:text-white hover:bg-[#141F36] transition-colors"
-                >
-                  <span className="font-medium flex items-center gap-2">
-                    {openSections.rules ? (
-                      <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
-                    ) : (
-                      <ChevronRight className="w-3.5 h-3.5 text-[#64748B]" />
-                    )}
-                    Rule References (2)
-                  </span>
-                  <span className="text-[10px] font-mono text-[#64748B]">VERIFIED</span>
-                </button>
-                {openSections.rules && (
-                  <div className="p-3 border-t border-[#1E2D4A] space-y-2 text-[11px]">
-                    <div className="bg-[#0F172A] p-2 rounded border border-[#1E2D4A]">
-                      <span className="font-mono text-[#3B82F6] font-semibold block">RULE-HEADWAY-01</span>
-                      <p className="text-[#94A3B8] text-[10px] mt-0.5">
-                        Minimum 15-minute headway clearance buffer before and after block possession.
-                      </p>
-                    </div>
-                    <div className="bg-[#0F172A] p-2 rounded border border-[#1E2D4A]">
-                      <span className="font-mono text-[#3B82F6] font-semibold block">RULE-OHE-ISO-04</span>
-                      <p className="text-[#94A3B8] text-[10px] mt-0.5">
-                        Mandatory power de-energization permit required for track renewal on electrified tracks.
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <a
+                    href={`/planning?subtab=TASKS&taskId=${task.task_id}`}
+                    className="bg-[#0F172A] hover:bg-[#141F36] border border-[#1E2D4A] hover:border-[#2D436D] text-[#CBD5E1] hover:text-white py-2 rounded-lg font-medium text-[11px] flex items-center justify-center gap-1.5 transition-colors text-center"
+                  >
+                    <Layers className="w-3.5 h-3.5 text-[#38BDF8]" />
+                    <span>Open in Planning</span>
+                  </a>
+                  <a
+                    href={`/planning?subtab=MAP&taskId=${task.task_id}&section=${task.section_code || 'SEC-12'}`}
+                    className="bg-[#0F172A] hover:bg-[#141F36] border border-[#1E2D4A] hover:border-[#2D436D] text-[#CBD5E1] hover:text-white py-2 rounded-lg font-medium text-[11px] flex items-center justify-center gap-1.5 transition-colors text-center"
+                  >
+                    <MapIcon className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Show on Map</span>
+                  </a>
+                </div>
               </div>
+            )}
 
-              {/* Evidence Accordion */}
-              <div className="border border-[#1E2D4A] rounded-lg overflow-hidden bg-[#0A0E17]/40">
-                <button
-                  onClick={() => toggleSection('evidence')}
-                  className="w-full px-3 py-2 flex items-center justify-between text-xs text-[#CBD5E1] hover:text-white hover:bg-[#141F36] transition-colors"
-                >
-                  <span className="font-medium flex items-center gap-2">
-                    {openSections.evidence ? (
-                      <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
-                    ) : (
-                      <ChevronRight className="w-3.5 h-3.5 text-[#64748B]" />
-                    )}
-                    Evidence (3)
-                  </span>
-                  <span className="text-[10px] font-mono text-[#64748B]">Cryptographic</span>
-                </button>
-                {openSections.evidence && (
-                  <div className="p-3 border-t border-[#1E2D4A] space-y-1.5 text-[10px] font-mono text-[#94A3B8]">
-                    <div className="p-1.5 bg-[#0F172A] rounded border border-[#1E2D4A]">
-                      <span className="text-[#64748B]">Hash: </span>
-                      <span className="text-[#93C5FD]">bae346ecf37b1fd8...</span>
-                    </div>
-                    <div className="p-1.5 bg-[#0F172A] rounded border border-[#1E2D4A]">
-                      <span className="text-[#64748B]">Snapshot: </span>
-                      <span className="text-[#CBD5E1]">SNAP-297E475AC983</span>
-                    </div>
+            {activeTab === 'TIMELINE' && (
+              <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-3 font-mono text-xs">
+                <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block">
+                  WINDOW & EXECUTION INTERVAL
+                </span>
+                <div className="space-y-2">
+                  <div className="flex justify-between bg-[#0A0E17] p-2.5 rounded-lg border border-[#1E2D4A]">
+                    <span className="text-[#94A3B8]">Requisition Window:</span>
+                    <span className="text-[#93C5FD]">
+                      {formatTime(task.earliest_start || task.window_start, '07:00')} –{' '}
+                      {formatTime(task.latest_finish || task.window_end, '12:00')}
+                    </span>
                   </div>
-                )}
+                  {scheduledInterval ? (
+                    <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-emerald-300 space-y-1.5">
+                      <div className="flex justify-between">
+                        <span>Assigned Start:</span>
+                        <span className="font-bold">{formatTime(scheduledInterval.interval?.start || scheduledInterval.start_time)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Assigned End:</span>
+                        <span className="font-bold">{formatTime(scheduledInterval.interval?.end || scheduledInterval.end_time)}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-lg bg-rose-950/30 border border-rose-500/30 text-rose-300">
+                      <span>Unplaced in candidate plan</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </>
+            )}
+
+            {activeTab === 'CONSTRAINTS' && (
+              <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-3 text-xs">
+                <span className="text-[10px] font-mono font-bold text-[#64748B] uppercase tracking-wider block">
+                  APPLICABLE CONSTRAINTS & RULES
+                </span>
+                <div className="space-y-2">
+                  <div className="bg-[#0A0E17] p-2.5 rounded-lg border border-[#1E2D4A] flex justify-between">
+                    <span className="text-[#94A3B8]">Traffic Block Required:</span>
+                    <span className="font-mono text-emerald-400 font-bold">{task.requires_traffic_block ? 'YES' : 'NO'}</span>
+                  </div>
+                  <div className="bg-[#0A0E17] p-2.5 rounded-lg border border-[#1E2D4A] flex justify-between">
+                    <span className="text-[#94A3B8]">OHE 25kV Isolation:</span>
+                    <span className="font-mono text-amber-400 font-bold">{task.requires_ohe_isolation ? 'REQUIRED' : 'NONE'}</span>
+                  </div>
+                  <div className="bg-[#0A0E17] p-2.5 rounded-lg border border-[#1E2D4A] flex justify-between">
+                    <span className="text-[#94A3B8]">Assigned Machinery:</span>
+                    <span className="font-mono text-white">{task.machinery_required?.join(', ') || 'CSM-01'}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'IMPACT' && (
+              <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-2.5 text-xs">
+                <span className="text-[10px] font-mono font-bold text-[#64748B] uppercase tracking-wider block">
+                  OPERATIONAL CORRIDOR IMPACT
+                </span>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-[#94A3B8]">Track Availability Impact:</span>
+                    <span className="font-mono text-white font-bold">1 Track Closed (UP Main)</span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-[#94A3B8]">Temporary Speed Restriction:</span>
+                    <span className="font-mono text-amber-400 font-bold">45 km/h for 2.5 km</span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-[#94A3B8]">Average Freight Rescheduling:</span>
+                    <span className="font-mono text-white font-bold">+22 min</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
-        {/* TRAIN VIEW */}
+        {/* ============================================================ */}
+        {/* C. TRAIN VIEW                                                */}
+        {/* ============================================================ */}
         {isTrain && selectedTrain && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div>
-              <div className="flex items-center gap-2 text-sm font-bold font-mono text-[#F8FAFC]">
-                <Train className="w-4 h-4 text-[#3B82F6]" />
-                <span>{selectedTrain.train_number} • {selectedTrain.train_name}</span>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-bold font-mono text-[#F8FAFC]">
+                  {selectedTrain.train_number}
+                </span>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#2563EB]/20 text-[#38BDF8] border border-[#2563EB]/40">
+                  TIER {selectedTrain.priority_tier ?? 1} EXPRESS
+                </span>
               </div>
-              <span className="text-[10px] text-[#64748B] block mt-0.5 font-mono">
-                Train Movement ({selectedTrain.direction || 'UP'} Main Line)
-              </span>
+              <h2 className="text-xs font-semibold text-[#CBD5E1]">
+                {selectedTrain.train_name}
+              </h2>
             </div>
 
-            <div className="bg-[#0A0E17]/60 border border-[#1E2D4A] rounded-lg p-3 space-y-2 text-xs">
+            <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-2.5 text-xs">
               <div className="flex justify-between">
-                <span className="text-[#64748B]">Priority Tier:</span>
-                <span className="text-emerald-400 font-semibold font-mono">
-                  Tier {selectedTrain.priority_tier ?? 1} (Express)
+                <span className="text-[#64748B]">Route:</span>
+                <span className="font-mono text-[#F8FAFC]">
+                  {selectedTrain.entry_station || 'NDLS'} → {selectedTrain.exit_station || 'CNB'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#64748B]">Track:</span>
+                <span className="text-[#64748B]">Direction:</span>
                 <span className="font-mono text-[#38BDF8]">
-                  {selectedTrain.track_id
-                    ? selectedTrain.track_id.endsWith('-UP')
-                      ? 'UP_MAIN'
-                      : selectedTrain.track_id.endsWith('-DN')
-                      ? 'DN_MAIN'
-                      : selectedTrain.track_id
-                    : 'Not specified'}
+                  {selectedTrain.direction || 'UP'} MAIN LINE
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#64748B]">Entry Station:</span>
-                <span className="font-mono text-[#F8FAFC]">{selectedTrain.entry_station || 'NDLS'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#64748B]">Exit Station:</span>
-                <span className="font-mono text-[#F8FAFC]">{selectedTrain.exit_station || 'CNB'}</span>
+                <span className="text-[#64748B]">Speed:</span>
+                <span className="font-mono text-emerald-400 font-bold">130 km/h</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#64748B]">Scheduled Entry:</span>
@@ -429,120 +596,224 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({
                 <span className="font-mono text-[#93C5FD]">{formatTime(selectedTrain.exit_time)}</span>
               </div>
             </div>
-
-            {/* Physical Section Traversals */}
-            {(() => {
-              const trainTraversals = (traversals || []).filter(
-                (t) =>
-                  t.train_number === selectedTrain.train_number ||
-                  t.train_id === selectedTrain.train_id
-              );
-              if (trainTraversals.length === 0) return null;
-
-              return (
-                <div className="bg-[#0A0E17]/60 border border-[#1E2D4A] rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-[#CBD5E1] text-[11px]">
-                      Physical Section Traversals
-                    </span>
-                    <span className="text-[10px] font-mono text-[#38BDF8] bg-[#0F172A] px-1.5 py-0.5 rounded border border-[#1E2D4A]">
-                      {trainTraversals.length} sections
-                    </span>
-                  </div>
-                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                    {trainTraversals.map((trv) => (
-                      <div
-                        key={trv.traversal_id}
-                        className="bg-[#0F172A] p-2 rounded border border-[#1E2D4A] text-[10px] space-y-1"
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="font-mono font-semibold text-[#F8FAFC]">
-                            #{trv.sequence_order} {trv.section_id || 'UNRESOLVED'}
-                          </span>
-                          <span
-                            className={`px-1 py-0.5 rounded text-[9px] font-mono font-medium ${
-                              trv.resolution_status === 'DIRECT_SECTION'
-                                ? 'bg-cyan-950 text-cyan-400 border border-cyan-800'
-                                : trv.resolution_status === 'EXPANDED_ROUTE'
-                                ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                                : 'bg-amber-950 text-amber-400 border border-amber-800'
-                            }`}
-                          >
-                            {trv.resolution_status === 'DIRECT_SECTION'
-                              ? 'DIRECT'
-                              : trv.resolution_status === 'EXPANDED_ROUTE'
-                              ? 'EXPANDED'
-                              : 'UNRESOLVED'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-[#94A3B8]">
-                          <span>
-                            {trv.from_station_id} → {trv.to_station_id}
-                          </span>
-                          <span className="font-mono text-[#93C5FD]">
-                            {formatTime(trv.entry_time)}–{formatTime(trv.exit_time)} ({trv.duration_minutes.toFixed(0)}m)
-                          </span>
-                        </div>
-                        {trv.traversal_track_id && (
-                          <div className="text-[9px] text-[#38BDF8] font-mono">
-                            Track: {trv.traversal_track_id}
-                          </div>
-                        )}
-                        {trv.unresolved_reason && (
-                          <div className="text-[9px] text-amber-400">
-                            {trv.unresolved_reason}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
           </div>
         )}
 
-        {/* SECTION VIEW */}
-        {isSection && selectedSection && (
-          <div className="space-y-3">
+        {/* ============================================================ */}
+        {/* D. STATION VIEW                                              */}
+        {/* ============================================================ */}
+        {isStation && selectedStation && (
+          <div className="space-y-4">
             <div>
-              <div className="flex items-center gap-2 text-sm font-bold font-mono text-[#F8FAFC]">
-                <MapPin className="w-4 h-4 text-[#3B82F6]" />
-                <span>{selectedSection.section_code || selectedSection.code}</span>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-bold font-mono text-[#F8FAFC]">
+                  {selectedStation.code}
+                </span>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                  STATION HUB
+                </span>
               </div>
-              <span className="text-[10px] text-[#64748B] block mt-0.5">
-                Block Section • {selectedSection.from_station_code} to {selectedSection.to_station_code}
-              </span>
+              <h2 className="text-xs font-semibold text-[#CBD5E1]">
+                {selectedStation.name}
+              </h2>
             </div>
 
-            <div className="bg-[#0A0E17]/60 border border-[#1E2D4A] rounded-lg p-3 space-y-2 text-xs">
+            <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-2.5 text-xs">
               <div className="flex justify-between">
-                <span className="text-[#64748B]">Length:</span>
+                <span className="text-[#64748B]">Chainage:</span>
+                <span className="font-mono text-[#F8FAFC]">km {selectedStation.distance_km}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Running Tracks:</span>
+                <span className="font-mono text-[#38BDF8]">{selectedStation.track_count || 6} Lines</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Division:</span>
+                <span className="font-mono text-[#F8FAFC]">{selectedStation.division || 'PRYJ'}</span>
+              </div>
+            </div>
+
+            {selectedStation.facilities && (
+              <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-2">
+                <span className="text-[10px] font-mono font-bold text-[#64748B] uppercase tracking-wider block">
+                  INTERLOCKING & FACILITIES
+                </span>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {selectedStation.facilities.map((fac, idx) => (
+                    <span
+                      key={idx}
+                      className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#141F36] text-[#93C5FD] border border-[#2D436D]"
+                    >
+                      {fac}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* E. TRACK SECTION VIEW                                        */}
+        {/* ============================================================ */}
+        {isSection && selectedSection && (
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-bold font-mono text-[#F8FAFC]">
+                  {selectedSection.section_code || selectedSection.code}
+                </span>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">
+                  BLOCK SECTION
+                </span>
+              </div>
+              <h2 className="text-xs font-semibold text-[#CBD5E1]">
+                {selectedSection.from_station_code || 'NDLS'} → {selectedSection.to_station_code || 'GZB'}
+              </h2>
+            </div>
+
+            <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-2.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Section Length:</span>
                 <span className="font-mono text-[#F8FAFC]">{selectedSection.length_km} km</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#64748B]">Tracks:</span>
-                <span className="text-[#F8FAFC]">{selectedSection.track_count ?? 2} (Double Line)</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#64748B]">Electrification:</span>
-                <span className="text-emerald-400">25 kV AC OHE</span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-[#64748B]">Speed Limit:</span>
-                <span className="font-mono text-[#F8FAFC]">{selectedSection.speed_limit_kmh ?? 130} km/h</span>
+                <span className="font-mono text-emerald-400 font-bold">{selectedSection.speed_limit_kmh ?? 130} km/h</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Traction:</span>
+                <span className="text-amber-400">25 kV AC Catenary</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Tracks:</span>
+                <span className="text-[#F8FAFC]">{selectedSection.track_count ?? 2} (UP & DOWN Main)</span>
               </div>
             </div>
+
+            <button
+              onClick={() =>
+                onOpenDigitalTwin?.(selectedSection.code || selectedSection.section_code || 'SEC-12')
+              }
+              className="w-full bg-[#141F36] hover:bg-[#1A2846] text-[#38BDF8] border border-[#2563EB]/40 py-2.5 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <Eye className="w-4 h-4" />
+              <span>Launch 3D Digital Twin Inspection</span>
+            </button>
           </div>
         )}
 
-        {/* EMPTY STATE IF NOTHING SELECTED */}
-        {!isTask && !isTrain && !isSection && (
-          <div className="py-12 flex flex-col items-center justify-center text-center text-[#64748B]">
-            <Wrench className="w-8 h-8 mb-2 text-[#1E2D4A]" />
-            <p className="text-xs font-semibold text-[#CBD5E1]">No Entity Selected</p>
-            <p className="text-[11px] text-[#64748B] mt-1 max-w-[220px]">
-              Click any maintenance task, train rake, or block section on the corridor map to inspect diagnostics.
+        {/* ============================================================ */}
+        {/* F. RAILWAY SIGNAL VIEW                                       */}
+        {/* ============================================================ */}
+        {isSignal && selectedSignal && (
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-bold font-mono text-[#F8FAFC]">
+                  {selectedSignal.id}
+                </span>
+                <span
+                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
+                    selectedSignal.aspect === 'green'
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                      : selectedSignal.aspect === 'red'
+                      ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                      : 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                  }`}
+                >
+                  ASPECT: {selectedSignal.aspect.toUpperCase()}
+                </span>
+              </div>
+              <h2 className="text-xs font-semibold text-[#CBD5E1]">
+                {selectedSignal.type.replace(/_/g, ' ').toUpperCase()}
+              </h2>
+            </div>
+
+            <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-2.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Corridor Kilometre:</span>
+                <span className="font-mono text-[#F8FAFC]">km {selectedSignal.km.toFixed(1)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Assigned Track:</span>
+                <span className="font-mono text-[#38BDF8]">{selectedSignal.track} Mainline</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Overlap Distance:</span>
+                <span className="font-mono text-emerald-400 font-bold">{selectedSignal.overlap_distance_m || 180}m</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Interlocking:</span>
+                <span className="text-[#F8FAFC]">{selectedSignal.interlocking || 'Electronic Interlocking (EI)'}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => onOpenDigitalTwin?.('SEC-12')}
+              className="w-full bg-[#141F36] hover:bg-[#1A2846] text-[#38BDF8] border border-[#2563EB]/40 py-2.5 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <Eye className="w-4 h-4" />
+              <span>Inspect Signal Mast in 3D Digital Twin</span>
+            </button>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* G. CATENARY / OHE VIEW                                       */}
+        {/* ============================================================ */}
+        {isOHE && selectedOHE && (
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-bold font-mono text-[#F8FAFC]">
+                  {selectedOHE.id}
+                </span>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  {selectedOHE.voltage_kv} kV AC ENERGIZED
+                </span>
+              </div>
+              <h2 className="text-xs font-semibold text-[#CBD5E1]">
+                Traction Mast & Contact Wire Suspension
+              </h2>
+            </div>
+
+            <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-3.5 space-y-2.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Location:</span>
+                <span className="font-mono text-[#F8FAFC]">km {selectedOHE.km.toFixed(1)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Feeder Substation:</span>
+                <span className="text-[#38BDF8]">{selectedOHE.feeder_zone} (Traction Power)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Wire Height:</span>
+                <span className="font-mono text-emerald-400 font-bold">{selectedOHE.contact_wire_height_m || 5.60}m</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Neutral Section:</span>
+                <span className="font-mono text-[#F8FAFC]">{selectedOHE.neutral_section ? 'YES (PTFE Isolator)' : 'NO (Continuous)'}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => onOpenDigitalTwin?.('SEC-12')}
+              className="w-full bg-[#141F36] hover:bg-[#1A2846] text-[#38BDF8] border border-[#2563EB]/40 py-2.5 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <Eye className="w-4 h-4" />
+              <span>Inspect Catenary in 3D Digital Twin</span>
+            </button>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isTask && !isTrain && !isSection && !isStation && !isConflict && !isSignal && !isOHE && (
+          <div className="py-20 flex flex-col items-center justify-center text-center text-[#64748B]">
+            <Radio className="w-8 h-8 mb-2 text-[#1E2D4A] animate-pulse" />
+            <p className="text-xs font-semibold text-[#CBD5E1]">Corridor Telemetry Ready</p>
+            <p className="text-[11px] text-[#64748B] mt-1 max-w-[260px] leading-relaxed">
+              Select any railway track section, train movement, station hub, or work order on the map to inspect live operational facts.
             </p>
           </div>
         )}

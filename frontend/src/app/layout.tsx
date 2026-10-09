@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TrackMeld — Railway Maintenance Possession Planning & Decision Support",
-  description: "Decision-support platform for railway maintenance possession planning, conflict detection, optimization, and human-in-the-loop review.",
+  title: "TrackMeld — Railway Digital Twin & Possession Planning Platform",
+  description:
+    "Plan maintenance windows around real railway constraints — then validate every decision before it reaches the track. Industrial 3D digital twin, CP-SAT optimization, independent validation, and four-eyes human governance.",
 };
 
 export default function RootLayout({

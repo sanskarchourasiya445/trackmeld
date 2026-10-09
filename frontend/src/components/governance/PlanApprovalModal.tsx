@@ -77,74 +77,74 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-[#141418] border border-[#29292F] text-[#F5F5F5] sm:max-w-lg p-6 font-mono">
+      <DialogContent className="bg-[#0B101C] border border-[#1E2D4A] text-[#F8FAFC] sm:max-w-lg p-6 font-sans select-none shadow-2xl">
         <DialogHeader>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <DialogTitle className="text-base font-bold text-[#F5F5F5]">
+              <DialogTitle className="text-base font-bold text-[#F8FAFC]">
                 {isRejectMode ? 'Reject Maintenance Plan Version' : 'Authorize & Approve Plan Version'}
               </DialogTitle>
-              <DialogDescription className="text-xs text-[#A1A1AA]">
-                Plan Version {planVersion?.version_number ?? 1} • Immutable Governance Gate
+              <DialogDescription className="text-xs text-[#94A3B8]">
+                Plan Version {planVersion?.version_number ?? 1} • Immutable Four-Eyes Governance Gate
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         {/* Cryptographic schedule identity badge */}
-        <div className="bg-[#0E0E12] border border-[#202024] rounded p-2.5 space-y-1 text-[10px]">
-          <div className="flex items-center justify-between text-[#71717A]">
-            <span className="flex items-center gap-1 font-semibold text-[#A1A1AA]">
-              <Fingerprint className="w-3.5 h-3.5 text-[#4C87E7]" />
-              Schedule Fingerprint (SHA-256):
+        <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3 space-y-1.5 text-xs font-mono">
+          <div className="flex items-center justify-between text-[#94A3B8]">
+            <span className="flex items-center gap-1.5 font-semibold text-[#CBD5E1]">
+              <Fingerprint className="w-4 h-4 text-[#38BDF8]" />
+              Schedule Identity (SHA-256):
             </span>
-            <span className="text-emerald-400 flex items-center gap-1 font-bold">
-              <Lock className="w-2.5 h-2.5" />
-              Certified Valid
+            <span className="text-emerald-400 flex items-center gap-1 font-bold text-[11px]">
+              <Lock className="w-3 h-3" />
+              13/13 Validated
             </span>
           </div>
-          <div className="text-[9px] text-[#71717A] truncate font-mono select-all">
+          <div className="text-[10px] text-[#38BDF8] break-all select-all font-mono">
             {scheduleFingerprint}
           </div>
         </div>
 
         {/* Warning Callout: COMPLETED != APPROVED */}
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded p-2.5 text-xs text-amber-200/90 space-y-1">
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-200 space-y-1">
           <div className="flex items-center gap-1.5 font-bold text-amber-300 text-[11px]">
-            <AlertTriangle className="w-3.5 h-3.5" />
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
             <span>OPERATIONAL BOUNDARY: COMPLETED ≠ APPROVED</span>
           </div>
-          <p className="text-[10.5px] leading-relaxed text-amber-200/80">
-            Solver optimization and independent validator verification verify mathematical and domain feasibility only.
-            By Indian Railways Operating Manuals, track possession cannot commence without explicit human operational authorization.
+          <p className="text-[11px] leading-relaxed text-amber-300/90 font-sans">
+            Solver optimization and independent verification confirm mathematical and safety feasibility only.
+            Track possession cannot commence without explicit human operational authorization.
           </p>
         </div>
 
         {/* Form Inputs */}
-        <div className="space-y-3 text-xs">
+        <div className="space-y-3.5 text-xs font-sans">
           <div>
-            <label className="text-[10px] text-[#A1A1AA] uppercase tracking-wider block mb-1">
+            <label className="text-[10px] text-[#94A3B8] uppercase tracking-wider block font-bold mb-1">
               Reviewing Officer
             </label>
             <input
               type="text"
               value={reviewerName}
               onChange={(e) => setReviewerName(e.target.value)}
-              className="w-full bg-[#0E0E12] border border-[#29292F] rounded px-3 py-1.5 text-xs text-[#F5F5F5] focus:outline-hidden focus:border-[#4C87E7]"
+              className="w-full bg-[#0F172A] border border-[#1E2D4A] rounded-md px-3 py-2 text-xs text-[#F8FAFC] focus:outline-hidden focus:border-[#2563EB]"
             />
           </div>
 
           <div>
-            <label className="text-[10px] text-[#A1A1AA] uppercase tracking-wider block mb-1">
+            <label className="text-[10px] text-[#94A3B8] uppercase tracking-wider block font-bold mb-1">
               Designation / Role
             </label>
             <select
               value={reviewerRole}
               onChange={(e) => setReviewerRole(e.target.value)}
-              className="w-full bg-[#0E0E12] border border-[#29292F] rounded px-3 py-1.5 text-xs text-[#F5F5F5] focus:outline-hidden focus:border-[#4C87E7]"
+              className="w-full bg-[#0F172A] border border-[#1E2D4A] rounded-md px-3 py-2 text-xs text-[#F8FAFC] focus:outline-hidden focus:border-[#2563EB]"
             >
               <option value="DIVISIONAL_RAILWAY_MANAGER">Divisional Railway Manager (DRM)</option>
               <option value="SENIOR_DIV_OPERATIONS_MANAGER">Senior Divisional Operations Manager (Sr. DOM)</option>
@@ -154,14 +154,14 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
           </div>
 
           <div>
-            <label className="text-[10px] text-[#A1A1AA] uppercase tracking-wider block mb-1">
+            <label className="text-[10px] text-[#94A3B8] uppercase tracking-wider block font-bold mb-1">
               {isRejectMode ? 'Mandatory Rejection Rationale (Audit Log)' : 'Operational Approval Endorsement'}
             </label>
             <textarea
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-[#0E0E12] border border-[#29292F] rounded p-2.5 text-xs text-[#F5F5F5] focus:outline-hidden focus:border-[#4C87E7]"
+              className="w-full bg-[#0F172A] border border-[#1E2D4A] rounded-md p-2.5 text-xs text-[#F8FAFC] focus:outline-hidden focus:border-[#2563EB]"
             />
           </div>
 
@@ -171,22 +171,22 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
                 type="checkbox"
                 checked={acknowledged}
                 onChange={(e) => setAcknowledged(e.target.checked)}
-                className="mt-0.5 rounded border-[#29292F] bg-[#0E0E12] text-[#4C87E7]"
+                className="mt-0.5 rounded border-[#1E2D4A] bg-[#0F172A] text-[#2563EB]"
               />
-              <span className="text-[10px] text-[#A1A1AA] leading-snug">
+              <span className="text-[11px] text-[#94A3B8] leading-snug">
                 I certify that I have audited the schedule against corridor traffic conditions, confirmed zero active train conflicts, and authorize track possession issuance.
               </span>
             </label>
           )}
         </div>
 
-        <DialogFooter className="flex items-center justify-between sm:justify-between pt-2 border-t border-[#202024]">
+        <DialogFooter className="flex items-center justify-between sm:justify-between pt-3 border-t border-[#1E2D4A]">
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => setIsRejectMode(!isRejectMode)}
-            className="text-xs text-[#71717A] hover:text-[#F5F5F5]"
+            className="text-xs text-[#94A3B8] hover:text-[#F8FAFC]"
           >
             {isRejectMode ? 'Switch to Approve' : 'Switch to Reject'}
           </Button>
@@ -197,7 +197,7 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
               variant="outline"
               size="sm"
               onClick={onClose}
-              className="border-[#29292F] text-xs text-[#A1A1AA]"
+              className="border-[#2D436D] text-xs text-[#CBD5E1]"
             >
               Cancel
             </Button>
@@ -206,7 +206,7 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
               size="sm"
               disabled={isSubmitting || (!isRejectMode && !acknowledged)}
               onClick={handleSubmit}
-              className={`text-xs font-mono font-semibold ${
+              className={`text-xs font-semibold px-4 h-8 ${
                 isRejectMode
                   ? 'bg-rose-600 hover:bg-rose-500 text-white'
                   : 'bg-emerald-600 hover:bg-emerald-500 text-white'
@@ -216,12 +216,12 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
                 'Recording Immutable Audit...'
               ) : isRejectMode ? (
                 <>
-                  <XCircle className="w-3.5 h-3.5 mr-1" />
+                  <XCircle className="w-3.5 h-3.5 mr-1.5" />
                   Confirm Rejection
                 </>
               ) : (
                 <>
-                  <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                  <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
                   Grant Human Approval
                 </>
               )}

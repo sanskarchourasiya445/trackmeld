@@ -1,232 +1,385 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   CalendarRange,
-  FileCheck,
-  GitBranch,
-  Train,
+  Network,
   ClipboardList,
-  Wrench,
-  AlertTriangle,
-  ShieldAlert,
-  BarChart3,
+  ShieldCheck,
+  Bot,
   ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
   X,
+  TrainTrack,
 } from 'lucide-react';
+import { useSidebar } from '@/contexts/SidebarContext';
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
   badge?: string;
-  badgeColor?: 'green' | 'red';
-  isExternalOrStub?: boolean;
+  badgeColor?: 'blue' | 'green' | 'amber' | 'red';
 }
 
-const OPERATION_ITEMS: NavItem[] = [
+const PRIMARY_NAV_ITEMS: NavItem[] = [
   {
     label: 'Overview',
     href: '/overview',
-    icon: <LayoutDashboard className="w-4 h-4" />,
+    icon: <LayoutDashboard className="w-4 h-4 shrink-0" />,
   },
   {
-    label: 'Planning Workspace',
+    label: 'Planning',
     href: '/planning',
-    icon: <CalendarRange className="w-4 h-4" />,
-    badge: 'LIVE',
-    badgeColor: 'green',
+    icon: <CalendarRange className="w-4 h-4 shrink-0" />,
+    badge: 'PRIMARY',
+    badgeColor: 'blue',
   },
   {
-    label: 'Audit & Governance',
-    href: '/audit',
-    icon: <FileCheck className="w-4 h-4" />,
-  },
-];
-
-const DOMAIN_ITEMS: NavItem[] = [
-  {
-    label: 'Rail Network',
-    href: '/planning?subtab=RAILWAY',
-    icon: <GitBranch className="w-4 h-4" />,
-  },
-  {
-    label: 'Rolling Stock',
-    href: '/planning?subtab=TRAINS',
-    icon: <Train className="w-4 h-4" />,
+    label: 'Network',
+    href: '/network',
+    icon: <Network className="w-4 h-4 shrink-0" />,
   },
   {
     label: 'Work Orders',
-    href: '/planning?subtab=TASKS',
-    icon: <ClipboardList className="w-4 h-4" />,
+    href: '/work-orders',
+    icon: <ClipboardList className="w-4 h-4 shrink-0" />,
   },
   {
-    label: 'Resources',
-    href: '/planning?subtab=RESOURCES',
-    icon: <Wrench className="w-4 h-4" />,
+    label: 'Validation & Governance',
+    href: '/governance',
+    icon: <ShieldCheck className="w-4 h-4 shrink-0" />,
+    badge: '13 CHECKS',
+    badgeColor: 'green',
+  },
+  {
+    label: 'Copilot',
+    href: '/copilot',
+    icon: <Bot className="w-4 h-4 shrink-0" />,
+    badge: 'READ-ONLY',
+    badgeColor: 'blue',
   },
 ];
 
-const INTELLIGENCE_ITEMS: NavItem[] = [
-  {
-    label: 'Incidents & Alerts',
-    href: '/planning?subtab=CONFLICTS',
-    icon: <AlertTriangle className="w-4 h-4" />,
-    badge: '2',
-    badgeColor: 'red',
-  },
-  {
-    label: 'Risk Intelligence',
-    href: '/planning?subtab=VALIDATION',
-    icon: <ShieldAlert className="w-4 h-4" />,
-  },
-  {
-    label: 'Reports',
-    href: '/planning?subtab=DIAGNOSTICS',
-    icon: <BarChart3 className="w-4 h-4" />,
-  },
-];
-
-interface SidebarProps {
+export interface SidebarProps {
+  // Optional prop overrides (falls back to SidebarContext)
   isOpen?: boolean;
   onClose?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  isOpen: propIsOpen,
+  onClose: propOnClose,
+  isCollapsed: propIsCollapsed,
+  onToggleCollapse: propOnToggleCollapse,
+}) => {
   const pathname = usePathname();
+  const context = useSidebar();
 
-  const renderNavGroup = (title: string, items: NavItem[]) => (
-    <div className="mb-3 lg:mb-2 xl:mb-4">
-      <div className="text-[10px] font-sans uppercase tracking-wider text-[#64748B] px-3 py-1 mb-1 font-bold lg:hidden xl:block">
-        {title}
-      </div>
-      {/* Icon-rail divider for laptop screens */}
-      <div className="h-[1px] bg-[#1E2D4A]/60 my-2 mx-2 hidden lg:block xl:hidden" />
-      <nav className="space-y-0.5">
-        {items.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            (item.href.startsWith('/planning') && pathname === '/planning' && item.label === 'Planning Workspace');
+  // Resolve state from props or context
+  const isMobileOpen = propIsOpen !== undefined ? propIsOpen : context.isMobileOpen;
+  const onCloseMobile = propOnClose || context.closeMobile;
+  const isCollapsed = propIsCollapsed !== undefined ? propIsCollapsed : context.isCollapsed;
+  const toggleCollapse = propOnToggleCollapse || context.toggleCollapse;
 
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={onClose}
-              title={item.label}
-              className={`flex items-center justify-between px-3 py-1.5 rounded-md text-xs font-medium transition-all relative group ${
-                isActive
-                  ? 'bg-[#141F36] text-[#F8FAFC] border border-[#2D436D] shadow-xs font-semibold'
-                  : 'text-[#94A3B8] hover:bg-[#0F172A] hover:text-[#F8FAFC]'
-              }`}
-            >
-              <div className="flex items-center gap-2.5 lg:justify-center xl:justify-start w-full">
-                <span className={`relative shrink-0 ${isActive ? 'text-[#3B82F6]' : 'text-[#64748B]'}`}>
-                  {item.icon}
-                  {/* Laptop icon-rail dot badge */}
-                  {item.badge && (
-                    <span
-                      className={`hidden lg:block xl:hidden absolute -top-1 -right-1 w-2 h-2 rounded-full ${
-                        item.badgeColor === 'red' ? 'bg-rose-500' : 'bg-emerald-500'
-                      }`}
-                    />
-                  )}
-                </span>
-                <span className="lg:hidden xl:inline truncate">{item.label}</span>
-              </div>
-
-              {/* Full text badge for mobile and desktop */}
-              {item.badge && (
-                <span
-                  className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold border lg:hidden xl:inline shrink-0 ${
-                    item.badgeColor === 'red'
-                      ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
-                      : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                  }`}
-                >
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
-    </div>
-  );
+  // Close mobile drawer on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMobileOpen) {
+        onCloseMobile();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileOpen, onCloseMobile]);
 
   return (
     <>
-      {/* Mobile/Tablet Backdrop */}
-      {isOpen && (
+      {/* 1. Mobile/Tablet Backdrop Overlay (<lg screens) */}
+      {isMobileOpen && (
         <div
-          onClick={onClose}
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 lg:hidden"
+          onClick={onCloseMobile}
+          className="fixed inset-0 bg-black/75 backdrop-blur-xs z-40 lg:hidden transition-opacity duration-200"
+          aria-hidden="true"
         />
       )}
 
-      {/* Sidebar Container: w-64 on mobile drawer, w-16 on lg (icon rail), w-52 on xl, w-56 on 2xl */}
+      {/* 2. Main Collapsible Sidebar Navigation */}
       <aside
+        id="railway-navigation-sidebar"
+        role="complementary"
         aria-label="Railway Operations Navigation"
-        className={`fixed lg:static top-0 bottom-0 left-0 z-50 w-64 lg:w-16 xl:w-52 2xl:w-56 bg-[#0B101C] border-r border-[#1E2D4A] flex flex-col justify-between select-none shrink-0 transition-all duration-200 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed lg:static top-0 bottom-0 left-0 z-50 bg-[#0B101C] border-r border-[#1E2D4A] flex flex-col justify-between select-none shrink-0 transition-[width,transform] duration-200 ease-in-out font-sans ${
+          /* Mobile behavior: off-canvas drawer */
+          isMobileOpen
+            ? 'translate-x-0 w-72 max-w-[85vw] shadow-2xl'
+            : '-translate-x-full lg:translate-x-0'
+        } ${
+          /* Desktop behavior: expanded (w-64) vs collapsed icon rail (w-16) */
+          isCollapsed ? 'lg:w-16' : 'lg:w-64'
         }`}
       >
-        {/* Navigation Content */}
-        <div className="p-2 sm:p-3 overflow-y-auto">
-          {/* Mobile close button */}
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#1E2D4A] lg:hidden">
-            <span className="text-xs font-bold text-[#F8FAFC]">TrackMeld System</span>
-            <button
-              onClick={onClose}
-              className="p-1 text-[#94A3B8] hover:text-white rounded"
-              title="Close Navigation"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+        {/* TOP SECTION: Branding & Navigation */}
+        <div className="flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+          {/* ============================================================== */}
+          {/* HEADER: EXPANDED VS COLLAPSED                                  */}
+          {/* ============================================================== */}
+          {isCollapsed ? (
+            /* COLLAPSED HEADER (Desktop Icon Rail) */
+            <div className="hidden lg:flex flex-col items-center py-3.5 border-b border-[#1E2D4A] gap-2.5 shrink-0">
+              <Link
+                href="/"
+                className="w-9 h-9 rounded-xl bg-[#141F36] border border-[#2D436D] hover:border-[#3B82F6] transition-colors flex items-center justify-center shadow-xs group"
+                title="TrackMeld Homepage"
+                aria-label="TrackMeld Homepage"
+              >
+                <TrainTrack className="w-4 h-4 text-[#38BDF8] group-hover:scale-110 transition-transform" />
+              </Link>
+              <button
+                onClick={toggleCollapse}
+                className="p-1.5 rounded-lg text-[#94A3B8] hover:text-[#38BDF8] hover:bg-[#141F36] border border-[#1E2D4A] hover:border-[#2D436D] transition-colors cursor-pointer"
+                title="Expand sidebar (Ctrl+B)"
+                aria-label="Expand sidebar navigation"
+                aria-expanded="false"
+                aria-controls="railway-navigation-sidebar"
+              >
+                <PanelLeftOpen className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            /* EXPANDED HEADER (Normal Desktop & Mobile Drawer) */
+            <div className="p-4 pb-3 border-b border-[#1E2D4A] flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#141F36] border border-[#2D436D] flex items-center justify-center shadow-xs">
+                  <TrainTrack className="w-4 h-4 text-[#38BDF8]" />
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-[#F8FAFC] tracking-tight">
+                      TrackMeld
+                    </span>
+                    <span className="text-[9px] font-mono text-[#38BDF8] bg-[#2563EB]/15 px-1 rounded border border-[#2563EB]/30 font-semibold">
+                      OPS
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-[#64748B]">Railway Operations</span>
+                </div>
+              </div>
 
-          {renderNavGroup('OPERATIONS', OPERATION_ITEMS)}
-          {renderNavGroup('DOMAIN SYSTEM', DOMAIN_ITEMS)}
-          {renderNavGroup('INTELLIGENCE', INTELLIGENCE_ITEMS)}
+              {/* Collapse button on desktop / Close button on mobile */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={toggleCollapse}
+                  className="hidden lg:flex p-1.5 rounded-lg text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36] border border-transparent hover:border-[#1E2D4A] transition-colors cursor-pointer"
+                  title="Collapse sidebar (Ctrl+B)"
+                  aria-label="Collapse sidebar navigation"
+                  aria-expanded="true"
+                  aria-controls="railway-navigation-sidebar"
+                >
+                  <PanelLeftClose className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={onCloseMobile}
+                  className="lg:hidden p-1.5 text-[#94A3B8] hover:text-white rounded-lg hover:bg-[#141F36]"
+                  title="Close Navigation"
+                  aria-label="Close navigation menu"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================== */}
+          {/* NAVIGATION ITEMS LIST                                          */}
+          {/* ============================================================== */}
+          <div className={`flex-1 py-3 ${isCollapsed ? 'px-2' : 'px-3'} overflow-y-auto`}>
+            {!isCollapsed && (
+              <div className="text-[10px] font-sans uppercase tracking-wider text-[#64748B] px-3 py-1 mb-2 font-bold flex items-center justify-between">
+                <span>Operational Workspaces</span>
+                <kbd className="hidden lg:inline-block text-[9px] font-mono text-[#475569] bg-[#0F172A] px-1 py-0.5 rounded border border-[#1E2D4A]">
+                  Ctrl+B
+                </kbd>
+              </div>
+            )}
+
+            <nav className="space-y-1.5" aria-label="Workspaces">
+              {PRIMARY_NAV_ITEMS.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  (item.href === '/governance' && (pathname === '/governance' || pathname === '/audit')) ||
+                  (item.href === '/planning' && pathname.startsWith('/planning'));
+
+                if (isCollapsed) {
+                  /* COLLAPSED ICON RAIL ITEM */
+                  return (
+                    <div key={item.label} className="relative group flex justify-center">
+                      <Link
+                        href={item.href}
+                        onClick={onCloseMobile}
+                        title={`${item.label}${item.badge ? ` (${item.badge})` : ''}`}
+                        aria-label={item.label}
+                        className={`relative flex items-center justify-center w-10 h-10 rounded-xl transition-all ${
+                          isActive
+                            ? 'bg-[#141F36] text-[#38BDF8] border border-[#2D436D] shadow-xs'
+                            : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#0F172A]'
+                        }`}
+                      >
+                        {/* Active vertical accent bar */}
+                        {isActive && (
+                          <span className="absolute left-0 top-2 bottom-2 w-1 bg-[#38BDF8] rounded-r" />
+                        )}
+
+                        {/* Icon */}
+                        {item.icon}
+
+                        {/* Badge Indicator Dot */}
+                        {item.badge && (
+                          <span
+                            className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ring-2 ring-[#0B101C] ${
+                              item.badgeColor === 'green'
+                                ? 'bg-emerald-400'
+                                : item.badgeColor === 'red'
+                                ? 'bg-rose-400'
+                                : 'bg-[#38BDF8]'
+                            }`}
+                          />
+                        )}
+                      </Link>
+
+                      {/* Accessible Floating Hover Tooltip */}
+                      <div
+                        role="tooltip"
+                        className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-[#0F172A] border border-[#2D436D] text-[#F8FAFC] text-xs font-semibold rounded-lg shadow-2xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 flex items-center gap-2"
+                      >
+                        <span>{item.label}</span>
+                        {item.badge && (
+                          <span
+                            className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold border ${
+                              item.badgeColor === 'green'
+                                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                                : item.badgeColor === 'red'
+                                ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                                : 'bg-[#2563EB]/20 text-[#38BDF8] border-[#2563EB]/40'
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                /* EXPANDED NAV ITEM */
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    onClick={onCloseMobile}
+                    title={item.label}
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all group ${
+                      isActive
+                        ? 'bg-[#141F36] text-[#F8FAFC] border border-[#2D436D] shadow-xs font-semibold'
+                        : 'text-[#94A3B8] hover:bg-[#0F172A] hover:text-[#F8FAFC]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span
+                        className={`transition-colors ${
+                          isActive
+                            ? 'text-[#38BDF8]'
+                            : 'text-[#64748B] group-hover:text-[#94A3B8]'
+                        }`}
+                      >
+                        {item.icon}
+                      </span>
+                      <span className="truncate">{item.label}</span>
+                    </div>
+
+                    {item.badge && (
+                      <span
+                        className={`text-[9px] font-mono px-2 py-0.5 rounded font-bold border shrink-0 ${
+                          item.badgeColor === 'green'
+                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                            : item.badgeColor === 'red'
+                            ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                            : item.badgeColor === 'amber'
+                            ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                            : 'bg-[#2563EB]/15 text-[#93C5FD] border-[#2563EB]/30'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
         </div>
 
-        {/* Bottom Active Scenario Card (Full on xl/2xl, icon/chip on lg) */}
-        <div className="p-2 sm:p-3 border-t border-[#1E2D4A]">
-          {/* Desktop/Mobile full card */}
-          <Link
-            href="/planning"
-            onClick={onClose}
-            className="block p-2.5 rounded-md bg-[#0F172A] hover:bg-[#141F36] border border-[#1E2D4A] text-xs transition-colors group lg:hidden xl:block"
-          >
-            <div className="text-[10px] uppercase font-bold text-[#64748B] tracking-wider mb-1 flex items-center justify-between">
-              <span>Active Scenario</span>
-              <span className="inline-flex items-center gap-1 text-[9px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/30 font-medium">
-                <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
-                ACTIVE
-              </span>
-            </div>
-            <div className="font-mono text-xs font-bold text-[#F8FAFC] flex items-center justify-between">
-              <span>SCN-DEMO-001</span>
-              <ChevronRight className="w-3.5 h-3.5 text-[#64748B] group-hover:text-[#3B82F6] transition-colors" />
-            </div>
-            <div className="text-[11px] text-[#94A3B8] mt-0.5 truncate">
-              Northern Corridor (440 km)
-            </div>
-          </Link>
+        {/* ============================================================== */}
+        {/* FOOTER SECTION: ACTIVE CORRIDOR TELEMETRY                      */}
+        {/* ============================================================== */}
+        <div className={`border-t border-[#1E2D4A] ${isCollapsed ? 'p-2 flex flex-col items-center' : 'p-3'}`}>
+          {isCollapsed ? (
+            /* COLLAPSED FOOTER (Compact Rail Icon + Tooltip) */
+            <div className="relative group flex justify-center">
+              <Link
+                href="/planning"
+                onClick={onCloseMobile}
+                title="Active Corridor: NDLS → CNB (440 km Trunk) • OPTIMAL"
+                aria-label="Active Corridor: NDLS → CNB (440 km Trunk)"
+                className="flex flex-col items-center justify-center w-10 h-10 rounded-xl bg-[#0F172A] hover:bg-[#141F36] border border-[#1E2D4A] hover:border-[#2D436D] text-[#38BDF8] transition-colors"
+              >
+                <TrainTrack className="w-4 h-4 text-[#38BDF8]" />
+                <span className="text-[8px] font-mono font-bold text-emerald-400 mt-0.5">440k</span>
+              </Link>
 
-          {/* Laptop icon-rail compact scenario indicator */}
-          <Link
-            href="/planning"
-            onClick={onClose}
-            title="Active Scenario: SCN-DEMO-001 (Northern Corridor)"
-            className="hidden lg:flex xl:hidden flex-col items-center justify-center p-2 rounded-md bg-[#0F172A] hover:bg-[#141F36] border border-[#1E2D4A] text-[9px] font-mono text-[#F8FAFC] transition-colors text-center"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mb-1" />
-            <span className="font-bold text-[8.5px] text-[#93C5FD]">SCN</span>
-          </Link>
+              {/* Floating Tooltip */}
+              <div
+                role="tooltip"
+                className="absolute left-full bottom-0 ml-3 px-3 py-2 bg-[#0F172A] border border-[#2D436D] text-[#F8FAFC] text-xs rounded-lg shadow-2xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50"
+              >
+                <div className="font-bold text-[#F8FAFC] flex items-center gap-2">
+                  <span>NDLS → CNB</span>
+                  <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/20 px-1 py-0.5 rounded border border-emerald-500/40">
+                    OPTIMAL
+                  </span>
+                </div>
+                <div className="text-[10px] text-[#94A3B8] mt-0.5">Northern Trunk (440 km)</div>
+              </div>
+            </div>
+          ) : (
+            /* EXPANDED FOOTER (Full Corridor Card) */
+            <Link
+              href="/planning"
+              onClick={onCloseMobile}
+              className="block p-3 rounded-lg bg-[#0F172A] hover:bg-[#141F36] border border-[#1E2D4A] hover:border-[#2D436D] text-xs transition-colors group"
+            >
+              <div className="text-[10px] uppercase font-bold text-[#64748B] tracking-wider mb-1.5 flex items-center justify-between">
+                <span>Active Corridor</span>
+                <span className="inline-flex items-center gap-1 text-[9px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  OPTIMAL
+                </span>
+              </div>
+              <div className="font-mono text-xs font-bold text-[#F8FAFC] flex items-center justify-between">
+                <span>NDLS → CNB</span>
+                <ChevronRight className="w-3.5 h-3.5 text-[#64748B] group-hover:text-[#38BDF8] transition-colors" />
+              </div>
+              <div className="text-[11px] text-[#94A3B8] mt-0.5 truncate">
+                Northern Trunk (440 km)
+              </div>
+            </Link>
+          )}
         </div>
       </aside>
     </>

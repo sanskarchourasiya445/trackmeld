@@ -11,6 +11,20 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/landing-3d",
+        destination: "/",
+        permanent: false,
+      },
+      {
+        source: "/twin",
+        destination: "/",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { BenchmarkComparisonResult, BenchmarkComparisonRow } from '@/types/planning';
 import { benchmarkSchedule } from '@/lib/api/client';
-import { BarChart3, RefreshCw, Info } from 'lucide-react';
+import { BarChart3, RefreshCw, Info, GitCompare } from 'lucide-react';
 
 interface BenchmarkComparisonModalProps {
   isOpen: boolean;
@@ -63,19 +63,19 @@ export const BenchmarkComparisonModal: React.FC<BenchmarkComparisonModalProps> =
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-[#141418] border border-[#29292F] text-[#F5F5F5] sm:max-w-3xl p-6 font-mono">
+      <DialogContent className="bg-[#0B101C] border border-[#1E2D4A] text-[#F8FAFC] sm:max-w-3xl p-6 font-sans select-none">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded bg-[#4C87E7]/10 border border-[#4C87E7]/30 flex items-center justify-center">
-                <BarChart3 className="w-4 h-4 text-[#4C87E7]" />
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-[#141F36] border border-[#2D436D] flex items-center justify-center text-[#38BDF8]">
+                <GitCompare className="w-5 h-5" />
               </div>
               <div>
-                <DialogTitle className="text-base font-bold text-[#F5F5F5]">
-                  Comparative Strategy Benchmark
+                <DialogTitle className="text-base font-bold text-[#F8FAFC]">
+                  Plan Benchmark Comparison
                 </DialogTitle>
-                <DialogDescription className="text-xs text-[#A1A1AA]">
-                  Side-by-side performance evaluation on identical operational snapshot
+                <DialogDescription className="text-xs text-[#94A3B8]">
+                  Comparative dispatch evaluations on identical operational snapshot
                 </DialogDescription>
               </div>
             </div>
@@ -85,7 +85,7 @@ export const BenchmarkComparisonModal: React.FC<BenchmarkComparisonModalProps> =
               size="sm"
               onClick={handleManualRefresh}
               disabled={loading}
-              className="border-[#29292F] text-xs text-[#A1A1AA] hover:text-white"
+              className="border-[#2D436D] text-xs text-[#CBD5E1] hover:text-white h-8"
             >
               <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
               Re-run Benchmark
@@ -94,22 +94,21 @@ export const BenchmarkComparisonModal: React.FC<BenchmarkComparisonModalProps> =
         </DialogHeader>
 
         {/* Informational Callout */}
-        <div className="bg-[#0E0E12] border border-[#202024] rounded p-3 text-xs text-[#A1A1AA] space-y-1">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-[#F5F5F5]">
-            <Info className="w-3.5 h-3.5 text-[#4C87E7]" />
+        <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3.5 text-xs text-[#94A3B8] space-y-1 font-sans">
+          <div className="flex items-center gap-2 text-xs font-semibold text-[#F8FAFC]">
+            <Info className="w-4 h-4 text-[#38BDF8]" />
             <span>Factual Algorithm Comparison (Zero Subjective Bias)</span>
           </div>
-          <p className="text-[11px] leading-relaxed text-[#71717A]">
+          <p className="text-[11px] leading-relaxed text-[#94A3B8]">
             Metrics are evaluated deterministically on the exact same corridor snapshot ({scenarioId})
-            under identical safety clearances, headway rules, and work windows. No heuristics or models
-            are labeled &apos;winner&apos; or &apos;best&apos;—values reflect empirical operational trade-offs.
+            under identical safety clearances, headway rules, and work windows. Values reflect empirical operational trade-offs.
           </p>
         </div>
 
         {/* Table Content */}
         {loading && !benchmarkData ? (
-          <div className="py-12 flex flex-col items-center justify-center text-[#71717A] text-xs">
-            <RefreshCw className="w-6 h-6 animate-spin mb-2 text-[#4C87E7]" />
+          <div className="py-12 flex flex-col items-center justify-center text-[#94A3B8] text-xs">
+            <RefreshCw className="w-6 h-6 animate-spin mb-2 text-[#38BDF8]" />
             <span>Executing benchmark across FCFS, Priority-Greedy, and CP-SAT engines...</span>
           </div>
         ) : error ? (
@@ -117,17 +116,17 @@ export const BenchmarkComparisonModal: React.FC<BenchmarkComparisonModalProps> =
             Error loading benchmark results: {error}
           </div>
         ) : (
-          <div className="overflow-x-auto rounded border border-[#202024] bg-[#0E0E12]">
+          <div className="overflow-x-auto rounded-lg border border-[#1E2D4A] bg-[#0F172A]">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-[#18181C] border-b border-[#202024] text-[10px] uppercase text-[#71717A]">
-                  <th className="py-2.5 px-3 font-semibold">Evaluation Metric</th>
-                  <th className="py-2.5 px-3 font-semibold text-right">FCFS</th>
-                  <th className="py-2.5 px-3 font-semibold text-right">Priority-Greedy</th>
-                  <th className="py-2.5 px-3 font-semibold text-right text-[#4C87E7]">CP-SAT (Global)</th>
+                <tr className="bg-[#141F36] border-b border-[#1E2D4A] text-[10px] font-mono uppercase text-[#64748B]">
+                  <th className="py-3 px-3.5 font-bold">Evaluation Metric</th>
+                  <th className="py-3 px-3.5 font-semibold text-right">FCFS</th>
+                  <th className="py-3 px-3.5 font-semibold text-right">Priority-Greedy</th>
+                  <th className="py-3 px-3.5 font-bold text-right text-[#38BDF8]">CP-SAT (Global)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#202024]/60 text-[11px]">
+              <tbody className="divide-y divide-[#1E2D4A]/60 font-mono text-[11px]">
                 {benchmarkData?.comparison_table.map((row: BenchmarkComparisonRow, idx: number) => {
                   const isHighlight =
                     row.metric.includes('Completion Rate') ||
@@ -137,16 +136,16 @@ export const BenchmarkComparisonModal: React.FC<BenchmarkComparisonModalProps> =
                   return (
                     <tr
                       key={idx}
-                      className={isHighlight ? 'bg-[#141418]/60 font-semibold' : 'hover:bg-[#141418]/30'}
+                      className={isHighlight ? 'bg-[#141F36]/60 font-semibold' : 'hover:bg-[#141F36]/30'}
                     >
-                      <td className="py-2 px-3 text-[#D4D4D8]">{row.metric}</td>
-                      <td className="py-2 px-3 text-right text-[#A1A1AA]">
+                      <td className="py-2.5 px-3.5 text-[#F8FAFC] font-sans">{row.metric}</td>
+                      <td className="py-2.5 px-3.5 text-right text-[#94A3B8]">
                         {String(row['FCFS'] ?? '—')}
                       </td>
-                      <td className="py-2 px-3 text-right text-[#A1A1AA]">
+                      <td className="py-2.5 px-3.5 text-right text-[#94A3B8]">
                         {String(row['Priority-Greedy'] ?? '—')}
                       </td>
-                      <td className="py-2 px-3 text-right text-[#F5F5F5] font-bold">
+                      <td className="py-2.5 px-3.5 text-right text-emerald-400 font-bold">
                         {String(row['CP-SAT'] ?? '—')}
                       </td>
                     </tr>
@@ -157,8 +156,8 @@ export const BenchmarkComparisonModal: React.FC<BenchmarkComparisonModalProps> =
           </div>
         )}
 
-        <DialogFooter className="flex items-center justify-between sm:justify-between pt-2 border-t border-[#202024]">
-          <span className="text-[10px] text-[#71717A]">
+        <DialogFooter className="flex items-center justify-between sm:justify-between pt-3 border-t border-[#1E2D4A]">
+          <span className="text-[11px] font-mono text-[#64748B]">
             Snapshot: {benchmarkData?.snapshot_id ?? 'SNAP-DEMO'}
           </span>
           <Button
@@ -166,7 +165,7 @@ export const BenchmarkComparisonModal: React.FC<BenchmarkComparisonModalProps> =
             variant="outline"
             size="sm"
             onClick={onClose}
-            className="border-[#29292F] text-xs text-[#A1A1AA]"
+            className="border-[#2D436D] text-xs text-[#CBD5E1]"
           >
             Close
           </Button>

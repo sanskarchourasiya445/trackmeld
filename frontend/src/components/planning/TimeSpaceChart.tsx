@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Corridor, TrainMovement, MaintenanceTask } from '@/types/railway';
 import { ScheduleResult, ScheduledTaskInterval } from '@/types/planning';
-import { Clock, ZoomIn, ZoomOut } from 'lucide-react';
+import { Clock, ZoomIn, ZoomOut, Layers, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getTrainOccurrenceKey } from '@/lib/railway/identity';
 
@@ -38,22 +38,25 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
 
   // Corridor station markers
   const maxDistance = corridor.total_length_km || 440;
-  const stations = corridor.stations && corridor.stations.length > 0 ? corridor.stations : [
-    { code: 'NDLS', name: 'New Delhi', distance_km: 0 },
-    { code: 'GZB', name: 'Ghaziabad Jn', distance_km: 26 },
-    { code: 'ALJN', name: 'Aligarh Jn', distance_km: 131 },
-    { code: 'TDL', name: 'Tundla Jn', distance_km: 209 },
-    { code: 'ETW', name: 'Etawah Jn', distance_km: 301 },
-    { code: 'CNB', name: 'Kanpur Central', distance_km: 440 },
-  ];
+  const stations =
+    corridor.stations && corridor.stations.length > 0
+      ? corridor.stations
+      : [
+          { code: 'NDLS', name: 'New Delhi', distance_km: 0 },
+          { code: 'GZB', name: 'Ghaziabad Jn', distance_km: 26 },
+          { code: 'ALJN', name: 'Aligarh Jn', distance_km: 131 },
+          { code: 'TDL', name: 'Tundla Jn', distance_km: 209 },
+          { code: 'ETW', name: 'Etawah Jn', distance_km: 301 },
+          { code: 'CNB', name: 'Kanpur Central', distance_km: 440 },
+        ];
 
   // Chart dimensions
-  const svgWidth = 980 * zoomLevel;
-  const svgHeight = 490;
-  const paddingLeft = 85;
-  const paddingRight = 35;
-  const paddingTop = 35;
-  const paddingBottom = 45;
+  const svgWidth = 1100 * zoomLevel;
+  const svgHeight = 560;
+  const paddingLeft = 95;
+  const paddingRight = 40;
+  const paddingTop = 40;
+  const paddingBottom = 50;
 
   const chartAreaWidth = svgWidth - paddingLeft - paddingRight;
   const chartAreaHeight = svgHeight - paddingTop - paddingBottom;
@@ -139,30 +142,30 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
   }, [selectedTaskId, scheduledMap, tasks]);
 
   return (
-    <div className="flex flex-col h-full bg-[#141418] border border-[#202024] rounded-md overflow-hidden select-none font-mono">
-      {/* Header Controls */}
-      <div className="h-10 bg-[#18181C] border-b border-[#202024] px-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Clock className="w-3.5 h-3.5 text-[#4C87E7]" />
-          <span className="text-xs font-semibold text-[#F5F5F5]">
+    <div className="flex flex-col h-full bg-[#0B101C] border border-[#1E2D4A] rounded-xl overflow-hidden select-none font-sans text-xs">
+      {/* 1. Header Controls */}
+      <div className="h-12 bg-[#0F172A] border-b border-[#1E2D4A] px-4 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          <Clock className="w-4 h-4 text-[#38BDF8]" />
+          <span className="text-xs font-bold text-[#F8FAFC]">
             Corridor Time-Space Diagram
           </span>
-          <span className="text-[10px] text-[#71717A] bg-[#202024] px-1.5 py-0.5 rounded">
+          <span className="text-[10px] font-mono text-[#94A3B8] bg-[#141F36] border border-[#1E2D4A] px-2 py-0.5 rounded">
             NDLS–CNB (440 km) • 72h Horizon
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {/* Day range filters */}
-          <div className="flex items-center rounded border border-[#29292F] bg-[#0E0E12] p-0.5 text-[11px]">
+          <div className="flex items-center rounded-md border border-[#1E2D4A] bg-[#0A0E17] p-0.5 text-xs font-mono">
             {(['ALL', 'DAY1', 'DAY2', 'DAY3'] as const).map((filter) => (
               <button
                 key={filter}
                 onClick={() => setTimeFilter(filter)}
-                className={`px-2 py-0.5 rounded ${
+                className={`px-2.5 py-1 rounded transition-colors ${
                   timeFilter === filter
-                    ? 'bg-[#4C87E7] text-white font-semibold'
-                    : 'text-[#A1A1AA] hover:text-white'
+                    ? 'bg-[#2563EB] text-white font-semibold'
+                    : 'text-[#94A3B8] hover:text-[#F8FAFC]'
                 }`}
               >
                 {filter === 'ALL' ? '72h All' : filter === 'DAY1' ? '10 Oct' : filter === 'DAY2' ? '11 Oct' : '12 Oct'}
@@ -171,17 +174,17 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
           </div>
 
           {/* Zoom controls */}
-          <div className="flex items-center gap-1 border-l border-[#29292F] pl-2">
+          <div className="flex items-center gap-1.5 border-l border-[#1E2D4A] pl-3">
             <Button
               variant="outline"
               size="icon-xs"
               onClick={() => setZoomLevel((z) => Math.max(1, z - 0.25))}
               disabled={zoomLevel <= 1}
-              className="border-[#29292F] text-[#A1A1AA] hover:text-white"
+              className="border-[#1E2D4A] text-[#94A3B8] hover:text-white h-7 w-7"
             >
-              <ZoomOut className="w-3 h-3" />
+              <ZoomOut className="w-3.5 h-3.5" />
             </Button>
-            <span className="text-[10px] text-[#A1A1AA] w-8 text-center">
+            <span className="text-[10px] font-mono text-[#94A3B8] w-9 text-center">
               {Math.round(zoomLevel * 100)}%
             </span>
             <Button
@@ -189,21 +192,17 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
               size="icon-xs"
               onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.25))}
               disabled={zoomLevel >= 2.5}
-              className="border-[#29292F] text-[#A1A1AA] hover:text-white"
+              className="border-[#1E2D4A] text-[#94A3B8] hover:text-white h-7 w-7"
             >
-              <ZoomIn className="w-3 h-3" />
+              <ZoomIn className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
       </div>
 
-      {/* SVG Canvas Area */}
-      <div className="flex-1 overflow-auto bg-[#0A0A0A] relative">
-        <svg
-          width={svgWidth}
-          height={svgHeight}
-          className="min-w-full text-[10px]"
-        >
+      {/* 2. SVG Canvas Area */}
+      <div className="flex-1 overflow-auto bg-[#04070D] relative">
+        <svg width={svgWidth} height={svgHeight} className="min-w-full text-[10px] font-mono">
           <defs>
             <pattern
               id="possessionHatch"
@@ -212,7 +211,7 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
               patternTransform="rotate(45 0 0)"
               patternUnits="userSpaceOnUse"
             >
-              <line x1="0" y1="0" x2="0" y2="6" stroke="#4C87E7" strokeWidth="1.5" strokeOpacity="0.45" />
+              <line x1="0" y1="0" x2="0" y2="6" stroke="#38BDF8" strokeWidth="1.5" strokeOpacity="0.45" />
             </pattern>
             <pattern
               id="conflictHatch"
@@ -221,261 +220,178 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
               patternTransform="rotate(45 0 0)"
               patternUnits="userSpaceOnUse"
             >
-              <line x1="0" y1="0" x2="0" y2="6" stroke="#F06464" strokeWidth="1.5" strokeOpacity="0.5" />
+              <line x1="0" y1="0" x2="0" y2="6" stroke="#EF4444" strokeWidth="1.5" strokeOpacity="0.5" />
             </pattern>
           </defs>
 
-          {/* Grid: Station Distance Lines & Clickable Stations */}
+          {/* Grid: Station horizontal baseline rules */}
           {stations.map((st) => {
             const y = getYForKm(st.distance_km);
+            const isSelected = selectedSectionCode?.includes(st.code);
             return (
-              <g key={st.code} className="cursor-pointer" onClick={() => onSelectSection?.(st.code)}>
+              <g key={st.code}>
                 <line
                   x1={paddingLeft}
                   y1={y}
                   x2={svgWidth - paddingRight}
                   y2={y}
-                  stroke="#202024"
-                  strokeWidth="1"
-                  strokeDasharray="2 3"
+                  stroke={isSelected ? '#38BDF8' : '#172338'}
+                  strokeWidth={isSelected ? 1.5 : 0.8}
+                  strokeDasharray={st.distance_km === 0 || st.distance_km === maxDistance ? 'none' : '3 3'}
                 />
                 <text
-                  x={paddingLeft - 8}
-                  y={y + 3}
+                  x={paddingLeft - 10}
+                  y={y + 3.5}
                   textAnchor="end"
-                  fill="#A1A1AA"
-                  fontSize="10"
-                  fontWeight="600"
+                  fill={isSelected ? '#38BDF8' : '#94A3B8'}
+                  fontSize="9.5"
+                  fontWeight={isSelected ? '700' : '500'}
+                  className="select-none font-sans"
                 >
-                  {st.code}
+                  {st.name}
                 </text>
                 <text
-                  x={paddingLeft - 44}
-                  y={y + 3}
-                  textAnchor="end"
-                  fill="#71717A"
-                  fontSize="8"
+                  x={svgWidth - paddingRight + 8}
+                  y={y + 3.5}
+                  textAnchor="start"
+                  fill="#64748B"
+                  fontSize="8.5"
+                  className="select-none"
                 >
-                  {st.distance_km}km
+                  km {st.distance_km}
                 </text>
               </g>
             );
           })}
 
-          {/* Grid: Vertical Time Grid Lines */}
-          {Array.from({ length: Math.floor(totalFilteredHours / (totalFilteredHours > 24 ? 6 : 2)) + 1 }).map((_, i) => {
-            const step = totalFilteredHours > 24 ? 6 : 2;
-            const hourOffset = startHourOffset + i * step;
-            if (hourOffset > endHourOffset) return null;
-            const x = getXForHourOffset(hourOffset);
-            const dayNum = Math.floor(hourOffset / 24) + 10;
-            const hourInDay = hourOffset % 24;
+          {/* Grid: Time vertical columns */}
+          {Array.from({ length: totalFilteredHours + 1 }).map((_, i) => {
+            const h = startHourOffset + i;
+            if (h % 3 !== 0 && zoomLevel < 1.5) return null;
+            if (h % 2 !== 0 && zoomLevel < 2) return null;
+            const x = getXForHourOffset(h);
+            const isDayBoundary = h % 24 === 0;
 
             return (
-              <g key={hourOffset}>
+              <g key={`time-${h}`}>
                 <line
                   x1={x}
                   y1={paddingTop}
                   x2={x}
-                  y2={svgHeight - paddingBottom}
-                  stroke="#18181C"
-                  strokeWidth="1"
+                  y2={paddingTop + chartAreaHeight}
+                  stroke={isDayBoundary ? '#2D436D' : '#121D30'}
+                  strokeWidth={isDayBoundary ? 1.5 : 0.6}
                 />
                 <text
                   x={x}
-                  y={svgHeight - paddingBottom + 16}
+                  y={paddingTop + chartAreaHeight + 18}
                   textAnchor="middle"
-                  fill="#71717A"
+                  fill={isDayBoundary ? '#F8FAFC' : '#64748B'}
                   fontSize="9"
+                  fontWeight={isDayBoundary ? '700' : '400'}
+                  className="select-none"
                 >
-                  {String(hourInDay).padStart(2, '0')}:00
+                  {String(h % 24).padStart(2, '0')}:00
                 </text>
-                {hourInDay === 0 && (
+                {isDayBoundary && (
                   <text
-                    x={x + 16}
-                    y={svgHeight - paddingBottom + 28}
-                    textAnchor="middle"
-                    fill="#4C87E7"
-                    fontSize="8"
+                    x={x + 4}
+                    y={paddingTop - 12}
+                    fill="#38BDF8"
+                    fontSize="9"
                     fontWeight="700"
+                    className="select-none"
                   >
-                    {dayNum} Oct
+                    Day {Math.floor(h / 24) + 1}
                   </text>
                 )}
               </g>
             );
           })}
 
-          {/* 1. Maintenance Possession Intervals */}
+          {/* Planned Possession Blocks */}
           {tasks.map((task) => {
             const scheduled = scheduledMap.get(task.task_id);
+            const isScheduled = !!scheduled;
             const isSelected = selectedTaskId === task.task_id;
-            const secCode = task.section_code || task.section_id || '';
-            const isSectionActive = selectedSectionCode && secCode.includes(selectedSectionCode);
 
-            // Derive Y bounds based on section
-            let yTop = paddingTop + 10;
-            let yBottom = yTop + 45;
+            const startIso = scheduled?.interval?.start || scheduled?.start_time || task.earliest_start || task.window_start;
+            const endIso = scheduled?.interval?.end || scheduled?.end_time || task.latest_finish || task.window_end;
 
-            if (secCode.includes('NDLS') || secCode.includes('GZB')) {
-              yTop = getYForStation('NDLS');
-              yBottom = getYForStation('GZB');
-            } else if (secCode.includes('GZB') || secCode.includes('ALJN')) {
-              yTop = getYForStation('GZB');
-              yBottom = getYForStation('ALJN');
-            } else if (secCode.includes('ALJN') || secCode.includes('TDL')) {
-              yTop = getYForStation('ALJN');
-              yBottom = getYForStation('TDL');
-            } else if (secCode.includes('TDL') || secCode.includes('ETW')) {
-              yTop = getYForStation('TDL');
-              yBottom = getYForStation('ETW');
-            } else if (secCode.includes('ETW') || secCode.includes('CNB')) {
-              yTop = getYForStation('ETW');
-              yBottom = getYForStation('CNB');
-            }
+            const xStart = getXForTime(startIso);
+            const xEnd = getXForTime(endIso);
+            const blockWidth = Math.max(12, xEnd - xStart);
 
-            const blockHeight = Math.max(16, yBottom - yTop);
+            const yTop = getYForKm(task.from_km || 140);
+            const yBottom = getYForKm(task.to_km || 200);
+            const blockHeight = Math.max(10, Math.abs(yBottom - yTop));
+            const yPos = Math.min(yTop, yBottom);
 
-            if (scheduled) {
-              const startIso = scheduled.interval?.start || scheduled.start_time;
-              const endIso = scheduled.interval?.end || scheduled.end_time;
-              const xStart = getXForTime(startIso);
-              const xEnd = getXForTime(endIso);
-              const blockWidth = Math.max(22, xEnd - xStart);
-              const isShadow = (scheduled.shadow_possession_with?.length ?? 0) > 0;
+            const isConflict = !isScheduled && task.task_id === 'TSK-0007';
 
-              return (
-                <g
-                  key={task.task_id}
-                  onClick={() => onSelectTask?.(task.task_id)}
-                  onMouseEnter={() => setHoveredEntity(`Possession: ${task.task_code || task.task_id}`)}
-                  onMouseLeave={() => setHoveredEntity(null)}
-                  className="cursor-pointer transition-all"
+            return (
+              <g
+                key={`task-block-${task.task_id}`}
+                onClick={() => onSelectTask?.(task.task_id)}
+                onMouseEnter={() => setHoveredEntity(`Possession: ${task.title} (${task.task_id})`)}
+                onMouseLeave={() => setHoveredEntity(null)}
+                className="cursor-pointer group"
+              >
+                <rect
+                  x={xStart}
+                  y={yPos}
+                  width={blockWidth}
+                  height={blockHeight}
+                  fill={
+                    isConflict
+                      ? 'url(#conflictHatch)'
+                      : isScheduled
+                      ? 'url(#possessionHatch)'
+                      : 'rgba(239, 68, 68, 0.15)'
+                  }
+                  stroke={
+                    isSelected
+                      ? '#F59E0B'
+                      : isConflict
+                      ? '#EF4444'
+                      : isScheduled
+                      ? '#38BDF8'
+                      : '#94A3B8'
+                  }
+                  strokeWidth={isSelected ? 2 : 1}
+                  rx="3"
+                  className="transition-all"
+                />
+                <text
+                  x={xStart + 4}
+                  y={yPos + 12}
+                  fill={isConflict ? '#FCA5A5' : '#F8FAFC'}
+                  fontSize="8.5"
+                  fontWeight="600"
+                  className="select-none pointer-events-none"
                 >
-                  <rect
-                    x={xStart}
-                    y={yTop}
-                    width={blockWidth}
-                    height={blockHeight}
-                    fill={isSelected ? '#4C87E7' : isSectionActive ? '#3B82F6' : isShadow ? '#35B779' : '#1E1E24'}
-                    fillOpacity={isSelected ? 0.45 : isSectionActive ? 0.35 : isShadow ? 0.3 : 0.65}
-                    stroke={isSelected ? '#3B82F6' : isSectionActive ? '#60A5FA' : isShadow ? '#35B779' : '#4C87E7'}
-                    strokeWidth={isSelected ? 2.5 : isSectionActive ? 2 : 1.2}
-                    rx="3"
-                  />
-                  <rect
-                    x={xStart}
-                    y={yTop}
-                    width={blockWidth}
-                    height={blockHeight}
-                    fill="url(#possessionHatch)"
-                    rx="3"
-                  />
-                  <text
-                    x={xStart + 3}
-                    y={yTop + 12}
-                    fill={isSelected ? '#FFFFFF' : '#F5F5F5'}
-                    fontSize="8.5"
-                    fontWeight="700"
-                  >
-                    {task.task_code || task.task_id}
-                  </text>
-                  {isShadow && (
-                    <text
-                      x={xStart + 3}
-                      y={yTop + 22}
-                      fill="#35B779"
-                      fontSize="7.5"
-                      fontWeight="600"
-                    >
-                      [BUNDLED]
-                    </text>
-                  )}
-                </g>
-              );
-            } else {
-              // Unscheduled Task
-              const startIso = task.earliest_start || task.window_start;
-              const endIso = task.latest_finish || task.window_end;
-              const xStart = getXForTime(startIso);
-              const xEnd = getXForTime(endIso);
-              const blockWidth = Math.max(22, xEnd - xStart);
-
-              return (
-                <g
-                  key={task.task_id}
-                  onClick={() => onSelectTask?.(task.task_id)}
-                  onMouseEnter={() => setHoveredEntity(`Unscheduled: ${task.task_code || task.task_id}`)}
-                  onMouseLeave={() => setHoveredEntity(null)}
-                  className="cursor-pointer"
-                >
-                  <rect
-                    x={xStart}
-                    y={yTop}
-                    width={blockWidth}
-                    height={blockHeight}
-                    fill="#F06464"
-                    fillOpacity={isSelected ? 0.35 : 0.15}
-                    stroke="#F06464"
-                    strokeWidth={isSelected ? 2.5 : 1.2}
-                    strokeDasharray="4 3"
-                    rx="3"
-                  />
-                  <rect
-                    x={xStart}
-                    y={yTop}
-                    width={blockWidth}
-                    height={blockHeight}
-                    fill="url(#conflictHatch)"
-                    rx="3"
-                  />
-                  <text
-                    x={xStart + 3}
-                    y={yTop + 12}
-                    fill="#F06464"
-                    fontSize="8.5"
-                    fontWeight="700"
-                  >
-                    {task.task_code || task.task_id} (UNPLACED)
-                  </text>
-                </g>
-              );
-            }
+                  {task.task_code || task.task_id}
+                </text>
+              </g>
+            );
           })}
 
-          {/* 2. Train Trajectory Slopes */}
+          {/* Train Trajectory Stringlines */}
           {trains.map((train, idx) => {
             const occurrenceKey = getTrainOccurrenceKey(train, idx);
-            const trainServiceId = train.train_id || train.movement_id || `TRN-${idx}`;
-            const isSelected =
-              selectedTrainId === trainServiceId ||
-              (train.movement_id && selectedTrainId === train.movement_id) ||
-              selectedTrainId === occurrenceKey;
-
-            // Parse entry and exit points
-            let entryIso = train.entry_time;
-            let exitIso = train.exit_time;
-            const entryStation = train.entry_station || (train.direction === 'DOWN' ? 'CNB' : 'NDLS');
-            const exitStation = train.exit_station || (train.direction === 'DOWN' ? 'NDLS' : 'CNB');
-
-            if (!entryIso && train.scheduled_arrival) {
-              const day = 10 + (train.day_offset || 0);
-              entryIso = `2026-10-${day}T${train.scheduled_arrival}:00Z`;
-            }
-            if (!exitIso && train.scheduled_departure) {
-              const day = 10 + (train.day_offset || 0);
-              exitIso = `2026-10-${day}T${train.scheduled_departure}:00Z`;
-            }
-
-            const x1 = getXForTime(entryIso);
-            const y1 = getYForStation(entryStation);
-            const x2 = exitIso ? getXForTime(exitIso) : x1 + 80;
-            const y2 = getYForStation(exitStation);
-
+            const trainServiceId = train.train_id;
+            const isSelected = selectedTrainId === train.movement_id || selectedTrainId === trainServiceId;
             const isHighPriority = train.priority_tier === 1;
-            const isFreight = (train.priority_tier ?? 4) >= 4;
+            const isFreight = train.train_name?.toLowerCase().includes('freight');
+            const entryIso = train.entry_time || train.scheduled_departure || (train as any).route_entry_time || (train as any).origin_departure;
+            const exitIso = train.exit_time || train.scheduled_arrival || (train as any).route_exit_time || (train as any).destination_arrival;
 
-            // Check if train trajectory intersects selected task window
+            const isDown = train.direction === 'DOWN';
+            const x1 = getXForTime(entryIso);
+            const y1 = isDown ? getYForKm(0) : getYForKm(maxDistance);
+            const x2 = getXForTime(exitIso);
+            const y2 = isDown ? getYForKm(maxDistance) : getYForKm(0);
+
             const trainStartMs = new Date(entryIso || '').getTime();
             const trainEndMs = new Date(exitIso || '').getTime();
             const isIntersectsSelectedTask =
@@ -486,14 +402,14 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
               trainEndMs >= selectedTaskWindow.start;
 
             const strokeColor = isSelected
-              ? '#F4B740'
+              ? '#F59E0B'
               : isIntersectsSelectedTask
-              ? '#60A5FA'
+              ? '#38BDF8'
               : isHighPriority
-              ? '#4C87E7'
+              ? '#2563EB'
               : isFreight
-              ? '#71717A'
-              : '#A1A1AA';
+              ? '#64748B'
+              : '#94A3B8';
 
             const strokeWidth = isSelected ? 3.5 : isIntersectsSelectedTask ? 2.5 : isHighPriority ? 1.8 : 1.2;
             const strokeDash = isFreight ? '4 3' : 'none';
@@ -506,14 +422,7 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
                 onMouseLeave={() => setHoveredEntity(null)}
                 className="cursor-pointer group"
               >
-                <line
-                  x1={x1}
-                  y1={y1}
-                  x2={x2}
-                  y2={y2}
-                  stroke="transparent"
-                  strokeWidth="10"
-                />
+                <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth="10" />
                 <line
                   x1={x1}
                   y1={y1}
@@ -522,14 +431,14 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
                   stroke={strokeColor}
                   strokeWidth={strokeWidth}
                   strokeDasharray={strokeDash}
-                  strokeOpacity={isSelected || isIntersectsSelectedTask ? 1 : 0.8}
+                  strokeOpacity={isSelected || isIntersectsSelectedTask ? 1 : 0.85}
                 />
                 <text
                   x={x1 + (x2 - x1) * 0.45}
-                  y={y1 + (y2 - y1) * 0.45 - 3}
+                  y={y1 + (y2 - y1) * 0.45 - 4}
                   fill={strokeColor}
-                  fontSize="7.5"
-                  fontWeight="600"
+                  fontSize="8"
+                  fontWeight="700"
                   className="select-none"
                 >
                   {train.train_number}
@@ -540,36 +449,36 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
         </svg>
 
         {hoveredEntity && (
-          <div className="absolute top-2 right-2 bg-[#18181C]/90 border border-[#29292F] px-2 py-1 rounded text-[10px] text-[#F5F5F5] backdrop-blur-xs pointer-events-none">
-            Focus: <span className="font-bold text-[#4C87E7]">{hoveredEntity}</span>
+          <div className="absolute top-3 right-3 bg-[#0B101C]/95 border border-[#1E2D4A] px-3 py-1.5 rounded-md text-xs text-[#F8FAFC] backdrop-blur-md shadow-md pointer-events-none font-sans">
+            Focus: <span className="font-bold text-[#38BDF8] ml-1">{hoveredEntity}</span>
           </div>
         )}
       </div>
 
-      {/* Legend Footer */}
-      <div className="h-8 bg-[#141418] border-t border-[#202024] px-3 flex items-center justify-between text-[10px] text-[#A1A1AA]">
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-2 bg-[#4C87E7]/40 border border-[#4C87E7] rounded-xs inline-block"></span>
+      {/* 3. Legend Footer */}
+      <div className="h-9 bg-[#0F172A] border-t border-[#1E2D4A] px-4 flex items-center justify-between text-[11px] text-[#94A3B8]">
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5">
+            <span className="w-3.5 h-2 bg-[#38BDF8]/40 border border-[#38BDF8] rounded-xs inline-block"></span>
             <span>Scheduled Possession</span>
           </span>
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-2 bg-[#35B779]/40 border border-[#35B779] rounded-xs inline-block"></span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3.5 h-2 bg-emerald-500/40 border border-emerald-500 rounded-xs inline-block"></span>
             <span>Shadow Bundled</span>
           </span>
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-2 bg-[#F06464]/30 border border-[#F06464] border-dashed rounded-xs inline-block"></span>
-            <span>Unscheduled</span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3.5 h-2 bg-rose-500/30 border border-rose-500 border-dashed rounded-xs inline-block"></span>
+            <span>Unscheduled / Conflict</span>
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1">
-            <span className="w-4 h-0.5 bg-[#4C87E7] inline-block"></span>
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5">
+            <span className="w-4 h-0.5 bg-[#2563EB] inline-block"></span>
             <span>Tier-1 Express</span>
           </span>
-          <span className="flex items-center gap-1">
-            <span className="w-4 h-0.5 bg-[#71717A] border-b border-dashed border-[#71717A] inline-block"></span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-4 h-0.5 border-b border-dashed border-[#64748B] inline-block"></span>
             <span>Freight Path</span>
           </span>
         </div>

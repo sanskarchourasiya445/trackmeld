@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
+import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -24,7 +25,7 @@ interface AppShellProps {
   canApprove?: boolean;
 }
 
-export const AppShell: React.FC<AppShellProps> = ({
+const AppShellContent: React.FC<AppShellProps> = ({
   children,
   activeScenarioId = 'SCN-DEMO-001',
   scenarioName = 'Northern Corridor',
@@ -36,7 +37,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   workerStatus = 'Idle',
   validatorStatus = 'Active',
 }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { isCollapsed, handleGlobalToggle } = useSidebar();
 
   return (
     <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-[#0A0E17] text-[#F8FAFC] font-sans antialiased">
@@ -45,16 +46,14 @@ export const AppShell: React.FC<AppShellProps> = ({
         activeScenarioId={activeScenarioId}
         scenarioName={scenarioName}
         planningHorizon={planningHorizon}
-        onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+        onToggleSidebar={handleGlobalToggle}
+        isSidebarCollapsed={isCollapsed}
       />
 
-      {/* 2. Main Workspace Body (Sidebar + Children) */}
+      {/* 2. Main Workspace Body (Collapsible Sidebar + Expansive Workspace) */}
       <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden relative">
-        <Sidebar
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-        />
-        <main className="flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col bg-[#0A0E17]">
+        <Sidebar />
+        <main className="flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col bg-[#0A0E17] transition-[width,flex] duration-200 ease-in-out">
           {children}
         </main>
       </div>
@@ -69,5 +68,13 @@ export const AppShell: React.FC<AppShellProps> = ({
         validatorStatus={validatorStatus}
       />
     </div>
+  );
+};
+
+export const AppShell: React.FC<AppShellProps> = (props) => {
+  return (
+    <SidebarProvider>
+      <AppShellContent {...props} />
+    </SidebarProvider>
   );
 };

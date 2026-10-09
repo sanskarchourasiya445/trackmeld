@@ -2,6 +2,13 @@ import { test, expect, TEST_CONFIG, authenticateViaUi } from './fixtures';
 
 test.describe('Phase 15E: Truthful UI & Error Resilience E2E', () => {
   test.beforeEach(async ({ page }) => {
+    await page.route('**/api/v1/planning-runs*', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [] }),
+      });
+    });
     await page.goto('/');
     await page.evaluate(() => {
       sessionStorage.clear();
@@ -68,6 +75,7 @@ test.describe('Phase 15E: Truthful UI & Error Resilience E2E', () => {
     });
 
     const runOptBtn = page.locator('button:has-text("Run Optimization")');
+    await expect(runOptBtn).toBeEnabled();
     await runOptBtn.click();
 
     // Error alert must be shown to the user
