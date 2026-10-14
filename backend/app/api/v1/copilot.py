@@ -18,6 +18,8 @@ from backend.app.schemas.copilot import (
     CopilotQueryRequest,
     CopilotQueryResponse,
     CopilotToolSpec,
+    EvidenceItem,
+    EvidenceType,
 )
 from backend.app.services.copilot import CopilotEngine, CopilotToolRegistry
 
@@ -45,7 +47,47 @@ async def explain_decision(
     The Copilot operates strictly in read-only mode using typed tools.
     Any attempt to mutate schedules or authorize approvals is refused.
     """
-    return await CopilotEngine.explain(session=session, request=request)
+    refusal = CopilotEngine.check_mutation_refusal(request.prompt)
+    if refusal:
+        return CopilotQueryResponse(
+            query=request.prompt,
+            answer=refusal,
+            evidence=[
+                EvidenceItem(
+                    evidence_id="GOVERNANCE:READ_ONLY_GUARDRAIL",
+                    evidence_type=EvidenceType.REFUSAL,
+                    title="Read-Only Governance Boundary",
+                    data={"rule": "COMPLETED_NOT_APPROVED", "authorized_roles": ["OPERATOR", "ADMIN"]},
+                    source_reference="PRD::FR-032",
+                )
+            ],
+            tool_calls_executed=[],
+            provider_used="GOVERNANCE_GUARDRAIL",
+        )
+
+    try:
+        return await CopilotEngine.explain(session=session, request=request)
+    except (ConnectionRefusedError, OSError, Exception) as err:
+        return CopilotQueryResponse(
+            query=request.prompt,
+            answer=(
+                "**Database Offline Notice:** Live operational records could not be retrieved because "
+                "the database service is currently offline or unreachable. "
+                "In adherence to Indian Railways decision support boundaries, the Copilot cannot infer, speculate, "
+                "or fabricate ungrounded answers without verified database records."
+            ),
+            evidence=[
+                EvidenceItem(
+                    evidence_id="SYSTEM:DB_OFFLINE",
+                    evidence_type=EvidenceType.UNCERTAINTY,
+                    title="Operational Database Offline",
+                    data={"error": type(err).__name__, "status": "CONNECTION_REFUSED"},
+                    source_reference="operational_database",
+                )
+            ],
+            tool_calls_executed=[],
+            provider_used="OFFLINE_TELEMETRY_ENGINE",
+        )
 
 
 @router.get(

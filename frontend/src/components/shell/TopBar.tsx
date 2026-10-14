@@ -3,16 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  TrainTrack,
   Bell,
   Search,
   ChevronDown,
   Menu,
 } from 'lucide-react';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { ResponsiveDrawer } from '@/components/common/ResponsiveDrawer';
 import { AuthWidget } from '@/components/shell/AuthWidget';
 import { CommandSearchOverlay } from '@/components/shell/CommandSearchOverlay';
 import { NotificationDrawer } from '@/components/shell/NotificationDrawer';
+import { TrackMeldEmblem } from '@/components/landing-3d/TrackMeldEmblem';
 
 interface TopBarProps {
   activeScenarioId?: string;
@@ -26,9 +27,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   activeScenarioId = 'SCN-DEMO-001',
   scenarioName = 'Northern Corridor',
   planningHorizon = '72-Hour Planning Horizon',
-  onToggleSidebar,
-  isSidebarCollapsed = false,
 }) => {
+  const { openMobile } = useSidebar();
   const [isScenarioDrawerOpen, setIsScenarioDrawerOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -47,175 +47,155 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <>
-      <header className="h-14 bg-[#0A0E17] border-b border-[#1E2D4A] px-4 sm:px-6 flex items-center justify-between z-40 select-none shrink-0 font-sans">
-        {/* Left: Sidebar Toggle + Brand + Scenario Context */}
-        <div className="flex items-center gap-3 sm:gap-5 min-w-0">
-          {onToggleSidebar && (
-            <button
-              onClick={onToggleSidebar}
-              className="p-1.5 rounded-lg text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36] border border-transparent hover:border-[#1E2D4A] transition-colors shrink-0 cursor-pointer"
-              title={
-                isSidebarCollapsed
-                  ? 'Expand sidebar navigation (Ctrl+B)'
-                  : 'Collapse sidebar navigation (Ctrl+B)'
-              }
-              aria-label={
-                isSidebarCollapsed
-                  ? 'Expand sidebar navigation'
-                  : 'Collapse sidebar navigation'
-              }
-              aria-expanded={!isSidebarCollapsed}
-              aria-controls="railway-navigation-sidebar"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-          )}
-
-          {/* Logo & Platform Version */}
-          <Link href="/" className="flex items-center gap-2.5 group shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-[#141F36] border border-[#2D436D] group-hover:border-[#3B82F6] transition-colors flex items-center justify-center shadow-xs">
-              <TrainTrack className="w-4 h-4 text-[#38BDF8]" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold tracking-tight text-[#F8FAFC] text-sm sm:text-base group-hover:text-white transition-colors">
-                TrackMeld
-              </span>
-              <span className="text-[10px] font-mono text-[#64748B] bg-[#141F36] px-1.5 py-0.5 rounded border border-[#1E2D4A] hidden xs:inline">
-                v1.0
-              </span>
-            </div>
+      <header className="h-14 bg-[#070D18] border-b border-[#152238] px-3 sm:px-4 lg:px-5 flex items-center justify-between z-40 select-none shrink-0 font-sans">
+        {/* ============================================================== */}
+        {/* LEFT SECTION: Brand Identity (Emblem + Wordmark + v1.0 badge)  */}
+        {/* ============================================================== */}
+        <div className="flex items-center gap-3 shrink-0">
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 group shrink-0 outline-none focus-visible:ring-1 focus-visible:ring-[#38BDF8] rounded"
+            title="TrackMeld Home"
+          >
+            <TrackMeldEmblem className="w-7 h-7 shrink-0 transition-transform group-hover:scale-105" />
+            <span className="font-bold tracking-tight text-[#F8FAFC] text-[15px] group-hover:text-white transition-colors">
+              TrackMeld
+            </span>
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold hidden sm:inline">
+              v1.0
+            </span>
           </Link>
+        </div>
 
-          {/* Vertical divider */}
-          <div className="hidden md:block h-5 w-[1px] bg-[#1E2D4A] shrink-0" />
+        {/* ============================================================== */}
+        {/* CENTER SECTION: Operational Context (Scenario, Corridor, Info) */}
+        {/* ============================================================== */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 mx-2 lg:mx-4">
+          <div className="hidden sm:block h-4 w-[1px] bg-[#152238] shrink-0" />
 
-          {/* Scenario Selector & Operational Context */}
-          <div className="flex items-center gap-2.5 sm:gap-3.5 text-xs min-w-0">
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[#64748B] text-[11px] font-medium hidden sm:inline">Scenario:</span>
-              <button
-                onClick={() => setIsScenarioDrawerOpen(true)}
-                className="flex items-center gap-1.5 bg-[#0F172A] hover:bg-[#141F36] border border-[#1E2D4A] hover:border-[#2D436D] rounded-md px-2.5 py-1 text-xs font-mono font-semibold text-[#F8FAFC] transition-colors"
-                title="View Scenario Details"
-              >
-                <span>{activeScenarioId}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-[#64748B] shrink-0" />
-              </button>
-            </div>
+          {/* Scenario Selector Trigger */}
+          <button
+            onClick={() => setIsScenarioDrawerOpen(true)}
+            className="flex items-center gap-1.5 bg-[#0B1322] hover:bg-[#111A2E] border border-[#172640] hover:border-[#1E3A6B] rounded px-2.5 py-1 text-xs font-mono font-medium text-[#F8FAFC] transition-colors focus-visible:ring-1 focus-visible:ring-[#38BDF8] outline-none cursor-pointer shrink-0"
+            title={`Active Scenario: ${activeScenarioId}`}
+            aria-label={`Selected Scenario: ${activeScenarioId}`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <span className="text-[#64748B] font-sans text-[11px] hidden md:inline">Scenario:</span>
+            <span className="font-semibold text-[#38BDF8]">{activeScenarioId}</span>
+            <ChevronDown className="w-3.5 h-3.5 text-[#64748B] shrink-0" />
+          </button>
 
-            {/* Desktop Full Context */}
-            <div className="hidden xl:flex items-center gap-2.5 text-[#94A3B8] text-xs truncate font-sans">
-              <span className="truncate font-medium text-[#CBD5E1]">{scenarioName}</span>
-              <span className="text-[#334155]">•</span>
-              <span className="shrink-0 font-mono text-[11px]">{planningHorizon}</span>
-              <span className="text-[#334155]">•</span>
-              <span className="inline-flex items-center gap-1.5 text-amber-400 font-medium shrink-0 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 text-[11px]">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                Synthetic Demo Dataset
-              </span>
-            </div>
-
-            {/* Laptop / Medium Screen Condensed Context */}
-            <div className="hidden md:flex xl:hidden items-center gap-2 text-[#94A3B8] text-xs">
-              <span className="truncate">{scenarioName}</span>
-              <span className="text-[#334155]">•</span>
-              <span className="text-amber-400 font-mono text-[10px] bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
-                SYNTHETIC
-              </span>
+          {/* Secondary Operational Badges & Metadata */}
+          <div className="hidden md:flex items-center gap-2 text-xs text-[#8EA3BE] truncate min-w-0 cursor-default">
+            <span className="text-[#1E304E] shrink-0">/</span>
+            <span className="truncate max-w-[160px] lg:max-w-[220px] text-[#CBD5E1] font-medium">
+              {scenarioName}
+            </span>
+            <span className="text-[#1E304E] shrink-0">•</span>
+            <span className="hidden xl:inline text-[11px] font-mono text-[#64748B]">
+              {planningHorizon}
+            </span>
+            <span className="hidden xl:inline text-[#1E304E] shrink-0">•</span>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+              <span>Live Data (Synthetic)</span>
             </div>
           </div>
         </div>
 
-        {/* Right: Search, Notifications & User Profile */}
+        {/* ============================================================== */}
+        {/* RIGHT SECTION: Global Actions & User Profile                   */}
+        {/* ============================================================== */}
         <div className="flex items-center gap-2 sm:gap-3 text-xs shrink-0">
-          {/* Quick Command / Search Button */}
+          {/* Global Search Command (Ctrl+K) */}
           <button
             onClick={() => setIsSearchOpen(true)}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[#0F172A] hover:bg-[#141F36] border border-[#1E2D4A] hover:border-[#2D436D] text-[#94A3B8] hover:text-[#F8FAFC] transition-colors"
+            className="h-8 flex items-center justify-center md:justify-start gap-2 px-2 md:px-2.5 rounded bg-[#0B1322] hover:bg-[#111A2E] border border-[#172640] hover:border-[#1E3A6B] text-[#8EA3BE] hover:text-[#F8FAFC] transition-colors focus-visible:ring-1 focus-visible:ring-[#38BDF8] outline-none cursor-pointer shrink-0"
             title="Global Search (Ctrl+K)"
             aria-label="Global Search"
           >
-            <Search className="w-3.5 h-3.5 text-[#38BDF8]" />
-            <span className="hidden sm:inline text-xs">Search corridor...</span>
-            <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[9px] font-mono bg-[#141F36] text-[#64748B] rounded border border-[#1E2D4A]">
+            <Search className="w-3.5 h-3.5 text-[#38BDF8] shrink-0" />
+            <span className="hidden md:inline text-xs">Search...</span>
+            <kbd className="hidden lg:inline-block px-1.5 py-0.2 text-[9px] font-mono bg-[#111A2E] text-[#64748B] rounded border border-[#172640]">
               Ctrl K
             </kbd>
           </button>
 
-          {/* Notification Bell */}
+          {/* Operational Notifications */}
           <button
             onClick={() => setIsNotificationOpen(true)}
-            className="relative text-[#94A3B8] hover:text-[#F8FAFC] p-2 rounded-lg hover:bg-[#141F36] transition-colors cursor-pointer"
+            className="relative w-8 h-8 rounded-lg bg-[#0B1322] hover:bg-[#111A2E] border border-[#172640] hover:border-[#1E3A6B] text-[#8EA3BE] hover:text-[#F8FAFC] transition-colors flex items-center justify-center cursor-pointer shrink-0 focus-visible:ring-1 focus-visible:ring-[#38BDF8] outline-none"
             title="Operational Notifications"
             aria-label="Operational Notifications"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#3B82F6] rounded-full ring-2 ring-[#0A0E17]" />
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#3B82F6] rounded-full ring-2 ring-[#070D18]" />
           </button>
 
-          {/* Auth Status & Sign-In Widget */}
-          <div className="pl-2 border-l border-[#1E2D4A]">
+          {/* Auth & Operator Profile Widget */}
+          <div className="pl-1 sm:pl-2 border-l border-[#152238] flex items-center">
             <AuthWidget />
           </div>
+
+          {/* Mobile Navigation Drawer Trigger */}
+          <button
+            onClick={openMobile}
+            className="lg:hidden w-8 h-8 rounded-lg bg-[#0B1322] hover:bg-[#111A2E] border border-[#172640] text-[#8EA3BE] hover:text-[#F8FAFC] transition-colors flex items-center justify-center cursor-pointer shrink-0 focus-visible:ring-1 focus-visible:ring-[#38BDF8] outline-none"
+            title="Open navigation menu"
+            aria-label="Open navigation menu"
+            aria-controls="railway-navigation-sidebar"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
         </div>
       </header>
 
-      {/* Global Command / Search Palette */}
+      {/* Scenario Switcher Drawer */}
+      <ResponsiveDrawer
+        isOpen={isScenarioDrawerOpen}
+        onClose={() => setIsScenarioDrawerOpen(false)}
+        title="Select Operational Scenario"
+        subtitle="Synthetic Railway Corridor Simulations"
+      >
+        <div className="space-y-3 font-sans">
+          <div className="p-3 bg-[#0B1322] rounded-lg border border-[#1E304E] cursor-pointer hover:border-[#38BDF8] transition-all">
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-mono text-xs font-bold text-[#38BDF8]">SCN-DEMO-001</span>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-mono font-bold">
+                ACTIVE
+              </span>
+            </div>
+            <div className="text-xs font-semibold text-[#F8FAFC]">Northern Corridor Baseline</div>
+            <div className="text-[11px] text-[#8EA3BE] mt-1">
+              440 km Trunk • 50 Trains • 30 Maintenance Tasks • 72h Horizon
+            </div>
+          </div>
+
+          <div className="p-3 bg-[#070D18] rounded-lg border border-[#152238] opacity-60 cursor-not-allowed">
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-mono text-xs font-semibold text-[#64748B]">SCN-STORM-002</span>
+              <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                ARCHIVED
+              </span>
+            </div>
+            <div className="text-xs font-semibold text-[#94A3B8]">Severe Weather Disruption</div>
+            <div className="text-[11px] text-[#64748B] mt-1">
+              High-wind speeds at Yamuna Bridge • Synthetic scenario
+            </div>
+          </div>
+        </div>
+      </ResponsiveDrawer>
+
       <CommandSearchOverlay
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
       />
 
-      {/* Operational Notifications Drawer */}
       <NotificationDrawer
         isOpen={isNotificationOpen}
         onClose={() => setIsNotificationOpen(false)}
       />
-
-      {/* Scenario Context Drawer */}
-      <ResponsiveDrawer
-        isOpen={isScenarioDrawerOpen}
-        onClose={() => setIsScenarioDrawerOpen(false)}
-        title="Active Operational Scenario"
-        badge={
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
-            ACTIVE
-          </span>
-        }
-      >
-        <div className="p-5 space-y-4 text-xs font-sans">
-          <div className="bg-[#0A0E17] border border-[#1E2D4A] rounded-lg p-4 space-y-3 font-mono">
-            <div>
-              <span className="text-[10px] text-[#64748B] uppercase block font-bold">Scenario ID</span>
-              <span className="text-sm font-bold text-[#F8FAFC]">{activeScenarioId}</span>
-            </div>
-            <div>
-              <span className="text-[10px] text-[#64748B] uppercase block font-bold">Corridor Network</span>
-              <span className="text-xs text-[#CBD5E1]">{scenarioName} (440 km Trunk Line)</span>
-            </div>
-            <div>
-              <span className="text-[10px] text-[#64748B] uppercase block font-bold">Planning Horizon</span>
-              <span className="text-xs text-[#CBD5E1]">{planningHorizon} (UTC)</span>
-            </div>
-            <div>
-              <span className="text-[10px] text-[#64748B] uppercase block font-bold">Data Provenance</span>
-              <span className="text-xs text-amber-400 flex items-center gap-1.5 pt-0.5">
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                Synthetic Operational Seed (Demo Boundary)
-              </span>
-            </div>
-          </div>
-
-          <div className="border-t border-[#1E2D4A] pt-4 flex justify-end">
-            <button
-              onClick={() => setIsScenarioDrawerOpen(false)}
-              className="px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-medium rounded-md text-xs transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </ResponsiveDrawer>
     </>
   );
 };

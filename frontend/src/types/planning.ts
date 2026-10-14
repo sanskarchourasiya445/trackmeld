@@ -189,6 +189,7 @@ export interface ScheduleResult {
   unscheduled_tasks: UnscheduledTaskReport[];
   validation_summary?: ScheduleValidationResult;
   diagnostics?: UnscheduledTaskDiagnostic[];
+  solver_diagnostics?: Record<string, unknown>;
   metrics: ScheduleMetrics;
 }
 

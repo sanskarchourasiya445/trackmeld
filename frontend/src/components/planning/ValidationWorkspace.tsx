@@ -8,6 +8,9 @@ import {
   Fingerprint,
   CheckCircle,
   FileCheck,
+  AlertCircle,
+  AlertTriangle,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -17,24 +20,69 @@ interface ValidationWorkspaceProps {
 }
 
 const HARD_RULES_AUDIT = [
-  { id: 'CHK-01', category: 'STRUCTURAL', name: 'Plan & Scenario Integrity', desc: 'Validates non-null schedule structures, interval bounds, and foreign key references.', status: 'VERIFIED', items: '29 Tasks' },
-  { id: 'CHK-02', category: 'HORIZON', name: 'Planning Horizon Boundaries', desc: 'All possession windows fall strictly within 2026-10-10 00:00 to 2026-10-12 23:59 UTC.', status: 'VERIFIED', items: '72h Span' },
-  { id: 'CHK-03', category: 'TASK_WINDOW', name: 'Requisition Window Adherence', desc: 'Tasks execute strictly between department earliest start and latest finish parameters.', status: 'VERIFIED', items: '29 Tasks' },
-  { id: 'CHK-04', category: 'DURATION_BUFFERS', name: 'Discrete Safety Buffer Margins', desc: '15-minute headway safety buffer strictly enforced before and after every track occupancy.', status: 'VERIFIED', items: '58 Buffers' },
-  { id: 'CHK-05', category: 'SECTION_OCCUPANCY', name: 'Section Track Non-Overlap', desc: 'No overlapping unbundled track maintenance possessions on identical block tracks.', status: 'VERIFIED', items: '32 Sections' },
-  { id: 'CHK-06', category: 'MULTI_SECTION', name: 'Continuous Corridor Topology', desc: 'Linear corridor topology verified; no disjoint possession blocks across junction sections.', status: 'VERIFIED', items: '5 Trunks' },
-  { id: 'CHK-07', category: 'TRAIN_MOVEMENT', name: 'Passenger Headway Clearance', desc: 'Absolute priority for passenger express movements; zero unmitigated trajectory overlaps.', status: 'VERIFIED', items: '50 Trains' },
-  { id: 'CHK-08', category: 'RESOURCES', name: 'Specialized Machine Capacity', desc: 'Tamping machines, dynamic stabilizers, and tower wagons within discrete allocation limits.', status: 'VERIFIED', items: '21 Resources' },
-  { id: 'CHK-09', category: 'DEPENDENCIES', name: 'Precedence & Finish-to-Start', desc: 'Ballast cleaning strictly precedes tamping; all DAG precedence constraints satisfied.', status: 'VERIFIED', items: '12 Precedences' },
-  { id: 'CHK-10', category: 'MANDATORY_TASKS', name: 'Statutory Safety Requisitions', desc: '100% of mandatory track maintenance work orders successfully accommodated in candidate schedule.', status: 'VERIFIED', items: '17 Mandatory' },
-  { id: 'CHK-11', category: 'DOMAIN_RULES', name: 'Indian Railways General Rules', desc: 'OHE power de-energization permits and station caution order constraints enforced.', status: 'VERIFIED', items: '9 Rules' },
-  { id: 'CHK-12', category: 'SOLVER_OUTPUT', name: 'Mathematical Objective Bound', desc: 'Solver status certified OPTIMAL; incumbent bound convergence within tolerance.', status: 'VERIFIED', items: 'CP-SAT 9.15' },
+  { id: 'CHK-01', category: 'STRUCTURAL', name: 'Plan & Scenario Integrity', desc: 'Validates non-null schedule structures, interval bounds, and foreign key references.', items: '29 Tasks' },
+  { id: 'CHK-02', category: 'HORIZON', name: 'Planning Horizon Boundaries', desc: 'All possession windows fall strictly within 2026-10-10 00:00 to 2026-10-12 23:59 UTC.', items: '72h Span' },
+  { id: 'CHK-03', category: 'TASK_WINDOW', name: 'Requisition Window Adherence', desc: 'Tasks execute strictly between department earliest start and latest finish parameters.', items: '29 Tasks' },
+  { id: 'CHK-04', category: 'DURATION_BUFFERS', name: 'Discrete Safety Buffer Margins', desc: '15-minute headway safety buffer strictly enforced before and after every track occupancy.', items: '58 Buffers' },
+  { id: 'CHK-05', category: 'SECTION_OCCUPANCY', name: 'Section Track Non-Overlap', desc: 'No overlapping unbundled track maintenance possessions on identical block tracks.', items: '32 Sections' },
+  { id: 'CHK-06', category: 'MULTI_SECTION', name: 'Continuous Corridor Topology', desc: 'Linear corridor topology verified; no disjoint possession blocks across junction sections.', items: '5 Trunks' },
+  { id: 'CHK-07', category: 'TRAIN_MOVEMENT', name: 'Passenger Headway Clearance', desc: 'Absolute priority for passenger express movements; zero unmitigated trajectory overlaps.', items: '50 Trains' },
+  { id: 'CHK-08', category: 'RESOURCES', name: 'Specialized Machine Capacity', desc: 'Tamping machines, dynamic stabilizers, and tower wagons within discrete allocation limits.', items: '21 Resources' },
+  { id: 'CHK-09', category: 'DEPENDENCIES', name: 'Precedence & Finish-to-Start', desc: 'Ballast cleaning strictly precedes tamping; all DAG precedence constraints satisfied.', items: '12 Precedences' },
+  { id: 'CHK-10', category: 'MANDATORY_TASKS', name: 'Statutory Safety Requisitions', desc: '100% of mandatory track maintenance work orders successfully accommodated in candidate schedule.', items: '17 Mandatory' },
+  { id: 'CHK-11', category: 'DOMAIN_RULES', name: 'Indian Railways General Rules', desc: 'OHE power de-energization permits and station caution order constraints enforced.', items: '9 Rules' },
+  { id: 'CHK-12', category: 'SOLVER_OUTPUT', name: 'Mathematical Objective Bound', desc: 'Solver status certified OPTIMAL; incumbent bound convergence within tolerance.', items: 'CP-SAT 9.15' },
 ];
 
 export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
   validationResult,
   onOpenGovernance,
 }) => {
+  const getRuleCertification = (ruleId: string, ruleCategory: string) => {
+    if (!validationResult) {
+      return {
+        label: 'NOT RUN',
+        icon: <Clock className="w-3 h-3 text-zinc-500" />,
+        badgeClass: 'bg-zinc-800/80 text-zinc-400 border border-zinc-700/60',
+      };
+    }
+
+    const finding = validationResult.findings?.find(
+      (f) => f.rule_code === ruleId || f.target_type === ruleCategory
+    );
+
+    if (finding) {
+      if (finding.severity === 'ERROR' || finding.severity === 'CRITICAL') {
+        return {
+          label: 'FAILED',
+          icon: <AlertCircle className="w-3 h-3 text-rose-400" />,
+          badgeClass: 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
+        };
+      }
+      if (finding.severity === 'WARNING') {
+        return {
+          label: 'WARNING',
+          icon: <AlertTriangle className="w-3 h-3 text-amber-400" />,
+          badgeClass: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
+        };
+      }
+    }
+
+    if (validationResult.status === 'INVALID') {
+      return {
+        label: 'FAILED',
+        icon: <AlertCircle className="w-3 h-3 text-rose-400" />,
+        badgeClass: 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
+      };
+    }
+
+    return {
+      label: 'VERIFIED',
+      icon: <CheckCircle className="w-3 h-3 text-emerald-400" />,
+      badgeClass: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+    };
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0A0E17] p-4 gap-3 overflow-hidden select-none font-sans text-xs">
       {/* 1. Header Block */}
@@ -64,7 +112,14 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
               size="sm"
               onClick={onOpenGovernance}
               disabled={!validationResult?.is_approvable}
-              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold h-8"
+              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold h-8"
+              title={
+                !validationResult
+                  ? 'Validation has not yet been executed'
+                  : !validationResult.is_approvable
+                    ? 'Schedule validation failed: cannot proceed to governance'
+                    : 'Proceed to Four-Eyes Governance Sign-Off'
+              }
             >
               <FileCheck className="w-3.5 h-3.5 mr-1.5" />
               Proceed to Governance Review
@@ -108,8 +163,9 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
             </div>
           </div>
         ) : (
-          <div className="text-[10px] text-[#64748B] font-mono italic">
-            No validation data — run optimization to certify schedule
+          <div className="text-[10px] text-[#94A3B8] font-mono flex items-center gap-1.5 bg-[#0A0E17] border border-[#1E2D4A] px-2.5 py-1.5 rounded">
+            <Clock className="w-3.5 h-3.5 text-zinc-500" />
+            <span>No validation executed — run optimization to certify schedule safety</span>
           </div>
         )}
       </div>
@@ -128,50 +184,56 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-[#1E2D4A]/50">
-            {HARD_RULES_AUDIT.map((rule) => (
-              <tr key={rule.id} className="hover:bg-[#141F36]/60 transition-colors">
-                <td className="py-2.5 px-3 font-mono font-semibold text-[#F8FAFC]">
-                  {rule.id}
-                </td>
-                <td className="py-2.5 px-3 font-mono text-[#3B82F6] font-medium text-[11px]">
-                  {rule.category}
-                </td>
-                <td className="py-2.5 px-3">
-                  <div className="font-semibold text-[#F8FAFC]">{rule.name}</div>
-                  <div className="text-[11px] text-[#94A3B8] leading-tight mt-0.5">{rule.desc}</div>
-                </td>
-                <td className="py-2.5 px-3 font-mono text-[#CBD5E1] text-[11px]">
-                  {rule.items}
-                </td>
-                <td className="py-2.5 px-3 text-right">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    <CheckCircle className="w-3 h-3 text-emerald-400" />
-                    {rule.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {HARD_RULES_AUDIT.map((rule) => {
+              const cert = getRuleCertification(rule.id, rule.category);
+              return (
+                <tr key={rule.id} className="hover:bg-[#141F36]/60 transition-colors">
+                  <td className="py-2.5 px-3 font-mono font-semibold text-[#F8FAFC]">
+                    {rule.id}
+                  </td>
+                  <td className="py-2.5 px-3 font-mono text-[#3B82F6] font-medium text-[11px]">
+                    {rule.category}
+                  </td>
+                  <td className="py-2.5 px-3">
+                    <div className="font-semibold text-[#F8FAFC]">{rule.name}</div>
+                    <div className="text-[11px] text-[#94A3B8] leading-tight mt-0.5">{rule.desc}</div>
+                  </td>
+                  <td className="py-2.5 px-3 font-mono text-[#CBD5E1] text-[11px]">
+                    {rule.items}
+                  </td>
+                  <td className="py-2.5 px-3 text-right">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold ${cert.badgeClass}`}>
+                      {cert.icon}
+                      {cert.label}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
         {/* Mobile Stacked Check Cards (< md) */}
         <div className="md:hidden divide-y divide-[#1E2D4A]/60 p-2 space-y-2">
-          {HARD_RULES_AUDIT.map((rule) => (
-            <div key={rule.id} className="p-3 rounded-md bg-[#0A0E17]/60 border border-[#1E2D4A] space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="font-mono font-bold text-xs text-[#F8FAFC]">{rule.id}</span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                  <CheckCircle className="w-3 h-3 text-emerald-400" />
-                  {rule.status}
-                </span>
+          {HARD_RULES_AUDIT.map((rule) => {
+            const cert = getRuleCertification(rule.id, rule.category);
+            return (
+              <div key={rule.id} className="p-3 rounded-md bg-[#0A0E17]/60 border border-[#1E2D4A] space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-xs text-[#F8FAFC]">{rule.id}</span>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-semibold ${cert.badgeClass}`}>
+                    {cert.icon}
+                    {cert.label}
+                  </span>
+                </div>
+                <div className="font-semibold text-xs text-[#F8FAFC]">{rule.name}</div>
+                <div className="text-[10px] font-mono text-[#3B82F6]">{rule.category} • {rule.items}</div>
+                <p className="text-[11px] text-[#94A3B8] leading-relaxed pt-1 border-t border-[#1E2D4A]/50">
+                  {rule.desc}
+                </p>
               </div>
-              <div className="font-semibold text-xs text-[#F8FAFC]">{rule.name}</div>
-              <div className="text-[10px] font-mono text-[#3B82F6]">{rule.category} • {rule.items}</div>
-              <p className="text-[11px] text-[#94A3B8] leading-relaxed pt-1 border-t border-[#1E2D4A]/50">
-                {rule.desc}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

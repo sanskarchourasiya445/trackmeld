@@ -87,9 +87,13 @@ export const RailwayMapFallback: React.FC<RailwayMapFallbackProps> = ({
           <span className="text-[10px] font-mono bg-[#141F36] text-[#93C5FD] px-2 py-0.5 rounded border border-[#2D436D]">
             NDLS → CNB (440 km)
           </span>
+          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-500/30 font-semibold">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            SYNTHETIC DEMO
+          </span>
           <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            SYNTHETIC GIS ENGINE
+            SCHEMATIC GIS
           </span>
         </div>
 
@@ -240,12 +244,22 @@ export const RailwayMapFallback: React.FC<RailwayMapFallbackProps> = ({
 
             {/* Track Sections Alignment Lines */}
             {activeLayers.tracks &&
-              CORRIDOR_SECTIONS_GIS.map((sec) => {
+              CORRIDOR_SECTIONS_GIS.map((sec, sIdx) => {
                 const points = sec.coordinates
                   .map((coord) => `${lngToX(coord[0])},${latToY(coord[1])}`)
                   .join(' ');
                 const isSelected = selectedSectionCode === sec.code || selectedSectionCode === sec.section_id;
                 const isPossession = sec.up_line_status === 'POSSESSION';
+
+                // True midpoint calculation along the section coordinates
+                const coords = sec.coordinates;
+                const midIdx = Math.max(1, Math.floor(coords.length / 2));
+                const c1 = coords[midIdx - 1] || coords[0];
+                const c2 = coords[midIdx];
+                const midLng = (c1[0] + c2[0]) / 2;
+                const midLat = (c1[1] + c2[1]) / 2;
+                const midX = lngToX(midLng);
+                const midY = latToY(midLat) + (sIdx % 2 === 0 ? -16 : 14);
 
                 return (
                   <g key={sec.section_id} onClick={() => onSelectSection?.(sec.code)} className="cursor-pointer group">
@@ -282,35 +296,31 @@ export const RailwayMapFallback: React.FC<RailwayMapFallbackProps> = ({
                       opacity={isSelected ? 1 : 0.85}
                     />
 
-                    {/* Track Section Label Midpoint */}
-                    {sec.coordinates.length > 2 && (
-                      <g
-                        transform={`translate(${lngToX(sec.coordinates[1][0])}, ${latToY(sec.coordinates[1][1]) - 8})`}
+                    {/* Deconflicted Track Section Label Midpoint */}
+                    <g transform={`translate(${midX}, ${midY})`}>
+                      <rect
+                        x="-24"
+                        y="-8"
+                        width="48"
+                        height="16"
+                        rx="3"
+                        fill="#0B101C"
+                        stroke={isSelected ? '#38BDF8' : '#1E2D4A'}
+                        strokeWidth="1"
+                      />
+                      <text
+                        x="0"
+                        y="0"
+                        textAnchor="middle"
+                        fill={isSelected ? '#38BDF8' : '#94A3B8'}
+                        fontSize="7.5"
+                        fontFamily="monospace"
+                        fontWeight="bold"
+                        dy=".3em"
                       >
-                        <rect
-                          x="-26"
-                          y="-10"
-                          width="52"
-                          height="14"
-                          rx="3"
-                          fill="#0B101C"
-                          stroke={isSelected ? '#38BDF8' : '#1E2D4A'}
-                          strokeWidth="1"
-                        />
-                        <text
-                          x="0"
-                          y="0"
-                          textAnchor="middle"
-                          fill={isSelected ? '#38BDF8' : '#94A3B8'}
-                          fontSize="8"
-                          fontFamily="monospace"
-                          fontWeight="bold"
-                          dy=".3em"
-                        >
-                          {sec.code}
-                        </text>
-                      </g>
-                    )}
+                        {sec.code}
+                      </text>
+                    </g>
                   </g>
                 );
               })}
@@ -319,15 +329,15 @@ export const RailwayMapFallback: React.FC<RailwayMapFallbackProps> = ({
             {activeLayers.workZones && (
               <g
                 onClick={() => onSelectTask?.('TSK-0007')}
-                className="cursor-pointer"
+                className="cursor-pointer group"
                 transform={`translate(${lngToX(78.64)}, ${latToY(27.01)})`}
               >
                 {/* Pulsing Possession Halo */}
                 <circle r="18" fill="#F59E0B" fillOpacity="0.15" className="animate-ping" />
                 <rect
-                  x="-50"
+                  x="-52"
                   y="-12"
-                  width="100"
+                  width="104"
                   height="24"
                   rx="4"
                   fill="#0F172A"
@@ -363,17 +373,32 @@ export const RailwayMapFallback: React.FC<RailwayMapFallbackProps> = ({
                     : '#38BDF8';
 
                 return (
-                  <g key={sig.signal_id} transform={`translate(${x}, ${y})`}>
+                  <g key={sig.signal_id} transform={`translate(${x}, ${y})`} className="group cursor-pointer">
                     <circle r="3.5" fill={color} stroke="#0B101C" strokeWidth="1" />
-                    <text
-                      x="6"
-                      y="2"
-                      fill="#64748B"
-                      fontSize="7"
-                      fontFamily="monospace"
-                    >
-                      {sig.code}
-                    </text>
+                    {/* Signal label shown on hover or when zoomed in */}
+                    <g className={`${zoomLevel >= 1.25 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity pointer-events-none`}>
+                      <rect
+                        x="5"
+                        y="-7"
+                        width="36"
+                        height="13"
+                        rx="2"
+                        fill="#0B101C"
+                        stroke="#1E2D4A"
+                        strokeWidth="0.8"
+                      />
+                      <text
+                        x="23"
+                        y="0"
+                        textAnchor="middle"
+                        fill="#94A3B8"
+                        fontSize="6.5"
+                        fontFamily="monospace"
+                        dy=".3em"
+                      >
+                        {sig.code}
+                      </text>
+                    </g>
                   </g>
                 );
               })}
@@ -384,6 +409,23 @@ export const RailwayMapFallback: React.FC<RailwayMapFallbackProps> = ({
                 const x = lngToX(train.coordinates[0]);
                 const y = latToY(train.coordinates[1]);
                 const isSelected = selectedTrainId === train.train_id;
+
+                // Deconflict train tag offsets based on train ID and surrounding assets
+                let badgeOffsetX = 12;
+                let badgeOffsetY = -14;
+                if (train.train_id === 'TR-FRG-UP1') {
+                  badgeOffsetX = -88;
+                  badgeOffsetY = 6;
+                } else if (train.train_id === 'TR-22436') {
+                  badgeOffsetX = 12;
+                  badgeOffsetY = -18;
+                } else if (train.train_id === 'TR-12004') {
+                  badgeOffsetX = 12;
+                  badgeOffsetY = -12;
+                } else if (train.train_id === 'TR-12424') {
+                  badgeOffsetX = 12;
+                  badgeOffsetY = -16;
+                }
 
                 return (
                   <g
@@ -414,12 +456,12 @@ export const RailwayMapFallback: React.FC<RailwayMapFallbackProps> = ({
                       strokeWidth="1.2"
                     />
 
-                    {/* Train Label Badge */}
-                    <g transform="translate(10, -5)">
+                    {/* Deconflicted Train Label Badge */}
+                    <g transform={`translate(${badgeOffsetX}, ${badgeOffsetY})`}>
                       <rect
                         x="-2"
                         y="-8"
-                        width="80"
+                        width="82"
                         height="18"
                         rx="3"
                         fill="#0B101C"
@@ -450,11 +492,34 @@ export const RailwayMapFallback: React.FC<RailwayMapFallbackProps> = ({
                 );
               })}
 
-            {/* Stations Layer (Prominent Hub Markers) */}
+            {/* Stations Layer (Prominent Hub Markers with Staggered Anchors) */}
             {activeLayers.stations &&
               CORRIDOR_STATIONS_GIS.map((st) => {
                 const x = lngToX(st.coordinates[0]);
                 const y = latToY(st.coordinates[1]);
+
+                // Dedicated anchor offset per station to avoid colliding with other stations or tracks
+                let tagOffsetX = 0;
+                let tagOffsetY = 16;
+                if (st.code === 'NDLS') {
+                  tagOffsetX = -46;
+                  tagOffsetY = -6;
+                } else if (st.code === 'GZB') {
+                  tagOffsetX = 0;
+                  tagOffsetY = -22;
+                } else if (st.code === 'ALJN') {
+                  tagOffsetX = -46;
+                  tagOffsetY = -4;
+                } else if (st.code === 'TDL') {
+                  tagOffsetX = -48;
+                  tagOffsetY = -4;
+                } else if (st.code === 'ETW') {
+                  tagOffsetX = 12;
+                  tagOffsetY = 18;
+                } else if (st.code === 'CNB') {
+                  tagOffsetX = 0;
+                  tagOffsetY = 20;
+                }
 
                 return (
                   <g
@@ -473,8 +538,8 @@ export const RailwayMapFallback: React.FC<RailwayMapFallbackProps> = ({
                     />
                     <circle r="3.5" fill="#38BDF8" />
 
-                    {/* Station Name & Distance Tag */}
-                    <g transform="translate(0, 16)">
+                    {/* Staggered Station Name & Distance Tag */}
+                    <g transform={`translate(${tagOffsetX}, ${tagOffsetY})`}>
                       <rect
                         x="-30"
                         y="-8"

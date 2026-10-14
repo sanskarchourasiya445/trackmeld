@@ -237,29 +237,29 @@ export default function GovernancePage() {
       tasksCount={29}
       trainsCount={50}
     >
-      <div className="flex-1 overflow-y-auto px-6 py-6 lg:px-10 lg:py-8 space-y-8 max-w-[1700px] w-full mx-auto font-sans select-none">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 space-y-3.5 max-w-[1920px] w-full mx-auto font-sans select-none">
         {/* ============================================================== */}
         {/* 1. GOVERNANCE COMMAND HEADER                                   */}
         {/* ============================================================== */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#1E2D4A]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[#1E2D4A]">
           <div>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-xs">
-                <ShieldCheck className="w-5 h-5" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-xs">
+                <ShieldCheck className="w-4 h-4" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold tracking-tight text-[#F8FAFC]">
+                <h1 className="text-xl font-bold tracking-tight text-[#F8FAFC]">
                   Safety Validation & Human Governance
                 </h1>
-                <p className="text-xs text-[#94A3B8] mt-0.5">
+                <p className="text-[11px] text-[#94A3B8] mt-0.5">
                   Independent 13-check mathematical safety firewall and Four-Eyes human operator sign-off
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="bg-[#0B101C] border border-[#1E2D4A] rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs font-mono">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="bg-[#0B101C] border border-[#1E2D4A] rounded-md px-2.5 py-1 flex items-center gap-2 text-xs font-mono">
               <span className="text-[#64748B]">Plan Version:</span>
               <strong className="text-[#F8FAFC]">v{planVersion.version_number}</strong>
               <span className="text-[#334155]">•</span>
@@ -275,9 +275,9 @@ export default function GovernancePage() {
             <Button
               size="sm"
               onClick={() => setIsApprovalOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 h-9 shadow-xs cursor-pointer"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 h-8 shadow-xs cursor-pointer"
             >
-              <FileCheck className="w-4 h-4 mr-2" />
+              <FileCheck className="w-3.5 h-3.5 mr-1.5" />
               <span>Perform Four-Eyes Review</span>
             </Button>
           </div>
@@ -286,45 +286,45 @@ export default function GovernancePage() {
         {/* ============================================================== */}
         {/* 2. FORMAL OPERATIONAL GOVERNANCE WORKFLOW PIPELINE             */}
         {/* ============================================================== */}
-        <div className="bg-[#0B101C] border border-[#1E2D4A] rounded-xl p-5 lg:p-6 shadow-sm space-y-4">
-          <div className="text-[11px] font-mono uppercase font-bold text-[#64748B] tracking-wider">
+        <div className="bg-[#0B101C] border border-[#1E2D4A] rounded-lg p-3 sm:p-4 shadow-xs space-y-2.5">
+          <div className="text-[10px] font-mono uppercase font-bold text-[#64748B] tracking-wider">
             FORMAL OPERATIONAL GOVERNANCE PIPELINE
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-xl p-4 relative">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5">
+            <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3 relative">
               <span className="text-[10px] font-mono text-[#64748B] block font-bold">STAGE 1</span>
-              <span className="font-bold text-sm text-[#F8FAFC] block mt-1">CP-SAT Optimization</span>
-              <p className="text-xs text-emerald-400 font-mono mt-1 font-semibold">OPTIMAL (1.48s runtime)</p>
-              <span className="text-[11px] text-[#94A3B8] block mt-1">Mathematical interval assignment</span>
+              <span className="font-bold text-xs text-[#F8FAFC] block mt-0.5">CP-SAT Optimization</span>
+              <p className="text-[11px] text-emerald-400 font-mono mt-0.5 font-semibold">OPTIMAL (1.48s runtime)</p>
+              <span className="text-[10.5px] text-[#94A3B8] block mt-0.5">Mathematical interval assignment</span>
             </div>
 
-            <div className="bg-[#0F172A] border border-emerald-500/40 rounded-xl p-4 relative">
+            <div className="bg-[#0F172A] border border-emerald-500/40 rounded-lg p-3 relative">
               <span className="text-[10px] font-mono text-emerald-400 block font-bold">STAGE 2</span>
-              <span className="font-bold text-sm text-[#F8FAFC] block mt-1">Independent Validation</span>
-              <p className="text-xs text-emerald-400 font-mono mt-1 font-semibold">13/13 CHECKS PASSED (100%)</p>
-              <span className="text-[11px] text-[#94A3B8] block mt-1">Separated verification firewall</span>
+              <span className="font-bold text-xs text-[#F8FAFC] block mt-0.5">Independent Validation</span>
+              <p className="text-[11px] text-emerald-400 font-mono mt-0.5 font-semibold">13/13 CHECKS PASSED (100%)</p>
+              <span className="text-[10.5px] text-[#94A3B8] block mt-0.5">Separated verification firewall</span>
             </div>
 
-            <div className="bg-[#0F172A] border border-[#2563EB]/40 rounded-xl p-4 relative">
+            <div className="bg-[#0F172A] border border-[#2563EB]/40 rounded-lg p-3 relative">
               <span className="text-[10px] font-mono text-[#38BDF8] block font-bold">STAGE 3</span>
-              <span className="font-bold text-sm text-[#F8FAFC] block mt-1">Four-Eyes Human Review</span>
-              <p className="text-xs text-[#93C5FD] font-mono mt-1 font-semibold">Role Segregation Mandatory</p>
-              <span className="text-[11px] text-[#94A3B8] block mt-1">Creator cannot approve plan</span>
+              <span className="font-bold text-xs text-[#F8FAFC] block mt-0.5">Four-Eyes Human Review</span>
+              <p className="text-[11px] text-[#93C5FD] font-mono mt-0.5 font-semibold">Role Segregation Mandatory</p>
+              <span className="text-[10.5px] text-[#94A3B8] block mt-0.5">Creator cannot approve plan</span>
             </div>
 
-            <div className={`border rounded-xl p-4 relative ${
+            <div className={`border rounded-lg p-3 relative ${
               planVersion.status === 'APPROVED'
                 ? 'bg-emerald-950/20 border-emerald-500/50'
                 : 'bg-amber-950/20 border-amber-500/40'
             }`}>
               <span className="text-[10px] font-mono block text-[#94A3B8] font-bold">STAGE 4</span>
-              <span className="font-bold text-sm text-[#F8FAFC] block mt-1">Final Track Clearance</span>
-              <p className={`text-xs font-mono mt-1 font-bold ${
+              <span className="font-bold text-xs text-[#F8FAFC] block mt-0.5">Final Track Clearance</span>
+              <p className={`text-[11px] font-mono mt-0.5 font-bold ${
                 planVersion.status === 'APPROVED' ? 'text-emerald-400' : 'text-amber-400'
               }`}>
                 {planVersion.status === 'APPROVED' ? 'PLAN AUTHORIZED & SIGNED' : 'AWAITING EXECUTIVE SIGN-OFF'}
               </p>
-              <span className="text-[11px] text-[#94A3B8] block mt-1">
+              <span className="text-[10.5px] text-[#94A3B8] block mt-0.5">
                 {planVersion.status === 'APPROVED' ? 'Ready for field dispatch' : 'Action required by DRM/Sr. DOM'}
               </span>
             </div>
@@ -334,56 +334,56 @@ export default function GovernancePage() {
         {/* ============================================================== */}
         {/* 3. FOUR-EYES ROLE SEGREGATION & CRYPTOGRAPHIC IDENTITY         */}
         {/* ============================================================== */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
           {/* Left: Four-Eyes Principle */}
-          <div className="lg:col-span-6 bg-[#0B101C] border border-[#1E2D4A] rounded-xl p-5 lg:p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1E2D4A]">
-              <span className="font-bold text-sm text-[#F8FAFC] flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-[#38BDF8]" />
+          <div className="lg:col-span-6 bg-[#0B101C] border border-[#1E2D4A] rounded-lg p-3.5 sm:p-4 space-y-2.5">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#1E2D4A]">
+              <span className="font-bold text-xs text-[#F8FAFC] flex items-center gap-1.5">
+                <UserCheck className="w-3.5 h-3.5 text-[#38BDF8]" />
                 Four-Eyes Operational Principle
               </span>
               <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-500/30 font-bold">
                 MANDATORY STATUTORY RULE
               </span>
             </div>
-            <p className="text-xs text-[#94A3B8] leading-relaxed">
+            <p className="text-[11px] text-[#94A3B8] leading-relaxed">
               TrackMeld enforces strict role segregation. The author of an optimization scenario cannot approve their own plan for live track execution.
             </p>
-            <div className="grid grid-cols-2 gap-3 text-xs font-mono pt-1">
-              <div className="bg-[#0F172A] p-3 rounded-lg border border-[#1E2D4A]">
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono pt-0.5">
+              <div className="bg-[#0F172A] p-2.5 rounded-md border border-[#1E2D4A]">
                 <span className="text-[10px] text-[#64748B] block font-bold">PLAN CREATOR:</span>
-                <span className="font-bold text-[#F8FAFC] text-sm block mt-0.5">chief_operations_admin</span>
-                <span className="text-[11px] text-[#94A3B8] block mt-0.5">Chief Operations Planner</span>
+                <span className="font-bold text-[#F8FAFC] text-xs block mt-0.5">chief_operations_admin</span>
+                <span className="text-[10.5px] text-[#94A3B8] block mt-0.5">Chief Operations Planner</span>
               </div>
-              <div className="bg-[#0F172A] p-3 rounded-lg border border-[#1E2D4A]">
+              <div className="bg-[#0F172A] p-2.5 rounded-md border border-[#1E2D4A]">
                 <span className="text-[10px] text-[#64748B] block font-bold">DESIGNATED APPROVER:</span>
-                <span className="font-bold text-emerald-400 text-sm block mt-0.5">
+                <span className="font-bold text-emerald-400 text-xs block mt-0.5">
                   {planVersion.approved_by || 'ops_executive_officer'}
                 </span>
-                <span className="text-[11px] text-[#94A3B8] block mt-0.5">Safety & Governance Officer</span>
+                <span className="text-[10.5px] text-[#94A3B8] block mt-0.5">Safety & Governance Officer</span>
               </div>
             </div>
           </div>
 
           {/* Right: Cryptographic Plan Identity */}
-          <div className="lg:col-span-6 bg-[#0B101C] border border-[#1E2D4A] rounded-xl p-5 lg:p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1E2D4A]">
-              <span className="font-bold text-sm text-[#F8FAFC] flex items-center gap-2">
-                <Hash className="w-4 h-4 text-[#38BDF8]" />
+          <div className="lg:col-span-6 bg-[#0B101C] border border-[#1E2D4A] rounded-lg p-3.5 sm:p-4 space-y-2.5">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#1E2D4A]">
+              <span className="font-bold text-xs text-[#F8FAFC] flex items-center gap-1.5">
+                <Hash className="w-3.5 h-3.5 text-[#38BDF8]" />
                 Cryptographic Plan Identity & Proof
               </span>
               <span className="text-[10px] font-mono text-[#93C5FD] bg-[#141F36] px-2 py-0.5 rounded border border-[#2D436D] font-bold">
                 SHA-256 PROOF
               </span>
             </div>
-            <div className="space-y-3 text-xs font-mono">
-              <div className="bg-[#0F172A] p-3 rounded-lg border border-[#1E2D4A]">
-                <span className="text-[10px] text-[#64748B] block font-bold mb-1">SCHEDULE IDENTITY HASH:</span>
-                <span className="text-[#38BDF8] break-all text-xs leading-normal select-all font-mono">
+            <div className="space-y-2 text-xs font-mono">
+              <div className="bg-[#0F172A] p-2.5 rounded-md border border-[#1E2D4A]">
+                <span className="text-[10px] text-[#64748B] block font-bold mb-0.5">SCHEDULE IDENTITY HASH:</span>
+                <span className="text-[#38BDF8] break-all text-[11px] leading-normal select-all font-mono">
                   {planVersion.schedule_identity}
                 </span>
               </div>
-              <div className="flex justify-between text-xs text-[#94A3B8] pt-1">
+              <div className="flex justify-between text-[11px] text-[#94A3B8] pt-0.5">
                 <span>Snapshot: <strong className="text-white">SNAP-297E475AC983</strong></span>
                 <span>Audit Latency: <strong className="text-emerald-400">18.4 ms</strong></span>
                 <span>Entities Certified: <strong className="text-white">29 / 29 Tasks</strong></span>
@@ -395,32 +395,32 @@ export default function GovernancePage() {
         {/* ============================================================== */}
         {/* 4. PROFESSIONAL 13-CHECK VALIDATION TABLE                      */}
         {/* ============================================================== */}
-        <div className="bg-[#0B101C] border border-[#1E2D4A] rounded-xl p-5 lg:p-6 flex flex-col shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#1E2D4A]">
+        <div className="bg-[#0B101C] border border-[#1E2D4A] rounded-lg p-3 sm:p-4 flex flex-col shadow-xs space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-[#1E2D4A]">
             <div>
-              <h2 className="text-base font-bold text-[#F8FAFC]">
+              <h2 className="text-sm font-bold text-[#F8FAFC]">
                 13-Check Independent Safety Validation Firewall
               </h2>
-              <p className="text-xs text-[#94A3B8] mt-0.5">
+              <p className="text-[11px] text-[#94A3B8] mt-0.5">
                 Executed outside the solver process by an isolated deterministic validation engine
               </p>
             </div>
-            <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 px-3 py-1.5 rounded-lg border border-emerald-500/40">
+            <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 px-2.5 py-1 rounded-md border border-emerald-500/40">
               100% PASS RATE (13/13)
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-[#1E2D4A] bg-[#0F172A]">
+          <div className="overflow-x-auto rounded-md border border-[#1E2D4A] bg-[#0F172A]">
             <table className="w-full text-xs text-left">
               <thead className="bg-[#141F36] text-[#64748B] font-mono uppercase text-[10px] sticky top-0 border-b border-[#1E2D4A]">
                 <tr>
-                  <th className="py-3 px-3.5">Rule Code</th>
-                  <th className="py-3 px-3.5">Category</th>
-                  <th className="py-3 px-3.5">Safety Rule Description</th>
-                  <th className="py-3 px-3.5">Severity</th>
-                  <th className="py-3 px-3.5">Result</th>
-                  <th className="py-3 px-3.5">Evidence Reference</th>
-                  <th className="py-3 px-3.5 text-right">Timestamp</th>
+                  <th className="py-2 px-3">Rule Code</th>
+                  <th className="py-2 px-3">Category</th>
+                  <th className="py-2 px-3">Safety Rule Description</th>
+                  <th className="py-2 px-3">Severity</th>
+                  <th className="py-2 px-3">Result</th>
+                  <th className="py-2 px-3">Evidence Reference</th>
+                  <th className="py-2 px-3 text-right">Timestamp</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1E2D4A]/50 font-sans">
@@ -430,16 +430,16 @@ export default function GovernancePage() {
                     onClick={() => setSelectedCheck(chk)}
                     className="hover:bg-[#141F36] cursor-pointer transition-colors"
                   >
-                    <td className="py-3.5 px-3.5 font-mono font-bold text-[#38BDF8]">
+                    <td className="py-2 px-3 font-mono font-bold text-[#38BDF8]">
                       {chk.ruleCode}
                     </td>
-                    <td className="py-3.5 px-3.5 font-semibold text-[#F8FAFC]">
+                    <td className="py-2 px-3 font-semibold text-[#F8FAFC]">
                       {chk.category}
                     </td>
-                    <td className="py-3.5 px-3.5 text-[#CBD5E1] max-w-[340px] leading-relaxed">
+                    <td className="py-2 px-3 text-[#CBD5E1] max-w-[340px] leading-relaxed">
                       {chk.description}
                     </td>
-                    <td className="py-3.5 px-3.5 font-mono text-[10px]">
+                    <td className="py-2 px-3 font-mono text-[10px]">
                       <span className={`px-2 py-0.5 rounded font-bold border ${
                         chk.severity === 'HARD_MANDATORY'
                           ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
@@ -448,19 +448,19 @@ export default function GovernancePage() {
                         {chk.severity.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="py-3.5 px-3.5">
+                    <td className="py-2 px-3">
                       <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/30">
                         <CheckCircle className="w-3 h-3" />
                         PASS ({chk.checkedCount})
                       </span>
                     </td>
-                    <td className="py-3.5 px-3.5 font-mono text-[11px] text-[#38BDF8]">
+                    <td className="py-2 px-3 font-mono text-[11px] text-[#38BDF8]">
                       <span className="hover:underline flex items-center gap-1">
                         <FileText className="w-3 h-3" />
                         {chk.evidenceRef}
                       </span>
                     </td>
-                    <td className="py-3.5 px-3.5 text-right font-mono text-[11px] text-[#64748B]">
+                    <td className="py-2 px-3 text-right font-mono text-[11px] text-[#64748B]">
                       {chk.timestamp}
                     </td>
                   </tr>
@@ -473,40 +473,40 @@ export default function GovernancePage() {
         {/* ============================================================== */}
         {/* 5. IMMUTABLE AUDIT TRAIL TIMELINE & LOGS                       */}
         {/* ============================================================== */}
-        <div className="bg-[#0B101C] border border-[#1E2D4A] rounded-xl p-5 lg:p-6 flex flex-col shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[#1E2D4A]">
-            <span className="font-bold text-base text-[#F8FAFC] flex items-center gap-2">
-              <History className="w-4 h-4 text-[#38BDF8]" />
+        <div className="bg-[#0B101C] border border-[#1E2D4A] rounded-lg p-3 sm:p-4 flex flex-col shadow-xs space-y-3">
+          <div className="flex items-center justify-between pb-2.5 border-b border-[#1E2D4A]">
+            <span className="font-bold text-sm text-[#F8FAFC] flex items-center gap-1.5">
+              <History className="w-3.5 h-3.5 text-[#38BDF8]" />
               Immutable Governance Audit Log
             </span>
-            <span className="text-xs text-[#64748B] font-mono">Tamper-evident cryptographically signed records</span>
+            <span className="text-[11px] text-[#64748B] font-mono">Tamper-evident cryptographically signed records</span>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-[#1E2D4A] bg-[#0F172A]">
+          <div className="overflow-x-auto rounded-md border border-[#1E2D4A] bg-[#0F172A]">
             <table className="w-full text-xs text-left">
               <thead className="bg-[#141F36] text-[#64748B] font-mono uppercase text-[10px] border-b border-[#1E2D4A]">
                 <tr>
-                  <th className="py-3 px-3.5">Event ID</th>
-                  <th className="py-3 px-3.5">Action Type</th>
-                  <th className="py-3 px-3.5">Operator</th>
-                  <th className="py-3 px-3.5">Role</th>
-                  <th className="py-3 px-3.5">State Transition</th>
-                  <th className="py-3 px-3.5 text-right">Timestamp</th>
+                  <th className="py-2 px-3">Event ID</th>
+                  <th className="py-2 px-3">Action Type</th>
+                  <th className="py-2 px-3">Operator</th>
+                  <th className="py-2 px-3">Role</th>
+                  <th className="py-2 px-3">State Transition</th>
+                  <th className="py-2 px-3 text-right">Timestamp</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1E2D4A]/50 font-mono text-[11px]">
                 {DEMO_AUDIT_LOGS.map((log) => (
                   <tr key={log.event_id} className="hover:bg-[#141F36]">
-                    <td className="py-3 px-3.5 text-[#38BDF8] font-bold">{log.event_id}</td>
-                    <td className="py-3 px-3.5 text-[#F8FAFC] font-semibold">{log.event_type}</td>
-                    <td className="py-3 px-3.5 text-[#CBD5E1]">{log.actor_username}</td>
-                    <td className="py-3 px-3.5 text-[#94A3B8]">{log.actor_role}</td>
-                    <td className="py-3 px-3.5">
+                    <td className="py-2 px-3 text-[#38BDF8] font-bold">{log.event_id}</td>
+                    <td className="py-2 px-3 text-[#F8FAFC] font-semibold">{log.event_type}</td>
+                    <td className="py-2 px-3 text-[#CBD5E1]">{log.actor_username}</td>
+                    <td className="py-2 px-3 text-[#94A3B8]">{log.actor_role}</td>
+                    <td className="py-2 px-3">
                       <span className="text-[#64748B]">{log.previous_state || 'NONE'}</span>
                       <span className="mx-1.5 text-[#38BDF8]">→</span>
                       <span className="text-emerald-400 font-bold">{log.new_state}</span>
                     </td>
-                    <td className="py-3.5 px-3.5 text-right text-[#64748B]">{log.timestamp}</td>
+                    <td className="py-2 px-3 text-right text-[#64748B]">{log.timestamp}</td>
                   </tr>
                 ))}
               </tbody>

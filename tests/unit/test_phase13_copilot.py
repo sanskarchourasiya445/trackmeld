@@ -212,3 +212,23 @@ async def test_copilot_mutation_refusal_execution():
     assert resp.provider_used == "GOVERNANCE_GUARDRAIL"
     assert resp.evidence[0].evidence_type == EvidenceType.REFUSAL
     assert "Strictly Read-Only" in resp.answer
+
+
+@pytest.mark.asyncio
+async def test_copilot_offline_database_handling():
+    """Verify explain_decision gracefully returns structured offline notice when database is unreachable."""
+    from backend.app.api.v1.copilot import explain_decision
+    from backend.app.core.auth import AuthUser
+
+    mock_session = AsyncMock(spec=AsyncSession)
+    mock_session.execute.side_effect = ConnectionRefusedError("Connection refused on port 5433")
+
+    dummy_user = AuthUser(user_id="USR-TEST-01", username="test_planner", role="OPERATOR", is_authenticated=True)
+    req = CopilotQueryRequest(prompt="Why was task TSK-0007 not scheduled?")
+
+    resp = await explain_decision(request=req, session=mock_session, current_user=dummy_user)
+    assert resp.provider_used == "OFFLINE_TELEMETRY_ENGINE"
+    assert resp.evidence[0].evidence_type == EvidenceType.UNCERTAINTY
+    assert "Database Offline Notice" in resp.answer
+    assert "cannot infer, speculate, or fabricate" in resp.answer
+

@@ -52,5 +52,12 @@ playwright-report/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
-$RECYCLE.BIN/
 .DS_Store
+
+# Scratch, Temporary & Local Artifacts
+scratch/
+artifacts/
+*.zip
+pdf_chat_viewer.html
+*.pdf
+TrackMeld_Landing_Page_Full_Continuous.png

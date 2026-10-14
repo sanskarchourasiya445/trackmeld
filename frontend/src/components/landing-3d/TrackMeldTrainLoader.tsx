@@ -1,20 +1,39 @@
 'use client';
 
 import React from 'react';
-import { ProceduralTrainModel } from './ProceduralTrainModel';
+import { VandeBharatTrainModel } from './VandeBharatTrainModel';
 
 interface TrackMeldTrainLoaderProps {
+  wheelRotation?: number;
   speedKmh?: number;
   isPlaying?: boolean;
   onSelectTrain?: () => void;
   isSelected?: boolean;
   trackZ?: number;
+  showTelemetry?: boolean;
+  lighting?: 'dawn' | 'night' | 'overcast';
 }
 
 /**
- * Authoritative High-Speed Passenger Train Renderer.
- * Directly renders the procedural train model to avoid unnecessary 404 network requests.
+ * Authoritative Broad-Gauge Streamlined Passenger Trainset Renderer.
+ * Directly renders the authentic Vande Bharat Express (Orange & Silver livery) matching reference image.
  */
-export const TrackMeldTrainLoader: React.FC<TrackMeldTrainLoaderProps> = (props) => {
-  return <ProceduralTrainModel {...props} />;
+export const TrackMeldTrainLoader: React.FC<TrackMeldTrainLoaderProps> = ({
+  wheelRotation = 0,
+  isSelected = false,
+  showTelemetry = true,
+  lighting = 'dawn',
+  trackZ = -2.0,
+  onSelectTrain,
+}) => {
+  return (
+    <VandeBharatTrainModel
+      wheelRotation={wheelRotation}
+      isSelected={isSelected}
+      showTelemetry={showTelemetry}
+      lighting={lighting}
+      trackZ={trackZ}
+      onSelectTrain={onSelectTrain}
+    />
+  );
 };

@@ -23,53 +23,78 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 }) => {
   const [isMobileStatusOpen, setIsMobileStatusOpen] = useState(false);
 
+  const isDbConnected = dbStatus.toLowerCase().includes('connected');
+  const isWorkerBusy = ['solving', 'active', 'running'].includes(workerStatus.toLowerCase());
+  const isWorkerError = ['error', 'failed'].includes(workerStatus.toLowerCase());
+  const isValidatorActive = ['active', 'verified', 'passed'].includes(validatorStatus.toLowerCase());
+  const isValidatorError = ['failed', 'breached'].includes(validatorStatus.toLowerCase());
+
   return (
     <>
       {/* 1. Desktop & Tablet Fixed Bottom Status Bar */}
-      <footer className="hidden md:flex h-7 bg-[#070B12] border-t border-[#1E2D4A] px-3.5 items-center justify-between text-[11px] font-mono text-[#64748B] select-none z-30 shrink-0">
+      <footer className="hidden md:flex h-7 bg-[#050A13] border-t border-[#152238] px-3.5 items-center justify-between text-[11px] font-mono text-[#566B85] select-none z-30 shrink-0">
         {/* Left System Connectivity */}
-        <div className="flex items-center gap-3 lg:gap-4 truncate">
-          <span className="flex items-center gap-1.5 text-[#94A3B8] shrink-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <span>PostgreSQL {dbStatus}</span>
+        <div className="flex items-center gap-2.5 lg:gap-3.5 truncate min-w-0">
+          <span className="flex items-center gap-1.5 text-[#8EA3BE] shrink-0" title={`PostgreSQL Database Status: ${dbStatus}`}>
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isDbConnected ? 'bg-emerald-400' : 'bg-rose-500'}`} />
+            <span className="hidden lg:inline text-[#566B85]">PostgreSQL</span>
+            <span className={isDbConnected ? 'text-[#CBD5E1]' : 'text-rose-400'}>{dbStatus}</span>
           </span>
-          <span className="text-[#1E2D4A]">|</span>
-          <span className="flex items-center gap-1.5 text-[#94A3B8] shrink-0">
-            <Server className="w-3 h-3 text-[#3B82F6]" />
-            <span>Worker: {workerStatus}</span>
+
+          <span className="h-3 w-[1px] bg-[#152238] shrink-0" />
+
+          <span className="flex items-center gap-1.5 text-[#8EA3BE] shrink-0" title={`Optimization Worker Status: ${workerStatus}`}>
+            <Server className={`w-3 h-3 shrink-0 ${isWorkerBusy ? 'text-[#38BDF8]' : isWorkerError ? 'text-rose-500' : 'text-[#566B85]'}`} />
+            <span className="hidden lg:inline text-[#566B85]">Worker:</span>
+            <span className={isWorkerBusy ? 'text-[#38BDF8]' : isWorkerError ? 'text-rose-400' : 'text-[#CBD5E1]'}>
+              {workerStatus}
+            </span>
           </span>
-          <span className="text-[#1E2D4A]">|</span>
-          <span className="inline-flex items-center gap-1.5 text-[#94A3B8] shrink-0">
-            <ShieldCheck className="w-3 h-3 text-emerald-400" />
-            <span>Validator: {validatorStatus}</span>
+
+          <span className="h-3 w-[1px] bg-[#152238] shrink-0" />
+
+          <span className="inline-flex items-center gap-1.5 text-[#8EA3BE] shrink-0" title={`Safety Validator Status: ${validatorStatus}`}>
+            <ShieldCheck className={`w-3 h-3 shrink-0 ${isValidatorActive ? 'text-emerald-400' : isValidatorError ? 'text-rose-500' : 'text-[#566B85]'}`} />
+            <span className="hidden lg:inline text-[#566B85]">Validator:</span>
+            <span className={isValidatorActive ? 'text-emerald-400' : isValidatorError ? 'text-rose-400' : 'text-[#CBD5E1]'}>
+              {validatorStatus}
+            </span>
           </span>
         </div>
 
         {/* Right Metrics & Environment Notice */}
-        <div className="flex items-center gap-3 lg:gap-4 shrink-0">
+        <div className="flex items-center gap-2.5 lg:gap-3 shrink-0">
           <span className="inline-flex items-center gap-1 text-[#94A3B8]">
-            <span>Tasks: <strong className="text-[#F8FAFC]">{tasksCount}/{totalTasks}</strong></span>
+            <span className="text-[#64748B]">Tasks:</span>
+            <span className="text-[#F8FAFC] font-semibold">{tasksCount}/{totalTasks}</span>
           </span>
-          <span className="text-[#1E2D4A]">|</span>
-          <span className="hidden lg:inline-flex items-center gap-1 text-[#94A3B8]">
-            <span>Solve Time: <strong className="text-[#F8FAFC]">{lastSolveDuration.toFixed(2)}s</strong> (UTC)</span>
+
+          <span className="h-3 w-[1px] bg-[#1E2D4A] shrink-0 hidden xl:inline-block" />
+
+          <span className="hidden xl:inline-flex items-center gap-1 text-[#94A3B8]">
+            <span className="text-[#64748B]">Solve Time:</span>
+            <span className="text-[#F8FAFC] font-semibold">{lastSolveDuration.toFixed(2)}s</span>
+            <span className="text-[10px] text-[#64748B]">(UTC)</span>
           </span>
-          <span className="text-[#1E2D4A] hidden lg:inline">|</span>
-          <span className="text-amber-400 flex items-center gap-1 font-sans font-medium text-[10px] bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+
+          <span className="h-3 w-[1px] bg-[#1E2D4A] shrink-0" />
+
+          <span className="text-amber-400 flex items-center gap-1 font-sans font-medium text-[10px] bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
             <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
-            <span>Synthetic Environment</span>
+            <span>Synthetic Demo</span>
           </span>
         </div>
       </footer>
 
       {/* 2. Mobile Floating System Status Button (Does NOT eat vertical height) */}
-      <div className="md:hidden fixed bottom-2 right-2 z-30">
+      <div className="md:hidden fixed bottom-3 right-3 z-30">
         <button
           onClick={() => setIsMobileStatusOpen(true)}
-          className="flex items-center gap-1.5 bg-[#0F172A]/90 hover:bg-[#141F36] active:bg-[#1E2D4A] border border-[#1E2D4A] text-[#CBD5E1] text-[10px] font-mono px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md transition-all"
+          className="flex items-center gap-1.5 bg-[#0C1322] hover:bg-[#141F36] active:bg-[#1E2D4A] border border-[#1E2D4A] hover:border-[#2D436D] text-[#CBD5E1] text-[10px] font-mono px-2.5 py-1 rounded-full shadow-lg transition-colors focus-visible:ring-1 focus-visible:ring-[#38BDF8] outline-none"
           title="Open System Status"
+          aria-label="Open System Status"
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
           <span>Status</span>
           <span className="text-[#64748B]">({tasksCount}/{totalTasks})</span>
         </button>

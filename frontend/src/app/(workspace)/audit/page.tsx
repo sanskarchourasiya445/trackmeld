@@ -307,7 +307,7 @@ export default function AuditPage() {
 
   return (
     <AppShell activeScenarioId="SCN-DEMO-001">
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 max-w-7xl mx-auto w-full bg-[#0A0E17] font-sans text-xs">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 max-w-7xl mx-auto w-full bg-[#060A13] font-sans text-xs">
         {/* Top Header Block */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
           <div>

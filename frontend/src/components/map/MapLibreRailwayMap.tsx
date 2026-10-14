@@ -44,12 +44,10 @@ export const MapLibreRailwayMap: React.FC<MapLibreRailwayMapProps> = ({
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<unknown>(null);
-  const [mapError, setMapError] = useState<boolean>(false);
-  const [useFallbackOverride, setUseFallbackOverride] = useState<boolean>(false);
-  const [mapLoaded, setMapLoaded] = useState<boolean>(false);
-
-  // Check if MapTiler Key is available
   const mapTilerKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
+  const [mapError, setMapError] = useState<boolean>(false);
+  const [useFallbackOverride, setUseFallbackOverride] = useState<boolean>(!mapTilerKey);
+  const [mapLoaded, setMapLoaded] = useState<boolean>(false);
 
   useEffect(() => {
     // If user explicitly chose fallback or we had an error, skip MapLibre init
@@ -63,98 +61,110 @@ export const MapLibreRailwayMap: React.FC<MapLibreRailwayMapProps> = ({
         const maplibre = await import('maplibre-gl');
         if (!isMounted || !mapContainerRef.current) return;
 
-        // Custom Dark Railway Style Schema
-        const darkRailwayStyle = {
-          version: 8,
-          sources: {
-            'osm-tiles': {
-              type: 'raster',
-              tiles: [
-                mapTilerKey
-                  ? `https://api.maptiler.com/maps/dataviz-dark/{z}/{x}/{y}.png?key=${mapTilerKey}`
-                  : 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-              ],
-              tileSize: 256,
-              attribution: '© OpenStreetMap contributors, CartoDB / MapTiler',
-            },
-            'railway-corridor': {
-              type: 'geojson',
-              data: {
-                type: 'FeatureCollection',
-                features: CORRIDOR_SECTIONS_GIS.map((sec) => ({
-                  type: 'Feature',
-                  properties: {
-                    id: sec.section_id,
-                    code: sec.code,
-                    name: sec.name,
-                    status: sec.up_line_status,
-                    speed_limit: sec.speed_limit_kmh,
-                  },
-                  geometry: {
-                    type: 'LineString',
-                    coordinates: sec.coordinates,
-                  },
-                })),
-              },
-            },
-            'railway-stations': {
-              type: 'geojson',
-              data: {
-                type: 'FeatureCollection',
-                features: CORRIDOR_STATIONS_GIS.map((st) => ({
-                  type: 'Feature',
-                  properties: {
-                    code: st.code,
-                    name: st.name,
-                    distance_km: st.distance_km,
-                    tracks: st.track_count,
-                  },
-                  geometry: {
-                    type: 'Point',
-                    coordinates: st.coordinates,
-                  },
-                })),
-              },
-            },
-            'railway-trains': {
-              type: 'geojson',
-              data: {
-                type: 'FeatureCollection',
-                features: ACTIVE_TRAINS_GIS.map((tr) => ({
-                  type: 'Feature',
-                  properties: {
-                    train_id: tr.train_id,
-                    train_number: tr.train_number,
-                    name: tr.name,
-                    speed: tr.speed_kmh,
-                    status: tr.status,
-                  },
-                  geometry: {
-                    type: 'Point',
-                    coordinates: tr.coordinates,
-                  },
-                })),
-              },
+        // Ensure MapLibre Web Worker resolves to static public assets in Next.js / Turbopack
+        if (typeof window !== 'undefined' && typeof maplibre.setWorkerUrl === 'function') {
+          maplibre.setWorkerUrl('/maplibre-gl-worker.mjs');
+        }
+
+        // Dark Railway Vector Style Schema
+        // If NEXT_PUBLIC_MAPTILER_KEY is available, stream high-res tiles.
+        // Otherwise, render clean vector GeoJSON layers directly on the dark canvas without broken external tiles or watermarks.
+        const sourcesConfig: Record<string, any> = {
+          'railway-corridor': {
+            type: 'geojson',
+            data: {
+              type: 'FeatureCollection',
+              features: CORRIDOR_SECTIONS_GIS.map((sec) => ({
+                type: 'Feature',
+                properties: {
+                  id: sec.section_id,
+                  code: sec.code,
+                  name: sec.name,
+                  status: sec.up_line_status,
+                  speed_limit: sec.speed_limit_kmh,
+                },
+                geometry: {
+                  type: 'LineString',
+                  coordinates: sec.coordinates,
+                },
+              })),
             },
           },
+          'railway-stations': {
+            type: 'geojson',
+            data: {
+              type: 'FeatureCollection',
+              features: CORRIDOR_STATIONS_GIS.map((st) => ({
+                type: 'Feature',
+                properties: {
+                  code: st.code,
+                  name: st.name,
+                  distance_km: st.distance_km,
+                  tracks: st.track_count,
+                },
+                geometry: {
+                  type: 'Point',
+                  coordinates: st.coordinates,
+                },
+              })),
+            },
+          },
+          'railway-trains': {
+            type: 'geojson',
+            data: {
+              type: 'FeatureCollection',
+              features: ACTIVE_TRAINS_GIS.map((tr) => ({
+                type: 'Feature',
+                properties: {
+                  train_id: tr.train_id,
+                  train_number: tr.train_number,
+                  name: tr.name,
+                  speed: tr.speed_kmh,
+                  status: tr.status,
+                },
+                geometry: {
+                  type: 'Point',
+                  coordinates: tr.coordinates,
+                },
+              })),
+            },
+          },
+        };
+
+        if (mapTilerKey) {
+          sourcesConfig['osm-tiles'] = {
+            type: 'raster',
+            tiles: [`https://api.maptiler.com/maps/dataviz-dark/{z}/{x}/{y}.png?key=${mapTilerKey}`],
+            tileSize: 256,
+            attribution: '© OpenStreetMap contributors, MapTiler',
+          };
+        }
+
+        const darkRailwayStyle = {
+          version: 8,
+          sources: sourcesConfig,
           layers: [
             {
               id: 'background',
               type: 'background',
               paint: { 'background-color': '#04070D' },
             },
-            {
-              id: 'base-tiles',
-              type: 'raster',
-              source: 'osm-tiles',
-              minzoom: 0,
-              maxzoom: 19,
-              paint: {
-                'raster-opacity': 0.45,
-                'raster-contrast': 0.2,
-                'raster-brightness-min': 0.05,
-              },
-            },
+            ...(mapTilerKey
+              ? [
+                  {
+                    id: 'base-tiles',
+                    type: 'raster',
+                    source: 'osm-tiles',
+                    minzoom: 0,
+                    maxzoom: 19,
+                    paint: {
+                      'raster-opacity': 0.45,
+                      'raster-contrast': 0.2,
+                      'raster-brightness-min': 0.05,
+                    },
+                  },
+                ]
+              : []),
             // Track alignment glow
             {
               id: 'railway-track-glow',
@@ -229,6 +239,14 @@ export const MapLibreRailwayMap: React.FC<MapLibreRailwayMapProps> = ({
         map.on('load', () => {
           if (!isMounted) return;
           setMapLoaded(true);
+        });
+
+        // Gracefully catch any WebGL or tile load errors and switch to synthetic corridor fallback
+        map.on('error', (e) => {
+          console.warn('MapLibre runtime error:', e);
+          if (isMounted && !mapLoaded) {
+            setMapError(true);
+          }
         });
 
         // Click listeners on map
@@ -311,80 +329,80 @@ export const MapLibreRailwayMap: React.FC<MapLibreRailwayMapProps> = ({
   }
 
   return (
-    <div className="relative w-full h-full bg-[#050912] overflow-hidden select-none font-sans flex flex-col border border-[#1E2D4A] rounded-lg">
-      {/* Top Map HUD Bar */}
-      <div className="h-10 bg-[#0B101C]/90 backdrop-blur-md border-b border-[#1E2D4A] px-3 flex items-center justify-between z-20 shrink-0">
-        <div className="flex items-center gap-2">
+    <div className="relative w-full h-full bg-[#050912] overflow-hidden select-none font-sans border border-[#1E2D4A] rounded-lg">
+      {/* Floating Top Map HUD Overlay (Unobtrusive & Responsive) */}
+      <div className="absolute top-2.5 left-2.5 right-2.5 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        <div className="pointer-events-auto bg-[#0B101C]/90 backdrop-blur-md border border-[#1E2D4A] rounded-md px-2.5 py-1 flex items-center gap-2 shadow-md">
           <span className="flex items-center gap-1.5 text-xs font-bold text-[#F8FAFC]">
-            <Radio className="w-3.5 h-3.5 text-[#3B82F6] animate-pulse" />
-            <span>MapLibre Geospatial Engine</span>
+            <Radio className="w-3 h-3 text-[#38BDF8] animate-pulse" />
+            <span>MapLibre</span>
           </span>
-          <span className="text-[10px] font-mono bg-[#141F36] text-[#93C5FD] px-2 py-0.5 rounded border border-[#2D436D]">
-            NDLS → CNB (440 km Trunk)
+          <span className="hidden sm:inline-flex text-[10px] font-mono bg-[#141F36] text-[#93C5FD] px-1.5 py-0.5 rounded border border-[#2D436D]">
+            NDLS → CNB (440 km)
           </span>
-          <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
+          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-500/30 font-semibold">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            DEMO
+          </span>
+          <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/30">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            LIVE MAPLIBRE GL
+            LIVE GL
           </span>
         </div>
 
-        {/* View Switcher: MapLibre vs Synthetic Fallback */}
-        <div className="flex items-center gap-2">
+        {/* Right Controls: Selected Section (if any) + View Switcher */}
+        <div className="pointer-events-auto flex items-center gap-2">
+          {selectedSectionCode && (
+            <div className="bg-[#0B101C]/95 backdrop-blur-md border border-[#2563EB]/60 rounded-md px-2 py-1 shadow-md flex items-center gap-2">
+              <span className="text-[10px] uppercase font-bold text-[#64748B] tracking-wider hidden sm:inline">
+                Section
+              </span>
+              <span className="text-xs font-bold text-white font-mono flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8] animate-pulse" />
+                {selectedSectionCode}
+              </span>
+              <button
+                onClick={() => onOpenDigitalTwin?.(selectedSectionCode)}
+                className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                title="Launch 3D Digital Twin for section"
+              >
+                <Eye className="w-3 h-3" />
+                <span>3D Twin</span>
+              </button>
+            </div>
+          )}
+
           <button
             onClick={() => setUseFallbackOverride(true)}
-            className="text-[10px] font-mono bg-[#141F36] hover:bg-[#1A2846] text-[#94A3B8] hover:text-white px-2 py-0.5 rounded border border-[#1E2D4A] transition-colors"
+            className="bg-[#0B101C]/90 backdrop-blur-md border border-[#1E2D4A] hover:border-[#2D436D] text-[10px] font-mono bg-[#141F36] hover:bg-[#1A2846] text-[#94A3B8] hover:text-white px-2 py-1 rounded shadow-md transition-colors cursor-pointer"
           >
-            Switch to Schematic
+            Schematic
           </button>
         </div>
       </div>
 
-      {/* MapLibre DOM Container */}
-      <div className="relative flex-1 w-full h-full overflow-hidden">
-        <div ref={mapContainerRef} className="w-full h-full" />
+      {/* MapLibre DOM Container (Full Height Edge-to-Edge) */}
+      <div ref={mapContainerRef} className="w-full h-full" />
 
-        {/* 3D Digital Twin Quick-Launch Float on Selected Section */}
-        {selectedSectionCode && (
-          <div className="absolute top-3 right-3 z-30 bg-[#0B101C]/95 backdrop-blur-md border border-[#2563EB] rounded-lg p-2.5 shadow-2xl flex items-center gap-3">
-            <div>
-              <div className="text-[10px] uppercase font-bold text-[#64748B] tracking-wider">
-                Selected Section
-              </div>
-              <div className="text-xs font-bold text-white font-mono flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#2563EB] animate-pulse" />
-                {selectedSectionCode}
-              </div>
-            </div>
-            <button
-              onClick={() => onOpenDigitalTwin?.(selectedSectionCode)}
-              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[11px] font-semibold px-2.5 py-1.5 rounded flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Open 3D Twin</span>
-            </button>
-          </div>
-        )}
-
-        {/* Map Legend Overlay */}
-        <div className="absolute bottom-3 left-3 z-20 bg-[#0B101C]/90 backdrop-blur-md border border-[#1E2D4A] rounded-md px-3 py-1.5 shadow-lg text-[10px] flex items-center gap-4 text-[#CBD5E1]">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-1 bg-[#38BDF8] rounded" />
-            <span>Clear UP Track</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-1 bg-[#F59E0B] rounded" />
-            <span>Possession Block</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#38BDF8]" />
-            <span>Station</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#2563EB]" />
-            <span>Active Train</span>
-          </span>
-        </div>
+      {/* Map Legend Overlay */}
+      <div className="absolute bottom-2.5 left-2.5 z-20 bg-[#0B101C]/90 backdrop-blur-md border border-[#1E2D4A] rounded-md px-2.5 py-1 shadow-md text-[10px] flex flex-wrap items-center gap-3 text-[#CBD5E1] max-w-[calc(100%-20px)]">
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-1 bg-[#38BDF8] rounded" />
+          <span>Clear UP Track</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-1 bg-[#F59E0B] rounded" />
+          <span>Possession Block</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-[#38BDF8]" />
+          <span>Station</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-[#2563EB]" />
+          <span>Active Train</span>
+        </span>
       </div>
     </div>
-  );
-};
+    );
+  };

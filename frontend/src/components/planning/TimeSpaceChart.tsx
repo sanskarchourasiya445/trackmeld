@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Corridor, TrainMovement, MaintenanceTask } from '@/types/railway';
 import { ScheduleResult, ScheduledTaskInterval } from '@/types/planning';
-import { Clock, ZoomIn, ZoomOut, Layers, AlertTriangle } from 'lucide-react';
+import { Clock, ZoomIn, ZoomOut, Layers, AlertTriangle, Crosshair } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getTrainOccurrenceKey } from '@/lib/railway/identity';
 
@@ -32,9 +32,25 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
   onSelectTrain,
   onSelectSection,
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(1100);
   const [timeFilter, setTimeFilter] = useState<'ALL' | 'DAY1' | 'DAY2' | 'DAY3'>('ALL');
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [hoveredEntity, setHoveredEntity] = useState<string | null>(null);
+  const [hoverX, setHoverX] = useState<number | null>(null);
+
+  // ResizeObserver to fill available workspace width and eliminate dead margin space
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect?.width;
+      if (width && width > 300) {
+        setContainerWidth(width);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   // Corridor station markers
   const maxDistance = corridor.total_length_km || 440;
@@ -50,12 +66,13 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
           { code: 'CNB', name: 'Kanpur Central', distance_km: 440 },
         ];
 
-  // Chart dimensions
-  const svgWidth = 1100 * zoomLevel;
+  // Dynamically sized chart dimensions: expands to 100% of container, avoiding dead space
+  const baseWidth = Math.max(containerWidth, 960);
+  const svgWidth = baseWidth * zoomLevel;
   const svgHeight = 560;
   const paddingLeft = 95;
-  const paddingRight = 40;
-  const paddingTop = 40;
+  const paddingRight = 45;
+  const paddingTop = 44;
   const paddingBottom = 50;
 
   const chartAreaWidth = svgWidth - paddingLeft - paddingRight;
@@ -200,9 +217,37 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
         </div>
       </div>
 
+      {/* Pre-Solve / Status Notice */}
+      {!scheduleResult && (
+        <div className="bg-[#0E1726]/90 border-b border-[#1E2D4A] px-4 py-1.5 flex items-center justify-between text-[11px] text-[#93C5FD] shrink-0">
+          <span className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="font-semibold text-amber-300">PRE-SOLVE TIMETABLE:</span>
+            <span>Baseline train movements shown. Run CP-SAT discrete optimization to allocate certified possession windows.</span>
+          </span>
+          <span className="font-mono text-[10px] text-[#64748B] bg-[#141F36] px-2 py-0.5 rounded border border-[#1E2D4A]">
+            STATUS: NOT RUN
+          </span>
+        </div>
+      )}
+
       {/* 2. SVG Canvas Area */}
-      <div className="flex-1 overflow-auto bg-[#04070D] relative">
-        <svg width={svgWidth} height={svgHeight} className="min-w-full text-[10px] font-mono">
+      <div ref={containerRef} className="flex-1 overflow-auto bg-[#04070D] relative">
+        <svg
+          width={svgWidth}
+          height={svgHeight}
+          className="min-w-full text-[10px] font-mono select-none"
+          onMouseMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            if (x >= paddingLeft && x <= svgWidth - paddingRight) {
+              setHoverX(x);
+            } else {
+              setHoverX(null);
+            }
+          }}
+          onMouseLeave={() => setHoverX(null)}
+        >
           <defs>
             <pattern
               id="possessionHatch"
@@ -376,7 +421,7 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
             );
           })}
 
-          {/* Train Trajectory Stringlines */}
+          {/* Train Trajectory Stringlines with Staggered Collision-Free Labels */}
           {trains.map((train, idx) => {
             const occurrenceKey = getTrainOccurrenceKey(train, idx);
             const trainServiceId = train.train_id;
@@ -414,6 +459,12 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
             const strokeWidth = isSelected ? 3.5 : isIntersectsSelectedTask ? 2.5 : isHighPriority ? 1.8 : 1.2;
             const strokeDash = isFreight ? '4 3' : 'none';
 
+            // Stagger label along line to prevent collision between adjacent trains (e.g. 22436 vs 12004)
+            const labelFractions = [0.30, 0.62, 0.42, 0.74, 0.52, 0.24];
+            const labelFraction = labelFractions[idx % labelFractions.length];
+            const labelX = x1 + (x2 - x1) * labelFraction;
+            const labelY = y1 + (y2 - y1) * labelFraction;
+
             return (
               <g
                 key={occurrenceKey}
@@ -422,7 +473,7 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
                 onMouseLeave={() => setHoveredEntity(null)}
                 className="cursor-pointer group"
               >
-                <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth="10" />
+                <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth="12" />
                 <line
                   x1={x1}
                   y1={y1}
@@ -433,19 +484,129 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
                   strokeDasharray={strokeDash}
                   strokeOpacity={isSelected || isIntersectsSelectedTask ? 1 : 0.85}
                 />
-                <text
-                  x={x1 + (x2 - x1) * 0.45}
-                  y={y1 + (y2 - y1) * 0.45 - 4}
-                  fill={strokeColor}
-                  fontSize="8"
-                  fontWeight="700"
-                  className="select-none"
-                >
-                  {train.train_number}
-                </text>
+                {/* Deconflicted Train Number Pill with Dark Backdrop */}
+                <g transform={`translate(${labelX}, ${labelY})`}>
+                  <rect
+                    x="-18"
+                    y="-8"
+                    width="36"
+                    height="16"
+                    rx="3"
+                    fill="#080D1A"
+                    stroke={isSelected ? '#38BDF8' : strokeColor}
+                    strokeWidth={isSelected ? 1.5 : 0.9}
+                    opacity="0.95"
+                  />
+                  <text
+                    x="0"
+                    y="0"
+                    textAnchor="middle"
+                    fill={isSelected ? '#F8FAFC' : strokeColor}
+                    fontSize="7.5"
+                    fontFamily="monospace"
+                    fontWeight="bold"
+                    dy=".3em"
+                    className="select-none pointer-events-none"
+                  >
+                    {train.train_number}
+                  </text>
+                </g>
               </g>
             );
           })}
+
+          {/* Reference Time Cursor (Operational Now Line: 10 Oct 08:30 UTC) */}
+          {(() => {
+            const cursorX = getXForTime('2026-10-10T08:30:00Z');
+            if (cursorX < paddingLeft || cursorX > svgWidth - paddingRight) return null;
+            return (
+              <g className="pointer-events-none">
+                <line
+                  x1={cursorX}
+                  y1={paddingTop - 12}
+                  x2={cursorX}
+                  y2={paddingTop + chartAreaHeight}
+                  stroke="#38BDF8"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 3"
+                  opacity="0.95"
+                />
+                <g transform={`translate(${cursorX}, ${paddingTop - 20})`}>
+                  <rect
+                    x="-38"
+                    y="-8"
+                    width="76"
+                    height="16"
+                    rx="3"
+                    fill="#0B101C"
+                    stroke="#38BDF8"
+                    strokeWidth="1"
+                  />
+                  <text
+                    x="0"
+                    y="0"
+                    textAnchor="middle"
+                    fill="#38BDF8"
+                    fontSize="7.5"
+                    fontFamily="monospace"
+                    fontWeight="bold"
+                    dy=".3em"
+                  >
+                    NOW: 08:30 UTC
+                  </text>
+                </g>
+              </g>
+            );
+          })()}
+
+          {/* Interactive Mouse Hover Hairline Cursor */}
+          {hoverX !== null && hoverX >= paddingLeft && hoverX <= svgWidth - paddingRight && (
+            <g className="pointer-events-none">
+              <line
+                x1={hoverX}
+                y1={paddingTop}
+                x2={hoverX}
+                y2={paddingTop + chartAreaHeight}
+                stroke="#64748B"
+                strokeWidth="1"
+                strokeDasharray="2 2"
+                opacity="0.75"
+              />
+              {(() => {
+                const hoverHour = startHourOffset + ((hoverX - paddingLeft) / chartAreaWidth) * totalFilteredHours;
+                const hClamped = Math.max(0, hoverHour);
+                const day = Math.floor(hClamped / 24) + 1;
+                const hh = String(Math.floor(hClamped % 24)).padStart(2, '0');
+                const mm = String(Math.floor((hClamped % 1) * 60)).padStart(2, '0');
+                return (
+                  <g transform={`translate(${hoverX}, ${paddingTop + chartAreaHeight + 24})`}>
+                    <rect
+                      x="-36"
+                      y="-7"
+                      width="72"
+                      height="15"
+                      rx="3"
+                      fill="#0F172A"
+                      stroke="#2563EB"
+                      strokeWidth="1"
+                    />
+                    <text
+                      x="0"
+                      y="0"
+                      textAnchor="middle"
+                      fill="#93C5FD"
+                      fontSize="7.5"
+                      fontFamily="monospace"
+                      fontWeight="bold"
+                      dy=".3em"
+                    >
+                      D{day} {hh}:{mm}Z
+                    </text>
+                  </g>
+                );
+              })()}
+            </g>
+          )}
         </svg>
 
         {hoveredEntity && (

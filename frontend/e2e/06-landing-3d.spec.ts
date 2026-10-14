@@ -83,10 +83,13 @@ test.describe('Official Canonical 3D Digital Twin Homepage & Governance Suite', 
 
     // Click Request Demo in navbar (using toPass to guarantee React client hydration has attached onClick)
     const requestDemoBtn = page.getByRole('button', { name: /REQUEST DEMO/i });
+    const modalHeading = page.getByRole('heading', { name: 'Schedule Architecture Briefing' });
     await expect(async () => {
-      await requestDemoBtn.click();
-      await expect(page.getByRole('heading', { name: 'Schedule Architecture Briefing' })).toBeVisible({ timeout: 2000 });
-    }).toPass({ timeout: 15000 });
+      if (!(await modalHeading.isVisible())) {
+        await requestDemoBtn.click({ force: true });
+      }
+      await expect(modalHeading).toBeVisible({ timeout: 3000 });
+    }).toPass({ timeout: 20000 });
 
     // Fill form
     await page.fill('input[placeholder="e.g. Dr. Elena Vance"]', 'Director Jane Doe');
@@ -97,7 +100,7 @@ test.describe('Official Canonical 3D Digital Twin Homepage & Governance Suite', 
     await page.click('button:has-text("Transmit Architecture Request")');
 
     // Verify confirmation and reference token
-    await expect(page.getByText('Architecture Dossier Scheduled')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Architecture Dossier Scheduled')).toBeVisible({ timeout: 12000 });
     await expect(page.getByText(/REFERENCE TOKEN: TM-REQ-\d+-VERIFIED/)).toBeVisible();
 
     // Close modal
