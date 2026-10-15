@@ -11,7 +11,7 @@ from backend.app.schemas.operational_responses import (
 )
 from backend.app.schemas.common import ErrorResponse
 from backend.app.domain.enums import TaskStatus, TaskPriority, TaskType
-from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.auth import get_current_user, require_permission, AuthUser
 
 router = APIRouter(prefix="/tasks", tags=["Maintenance Tasks"])
 
@@ -31,7 +31,7 @@ async def list_tasks(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> List[MaintenanceTaskResponse]:
     """List maintenance tasks with multi-field filtering and pagination metadata."""
     repo = MaintenanceTaskRepository(session)
@@ -75,7 +75,7 @@ async def list_tasks(
 async def get_task_details(
     task_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> MaintenanceTaskDetailResponse:
     """Retrieve detailed maintenance task information including dependencies, resources, and rules."""
     repo = MaintenanceTaskRepository(session)

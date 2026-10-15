@@ -6,7 +6,7 @@ from backend.app.repositories.work_order_repo import WorkOrderRepository
 from backend.app.schemas.operational_responses import WorkOrderResponse
 from backend.app.schemas.common import ErrorResponse
 from backend.app.domain.enums import WorkOrderStatus, WorkDepartment, TaskPriority
-from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.auth import get_current_user, require_permission, AuthUser
 
 router = APIRouter(prefix="/work-orders", tags=["Work Orders"])
 
@@ -22,7 +22,7 @@ async def list_work_orders(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> List[WorkOrderResponse]:
     """List work orders with multi-field filtering and pagination metadata."""
     repo = WorkOrderRepository(session)
@@ -58,7 +58,7 @@ async def list_work_orders(
 async def get_work_order(
     work_order_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> WorkOrderResponse:
     """Retrieve work order by ID or business work order number."""
     repo = WorkOrderRepository(session)

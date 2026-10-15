@@ -27,6 +27,31 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
     await engine.dispose()
 
 
+class AuthAwareAsyncClient(AsyncClient):
+    """AsyncClient that defaults to planner credentials for legacy tests when no
+    explicit authentication headers (Authorization or X-API-Key) are provided, while
+    strictly preserving explicit authentication headers and allowing explicitly
+    header-free requests (headers={}).
+    """
+    async def request(self, method: str, url, **kwargs):
+        headers = kwargs.get("headers")
+        if headers is not None:
+            # If the caller explicitly provided auth headers or an empty dict to test unauthenticated
+            if (
+                "Authorization" in headers
+                or "authorization" in headers
+                or "X-API-Key" in headers
+                or "x-api-key" in headers
+                or len(headers) == 0
+            ):
+                return await super().request(method, url, **kwargs)
+
+        headers_dict = dict(headers or {})
+        headers_dict.setdefault("Authorization", "Bearer planner-token-2026")
+        kwargs["headers"] = headers_dict
+        return await super().request(method, url, **kwargs)
+
+
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     async def override_get_db_session():
@@ -34,6 +59,31 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
     app.dependency_overrides[get_db_session] = override_get_db_session
     transport = ASGITransport(app=app)
+    async with AuthAwareAsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+    app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def unauthenticated_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+    async def override_get_db_session():
+        yield db_session
+
+    app.dependency_overrides[get_db_session] = override_get_db_session
+    transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+    app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def authenticated_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+    async def override_get_db_session():
+        yield db_session
+
+    app.dependency_overrides[get_db_session] = override_get_db_session
+    transport = ASGITransport(app=app)
+    headers = {"Authorization": "Bearer planner-token-2026"}
+    async with AsyncClient(transport=transport, base_url="http://test", headers=headers) as ac:
         yield ac
     app.dependency_overrides.clear()

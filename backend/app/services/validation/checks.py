@@ -1150,11 +1150,11 @@ class ScheduleCheckRunner:
                             )
                         )
                     else:
-                        # Accounted for with reason code: issue WARNING for operational awareness
+                        # Accounted for with reason code, but mandatory work cannot be omitted: issue ERROR to block approval
                         self.findings.append(
                             ValidationFinding(
                                 code="MANDATORY_TASK_UNSCHEDULED",
-                                severity=ValidationSeverity.WARNING,
+                                severity=ValidationSeverity.ERROR,
                                 category=ValidationCategory.MANDATORY,
                                 message=f"Mandatory task '{t_id}' could not be placed due to physical/objective constraints.",
                                 task_id=t_id,

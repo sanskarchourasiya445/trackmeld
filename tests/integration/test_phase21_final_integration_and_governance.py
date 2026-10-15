@@ -248,21 +248,21 @@ async def test_uncompleted_run_promotion_blocked(client: AsyncClient, db_session
 
 
 @pytest.mark.asyncio
-async def test_unauthenticated_and_viewer_rbac(client: AsyncClient, db_session: AsyncSession):
+async def test_unauthenticated_and_viewer_rbac(unauthenticated_client: AsyncClient, db_session: AsyncSession):
     """Unauthenticated requests receive 401 or 403; Viewers receive 403 on approval/rejection."""
     run = await _insert_test_run(db_session)
-    resp_pv = await client.post(
+    resp_pv = await unauthenticated_client.post(
         f"/api/v1/planning-runs/{run.run_id}/plan-version",
         headers=PLANNER_HEADERS,
     )
     pv_id = resp_pv.json()["plan_version_id"]
 
     # Unauthenticated rejected by auth/role guard (401 or 403)
-    resp_no_auth = await client.post(f"/api/v1/plan-versions/{pv_id}/approve")
+    resp_no_auth = await unauthenticated_client.post(f"/api/v1/plan-versions/{pv_id}/approve")
     assert resp_no_auth.status_code in [401, 403]
 
     # 403 for viewer role
-    resp_viewer = await client.post(
+    resp_viewer = await unauthenticated_client.post(
         f"/api/v1/plan-versions/{pv_id}/approve",
         json={"comment": "Viewer attempting approval"},
         headers=VIEWER_HEADERS,

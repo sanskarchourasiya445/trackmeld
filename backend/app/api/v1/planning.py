@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.db.session import get_db_session
-from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.auth import get_current_user, require_permission, AuthUser
 from backend.app.core.rate_limit import enforce_compute_rate_limit
 from backend.app.schemas.common import ErrorResponse
 from backend.app.schemas.planning_requests import (
@@ -44,7 +44,7 @@ router = APIRouter(prefix="/planning", tags=["Planning & Baseline Schedulers"])
 async def execute_baseline_schedule(
     request: BaselineScheduleRequest,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("write:operational")),
 ) -> ScheduleResult:
     """Execute a deterministic baseline scheduler (FCFS or Priority-Greedy) on a scenario.
     
@@ -97,7 +97,7 @@ async def execute_baseline_schedule(
 async def execute_benchmark_comparison(
     request: BenchmarkComparisonRequest,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("write:operational")),
 ) -> BenchmarkComparisonResult:
     """Execute side-by-side benchmark comparison between FCFS and Priority-Greedy on the exact same snapshot."""
     service = BaselinePlanningService(session)
@@ -148,7 +148,7 @@ async def execute_benchmark_comparison(
 async def execute_optimization_schedule(
     request: OptimizeScheduleRequest,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("write:operational")),
     _rate_limit: None = Depends(enforce_compute_rate_limit),
 ) -> ScheduleResult:
     """Execute bounded mathematical optimization (CP-SAT) on an operational scenario.
@@ -209,7 +209,7 @@ async def execute_optimization_schedule(
 async def validate_schedule_endpoint(
     request: ValidateScheduleRequest,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
     _rate_limit: None = Depends(enforce_compute_rate_limit),
 ) -> ScheduleValidationResult:
     """Independently audit a schedule against all hard constraints without mutating schedule state."""
@@ -253,7 +253,7 @@ async def validate_schedule_endpoint(
 async def schedule_diagnostics_endpoint(
     request: ScheduleDiagnosticsRequest,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
     _rate_limit: None = Depends(enforce_compute_rate_limit),
 ) -> DiagnosticsReport:
     """Investigate root causes and relaxation scenarios for unscheduled tasks."""

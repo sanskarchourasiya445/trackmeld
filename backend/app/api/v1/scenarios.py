@@ -11,7 +11,7 @@ from backend.app.schemas.operational_responses import (
 )
 from backend.app.schemas.responses import TrainTraversalResponse
 from backend.app.schemas.common import ErrorResponse
-from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.auth import get_current_user, require_permission, AuthUser
 
 router = APIRouter(prefix="/scenarios", tags=["Operational Scenarios"])
 
@@ -22,7 +22,7 @@ async def list_scenarios(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> List[OperationalScenarioResponse]:
     """List operational scenarios with pagination metadata."""
     repo = ScenarioRepository(session)
@@ -44,7 +44,7 @@ async def list_scenarios(
 async def get_scenario_by_id(
     scenario_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> OperationalScenarioResponse:
     """Retrieve operational scenario by ID or scenario code."""
     repo = ScenarioRepository(session)
@@ -70,7 +70,7 @@ async def get_scenario_by_id(
 async def get_scenario_manifest(
     scenario_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> ScenarioManifestResponse:
     """Retrieve summarized operational manifest and entity counts for a scenario."""
     repo = ScenarioRepository(session)
@@ -96,7 +96,7 @@ async def get_scenario_manifest(
 async def get_scenario_planning_bundle(
     scenario_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> ScenarioPlanningBundleResponse:
     """Retrieve the fully assembled planning bundle (tasks, resources, train movements, rules) for solver consumption."""
     service = PlanningScenarioService(session)
@@ -137,7 +137,7 @@ async def get_scenario_planning_bundle(
 async def get_scenario_train_traversals(
     scenario_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> List[TrainTraversalResponse]:
     """Retrieve derived physical section traversals for all trains in the scenario."""
     service = PlanningScenarioService(session)

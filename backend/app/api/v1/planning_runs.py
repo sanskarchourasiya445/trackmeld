@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.db.session import get_db_session
-from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.auth import get_current_user, require_permission, AuthUser
 from backend.app.core.rate_limit import enforce_planning_rate_limit
 from backend.app.schemas.common import ErrorResponse
 from backend.app.schemas.planning_run import (
@@ -133,7 +133,7 @@ async def create_planning_run(
     request: CreatePlanningRunRequest,
     idempotency_key_header: Optional[str] = Header(None, alias="Idempotency-Key"),
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("write:operational")),
     _rate_limit: None = Depends(enforce_planning_rate_limit),
 ) -> CreatePlanningRunResponse:
     """Submit a planning run requisition to the persistent background worker queue.
@@ -233,7 +233,7 @@ async def create_planning_run(
 async def get_planning_run_details(
     run_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> PlanningRunDetailResponse:
     """Retrieve execution status, lifecycle stages, metrics, and certification for a planning run."""
     run_repo = PlanningRunRepository(session)
@@ -262,7 +262,7 @@ async def get_planning_run_details(
 async def get_planning_run_schedule_result(
     run_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> ScheduleResult:
     """Retrieve full finalized ScheduleResult payload for a completed planning run."""
     run_repo = PlanningRunRepository(session)
@@ -314,7 +314,7 @@ async def list_planning_runs(
     offset: int = 0,
     response: Response = None,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> List[PlanningRunSummary]:
     """List planning runs with optional scenario/status filtering and bounded pagination."""
     clamped_limit = max(1, min(limit, 100))
@@ -368,7 +368,7 @@ async def list_planning_runs(
 async def cancel_planning_run(
     run_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("write:operational")),
 ) -> PlanningRunDetailResponse:
     """Request cooperative cancellation of a pending or running planning job."""
     run_repo = PlanningRunRepository(session)
