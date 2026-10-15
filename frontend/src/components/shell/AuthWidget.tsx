@@ -159,7 +159,7 @@ export function AuthWidget() {
         onClick={() => setIsOpen((p) => !p)}
         className="flex items-center gap-2 p-1 pl-1.5 pr-2 rounded-lg hover:bg-[#111A2E] border border-transparent hover:border-[#1E304E] transition-all focus-visible:ring-1 focus-visible:ring-[#38BDF8] outline-none cursor-pointer"
         title="Operator Session & Authentication"
-        aria-label={`Operator profile: ${cfg.label}`}
+        aria-label={`Authentication: ${cfg.label}`}
       >
         <div className="relative">
           <div className="w-7 h-7 rounded-full bg-[#162544] border border-[#233A6B] flex items-center justify-center text-[11px] font-bold text-[#38BDF8] shrink-0">
@@ -169,7 +169,7 @@ export function AuthWidget() {
         </div>
         <div className="hidden md:flex flex-col text-left leading-tight">
           <span className="text-xs font-semibold text-[#F8FAFC]">Operator</span>
-          <span className="text-[10px] text-[#8EA3BE]">Operations Officer</span>
+          <span className={`text-[10px] font-medium ${cfg.color}`}>{cfg.label}</span>
         </div>
         <div className="hidden lg:block ml-0.5">
           {cfg.icon}

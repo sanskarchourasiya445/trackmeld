@@ -190,7 +190,7 @@ export const DigitalTwinInspectionModal: React.FC<DigitalTwinInspectionModalProp
           <div className="flex items-center gap-2">
             <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              UIC-60 / 25kV OHE SIMULATION
+              PHYSICAL UIC-60 / 25kV OHE MODEL
             </span>
             <button
               onClick={() => setIsExpanded((prev) => !prev)}

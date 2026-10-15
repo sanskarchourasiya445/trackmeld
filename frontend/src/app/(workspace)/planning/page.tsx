@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { AppShell } from '@/components/shell/AppShell';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { MapLibreRailwayMap } from '@/components/map/MapLibreRailwayMap';
 import { TimeSpaceChart } from '@/components/planning/TimeSpaceChart';
 import { TimelineScheduleView } from '@/components/planning/TimelineScheduleView';
@@ -68,7 +68,6 @@ import {
   Maximize2,
   Minimize2,
   LayoutGrid,
-  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ResponsiveDrawer } from '@/components/common/ResponsiveDrawer';
@@ -133,12 +132,44 @@ function PlanningPageContent() {
   const [isDigitalTwinOpen, setIsDigitalTwinOpen] = useState(false);
   const [digitalTwinSection, setDigitalTwinSection] = useState<string>('SEC-12');
 
-  // Auto-expand docked inspector on desktop >= 1280px
+  // Synchronize URL search params (e.g. ?subtab=TIMESPACE) to activeViewMode
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth >= 1280) {
-      setIsInspectorOpen(true);
+    const subtabParam = searchParams.get('subtab') as WorkspaceViewMode | null;
+    if (subtabParam) {
+      const targetMode = subtabParam === ('RAILWAY' as unknown) ? 'INTEGRATED' : subtabParam;
+      const timer = setTimeout(() => {
+        setActiveViewMode(targetMode);
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, []);
+  }, [searchParams]);
+
+  // Auto-expand docked inspector on desktop >= 1280px for docked view modes only
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (
+        typeof window !== 'undefined' &&
+        window.innerWidth >= 1280 &&
+        (activeViewMode === 'INTEGRATED' || activeViewMode === 'MAP')
+      ) {
+        setIsInspectorOpen(true);
+      } else {
+        setIsInspectorOpen(false);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [activeViewMode]);
+
+  const handleSelectViewMode = (mode: WorkspaceViewMode) => {
+    setActiveViewMode(mode);
+    if (mode === 'INTEGRATED' || mode === 'MAP') {
+      if (typeof window !== 'undefined' && window.innerWidth >= 1280) {
+        setIsInspectorOpen(true);
+      }
+    } else {
+      setIsInspectorOpen(false);
+    }
+  };
 
   // Handle ESC key for Full-Screen Mode
   useEffect(() => {
@@ -230,27 +261,33 @@ function PlanningPageContent() {
   const handleTriggerSolve = useCallback(async () => {
     setIsSolving(true);
     setErrorMessage(null);
-    setSolvingMessage('Compiling 127 discrete interval constraints...');
+    setSolvingMessage('Compiling discrete interval constraints...');
     try {
       let sched: ScheduleResult;
       try {
         sched = await optimizeSchedule(scenario.scenario_id, 5.0);
         setScheduleResult(sched);
       } catch (optErr: unknown) {
-        console.warn('Optimization service notice: using certified synthetic demonstration solve:', optErr);
-        sched = DEMO_SCHEDULE_RESULT;
-        setScheduleResult(sched);
+        console.warn('Optimization service error:', optErr);
+        const errMsg = optErr instanceof Error ? optErr.message : String(optErr);
+        setScheduleResult(null);
+        setValidationResult(null);
+        setDiagnosticsReport(null);
+        setErrorMessage(`OPTIMIZATION UNAVAILABLE: ${errMsg}`);
+        return;
       }
 
-      setSolvingMessage('Independent Feasibility Certification: Auditing 13 hard constraints...');
+      setSolvingMessage('Independent Feasibility Certification: Auditing hard constraints...');
       let val: ScheduleValidationResult;
       try {
         val = await validateSchedule(scenario.scenario_id, sched);
         setValidationResult(val);
       } catch (valErr: unknown) {
-        console.warn('Validation service notice: using certified synthetic validation snapshot:', valErr);
-        val = DEMO_VALIDATION_RESULT;
-        setValidationResult(val);
+        console.warn('Validation service error:', valErr);
+        const errMsg = valErr instanceof Error ? valErr.message : String(valErr);
+        setValidationResult(null);
+        setErrorMessage(`VALIDATION UNAVAILABLE: ${errMsg}`);
+        return;
       }
 
       setSolvingMessage('Generating causal diagnostics...');
@@ -271,12 +308,20 @@ function PlanningPageContent() {
       }
     } catch (err: unknown) {
       console.error('Solve pipeline error:', err);
-      setErrorMessage('Unexpected error during optimization run.');
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(`OPTIMIZATION UNAVAILABLE: ${errMsg}`);
     } finally {
       setIsSolving(false);
       setSolvingMessage('');
     }
   }, [scenario.scenario_id]);
+
+  const handleLoadDemoSchedule = () => {
+    setScheduleResult(DEMO_SCHEDULE_RESULT);
+    setValidationResult(DEMO_VALIDATION_RESULT);
+    setDiagnosticsReport(null);
+    setErrorMessage(null);
+  };
 
   const handleApprove = async (payload: { reviewer_name: string; reviewer_role: string; approval_notes: string }) => {
     if (!planVersion) return;
@@ -320,36 +365,55 @@ function PlanningPageContent() {
   const selectedConflict: ContextualConflict | null =
     selectedConflictId ? SAMPLE_CONFLICTS[selectedConflictId] : SAMPLE_CONFLICTS['CONF-01'];
 
+  const { updateTelemetry } = useWorkspace();
+
+  useEffect(() => {
+    updateTelemetry({
+      activeScenarioId: scenario.scenario_id,
+      scenarioName: corridor.name || 'Northern Corridor',
+      planningHorizon: '24-Hour Planning Horizon',
+      tasksCount: scheduleResult ? scheduleResult.scheduled_tasks.length : null,
+      totalTasks: tasks.length || 30,
+      trainsCount: trains.length || 50,
+      lastSolveDuration: scheduleResult ? scheduleResult.solver_wall_time_seconds : null,
+      workerStatus: isSolving ? 'Optimizing' : scheduleResult ? 'Idle' : 'Standby',
+      validatorStatus: validationResult?.status === 'VALID' ? 'Active' : validationResult ? 'Warning' : 'Standby',
+    });
+  }, [
+    scenario.scenario_id,
+    corridor.name,
+    scheduleResult,
+    tasks.length,
+    trains.length,
+    isSolving,
+    validationResult,
+    updateTelemetry,
+  ]);
+
   return (
-    <AppShell
-      activeScenarioId={scenario.scenario_id}
-      scenarioName={corridor.name || 'Northern Corridor'}
-      planningHorizon="24-Hour Planning Horizon"
-      tasksCount={scheduleResult?.scheduled_tasks?.length ?? 0}
-      totalTasks={tasks.length || 30}
-      trainsCount={trains.length || 50}
-      lastSolveDuration={scheduleResult?.solver_wall_time_seconds ?? 0}
-      workerStatus={isSolving ? 'Optimizing' : scheduleResult ? 'Idle' : 'Standby'}
-      validatorStatus={validationResult?.status === 'VALID' ? 'Active' : validationResult ? 'Warning' : 'Standby'}
-    >
+    <>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-2 sm:p-2.5 lg:p-3 gap-2 bg-[#04070D] font-sans max-w-[1920px] w-full mx-auto">
         {/* ============================================================== */}
         {/* ============================================================== */}
         {/* TOP BAR: TRACKMELD PLANNING OPERATIONAL METADATA & ACTIONS     */}
         {/* ============================================================== */}
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 bg-[#0B101C] border border-[#1E2D4A] rounded-lg px-3 py-2 shrink-0 shadow-sm">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 bg-[#0B1120] border border-[#1A263D] rounded-xl px-3.5 py-2.5 shrink-0 shadow-xs">
           {/* Left: Planning Operational Context & Authoritative 3-Stage Lifecycle */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-[#F8FAFC]">Planning Workspace</span>
               <span className="text-xs text-[#64748B] font-mono">/</span>
               <span className="text-xs font-semibold text-[#93C5FD]">Corridor Schedule</span>
+              <span className="text-xs font-mono text-[#64748B] hidden md:inline">•</span>
+              <span className="text-xs font-medium text-slate-300">NDLS → CNB (440 km Trunk)</span>
+              <span className="text-xs font-mono text-[#64748B] hidden md:inline">•</span>
+              <span className="text-xs font-medium text-slate-400">Scenario A (24h Window)</span>
             </div>
 
-            <div className="h-3.5 w-[1px] bg-[#1E2D4A] hidden sm:block" />
+            <div className="h-3.5 w-[1px] bg-[#1A263D] hidden sm:block" />
 
             {/* Authoritative 3-Stage Pipeline: Solver -> Validation -> Governance */}
-            <div className="flex items-center rounded-md bg-[#070B14] border border-[#1E2D4A] p-0.5 text-[10px] font-mono shrink-0 overflow-x-auto scrollbar-none max-w-full">
+            <div className="flex items-center rounded-lg bg-[#070D18] border border-[#1A263D] p-0.5 text-[10px] font-mono shrink-0 overflow-x-auto scrollbar-none max-w-full">
               {/* Stage 1: Solver */}
               <div
                 className={`px-2 py-0.5 rounded flex items-center gap-1 shrink-0 ${
@@ -358,7 +422,7 @@ function PlanningPageContent() {
                     : !scheduleResult
                       ? 'text-zinc-500 font-medium'
                       : scheduleResult.status === 'OPTIMAL'
-                        ? 'text-[#38BDF8] font-bold bg-[#141F36]/60'
+                        ? 'text-[#38BDF8] font-bold bg-[#162238]'
                         : scheduleResult.status === 'FEASIBLE'
                           ? 'text-blue-400 font-bold'
                           : 'text-rose-400 font-bold'
@@ -386,14 +450,14 @@ function PlanningPageContent() {
                       ? 'text-emerald-400 font-bold bg-emerald-950/40'
                       : 'text-rose-400 font-bold bg-rose-950/40'
                 }`}
-                title="Stage 2: Independent 13-Check Safety Validation Firewall"
+                title="Stage 2: Independent Feasibility Validation"
               >
                 <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">2</span>
                 <span>
                   {!validationResult
                     ? 'VALIDATION: STANDBY'
                     : validationResult.status === 'VALID'
-                      ? '13-CHECK VALID'
+                      ? 'FEASIBLE (0 ERRORS)'
                       : 'VALIDATION FAILED'}
                 </span>
               </div>
@@ -436,7 +500,7 @@ function PlanningPageContent() {
                 size="sm"
                 disabled={isSolving}
                 onClick={handleTriggerSolve}
-                className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold px-3.5 h-8 shadow-sm cursor-pointer transition-colors flex items-center gap-1.5"
+                className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold px-3.5 h-8 shadow-xs cursor-pointer transition-colors flex items-center gap-1.5 rounded-lg"
               >
                 <Play className={`w-3.5 h-3.5 fill-current ${isSolving ? 'animate-spin' : ''}`} />
                 <span>{isSolving ? 'Optimizing...' : 'Run Optimization'}</span>
@@ -448,10 +512,10 @@ function PlanningPageContent() {
                 variant="outline"
                 disabled={!scheduleResult || !validationResult?.is_approvable}
                 onClick={() => setIsApprovalOpen(true)}
-                className={`text-xs font-semibold h-8 px-3 cursor-pointer flex items-center gap-1.5 transition-colors ${
+                className={`text-xs font-semibold h-8 px-3 cursor-pointer flex items-center gap-1.5 transition-colors rounded-lg ${
                   scheduleResult && validationResult?.is_approvable
                     ? 'bg-emerald-950/50 hover:bg-emerald-900/60 border-emerald-500/50 text-emerald-300 shadow-xs'
-                    : 'border-[#1E2D4A] text-[#64748B] opacity-50 cursor-not-allowed bg-transparent'
+                    : 'border-[#1A263D] text-[#64748B] opacity-50 cursor-not-allowed bg-transparent'
                 }`}
                 title={
                   !scheduleResult
@@ -462,17 +526,17 @@ function PlanningPageContent() {
                 }
               >
                 <FileCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Approve Plan</span>
+                <span>Approve</span>
               </Button>
             </div>
 
             {/* Analytical Tools Toolbar (Tier 2) */}
-            <div className="inline-flex items-center bg-[#070B14] border border-[#1E2D4A] rounded-md p-0.5">
+            <div className="inline-flex items-center bg-[#070D18] border border-[#1A263D] rounded-lg p-0.5">
               <button
                 type="button"
                 onClick={() => setActiveViewMode('VALIDATION')}
-                className="px-2.5 py-1 text-xs font-medium text-[#CBD5E1] hover:text-white hover:bg-[#141F36] rounded transition-colors flex items-center gap-1.5 cursor-pointer"
-                title="Jump to Independent 13-Check Safety Validation Firewall"
+                className="px-2.5 py-1 text-xs font-medium text-[#CBD5E1] hover:text-white hover:bg-[#162238] rounded-md transition-colors flex items-center gap-1.5 cursor-pointer"
+                title="Jump to Independent Feasibility Validation Matrix"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Validate</span>
@@ -481,7 +545,7 @@ function PlanningPageContent() {
               <button
                 type="button"
                 onClick={() => setIsBenchmarkOpen(true)}
-                className="px-2.5 py-1 text-xs font-medium text-[#CBD5E1] hover:text-white hover:bg-[#141F36] rounded transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-2.5 py-1 text-xs font-medium text-[#CBD5E1] hover:text-white hover:bg-[#162238] rounded-md transition-colors flex items-center gap-1.5 cursor-pointer"
                 title="Compare plan versions, baselines, and benchmarks"
               >
                 <GitCompare className="w-3.5 h-3.5 text-[#38BDF8]" />
@@ -491,7 +555,7 @@ function PlanningPageContent() {
               <button
                 type="button"
                 onClick={() => handleOpenDigitalTwin(selectedSectionCode || 'SEC-12')}
-                className="px-2.5 py-1 text-xs font-medium text-[#CBD5E1] hover:text-white hover:bg-[#141F36] rounded transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-2.5 py-1 text-xs font-medium text-[#CBD5E1] hover:text-white hover:bg-[#162238] rounded-md transition-colors flex items-center gap-1.5 cursor-pointer"
                 title="Launch 3D Digital Twin environment"
               >
                 <Box className="w-3.5 h-3.5 text-cyan-400" />
@@ -500,14 +564,14 @@ function PlanningPageContent() {
             </div>
 
             {/* Workspace & Inspection Utilities (Tier 3) */}
-            <div className="inline-flex items-center bg-[#070B14] border border-[#1E2D4A] rounded-md p-0.5">
+            <div className="inline-flex items-center bg-[#070D18] border border-[#1A263D] rounded-lg p-0.5">
               <button
                 type="button"
                 onClick={() => setIsInspectorOpen((prev) => !prev)}
-                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 cursor-pointer ${
                   isInspectorOpen
-                    ? 'bg-[#141F36] text-white border border-[#2563EB]/50'
-                    : 'text-[#CBD5E1] hover:text-white hover:bg-[#141F36] border border-transparent'
+                    ? 'bg-[#162238] text-white border border-[#2563EB]/50'
+                    : 'text-[#CBD5E1] hover:text-white hover:bg-[#162238] border border-transparent'
                 }`}
                 title={isInspectorOpen ? 'Close Inspector Drawer' : 'Open Contextual Entity Inspector'}
                 aria-label="Inspector"
@@ -519,7 +583,7 @@ function PlanningPageContent() {
               <button
                 type="button"
                 onClick={() => setIsFullScreen((prev) => !prev)}
-                className="px-2.5 py-1 text-xs font-medium text-[#CBD5E1] hover:text-white hover:bg-[#141F36] rounded transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-2.5 py-1 text-xs font-medium text-[#CBD5E1] hover:text-white hover:bg-[#162238] rounded-md transition-colors flex items-center gap-1.5 cursor-pointer"
                 title={isFullScreen ? 'Exit Full-Screen (Esc)' : 'Expand to Full-Screen Workspace'}
               >
                 {isFullScreen ? (
@@ -536,14 +600,14 @@ function PlanningPageContent() {
         {/* ============================================================== */}
         {/* WORKSPACE VIEW MODE SELECTOR (3-Panel Layout, Map, Timeline...)*/}
         {/* ============================================================== */}
-        <div className="flex items-center gap-1 bg-[#090E18] border border-[#1E2D4A] rounded-lg p-1 overflow-x-auto shrink-0 text-xs scrollbar-none">
+        <div className="flex items-center gap-1 bg-[#0B1120] border border-[#1A263D] rounded-xl p-1 overflow-x-auto shrink-0 text-xs scrollbar-none">
           {/* 0. 3-Panel Integrated Workstation (Masterpiece Default) */}
           <button
-            onClick={() => setActiveViewMode('INTEGRATED')}
-            className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
+            onClick={() => handleSelectViewMode('INTEGRATED')}
+            className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
               activeViewMode === 'INTEGRATED'
-                ? 'bg-[#121D33] text-[#F8FAFC] border border-[#2B426B] font-semibold shadow-xs'
-                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36]/60 border border-transparent font-medium'
+                ? 'bg-[#162238] text-[#F8FAFC] border border-[#2563EB]/40 font-semibold shadow-xs'
+                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#162238]/50 border border-transparent font-medium'
             }`}
           >
             <LayoutGrid className={`w-3.5 h-3.5 ${activeViewMode === 'INTEGRATED' ? 'text-[#38BDF8]' : 'text-[#64748B]'}`} />
@@ -555,11 +619,11 @@ function PlanningPageContent() {
 
           {/* 1. Railway Map */}
           <button
-            onClick={() => setActiveViewMode('MAP')}
-            className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
+            onClick={() => handleSelectViewMode('MAP')}
+            className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
               activeViewMode === 'MAP'
-                ? 'bg-[#121D33] text-[#F8FAFC] border border-[#2B426B] font-semibold shadow-xs'
-                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36]/60 border border-transparent font-medium'
+                ? 'bg-[#162238] text-[#F8FAFC] border border-[#2563EB]/40 font-semibold shadow-xs'
+                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#162238]/50 border border-transparent font-medium'
             }`}
           >
             <MapIcon className={`w-3.5 h-3.5 ${activeViewMode === 'MAP' ? 'text-[#38BDF8]' : 'text-[#64748B]'}`} />
@@ -568,11 +632,11 @@ function PlanningPageContent() {
 
           {/* 2. Time-Space Diagram */}
           <button
-            onClick={() => setActiveViewMode('TIMESPACE')}
-            className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
+            onClick={() => handleSelectViewMode('TIMESPACE')}
+            className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
               activeViewMode === 'TIMESPACE'
-                ? 'bg-[#121D33] text-[#F8FAFC] border border-[#2B426B] font-semibold shadow-xs'
-                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36]/60 border border-transparent font-medium'
+                ? 'bg-[#162238] text-[#F8FAFC] border border-[#2563EB]/40 font-semibold shadow-xs'
+                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#162238]/50 border border-transparent font-medium'
             }`}
           >
             <Clock className={`w-3.5 h-3.5 ${activeViewMode === 'TIMESPACE' ? 'text-[#38BDF8]' : 'text-[#64748B]'}`} />
@@ -581,28 +645,28 @@ function PlanningPageContent() {
 
           {/* 3. Corridor Timeline */}
           <button
-            onClick={() => setActiveViewMode('TIMELINE')}
-            className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
+            onClick={() => handleSelectViewMode('TIMELINE')}
+            className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
               activeViewMode === 'TIMELINE'
-                ? 'bg-[#121D33] text-[#F8FAFC] border border-[#2B426B] font-semibold shadow-xs'
-                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36]/60 border border-transparent font-medium'
+                ? 'bg-[#162238] text-[#F8FAFC] border border-[#2563EB]/40 font-semibold shadow-xs'
+                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#162238]/50 border border-transparent font-medium'
             }`}
           >
             <Layers className={`w-3.5 h-3.5 ${activeViewMode === 'TIMELINE' ? 'text-[#38BDF8]' : 'text-[#64748B]'}`} />
-            <span>Timeline</span>
+            <span>Corridor Timeline</span>
           </button>
 
           {/* 4. Tasks Queue */}
           <button
-            onClick={() => setActiveViewMode('TASKS')}
-            className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
+            onClick={() => handleSelectViewMode('TASKS')}
+            className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
               activeViewMode === 'TASKS'
-                ? 'bg-[#121D33] text-[#F8FAFC] border border-[#2B426B] font-semibold shadow-xs'
-                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36]/60 border border-transparent font-medium'
+                ? 'bg-[#162238] text-[#F8FAFC] border border-[#2563EB]/40 font-semibold shadow-xs'
+                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#162238]/50 border border-transparent font-medium'
             }`}
           >
             <GitBranch className={`w-3.5 h-3.5 ${activeViewMode === 'TASKS' ? 'text-[#38BDF8]' : 'text-[#64748B]'}`} />
-            <span>Tasks</span>
+            <span>Tasks Queue</span>
             <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#162238] text-[#93C5FD] border border-[#233556]">
               {tasks.length}
             </span>
@@ -610,11 +674,11 @@ function PlanningPageContent() {
 
           {/* 5. Conflicts */}
           <button
-            onClick={() => setActiveViewMode('CONFLICTS')}
-            className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
+            onClick={() => handleSelectViewMode('CONFLICTS')}
+            className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
               activeViewMode === 'CONFLICTS'
-                ? 'bg-[#121D33] text-[#F8FAFC] border border-[#2B426B] font-semibold shadow-xs'
-                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36]/60 border border-transparent font-medium'
+                ? 'bg-[#162238] text-[#F8FAFC] border border-[#2563EB]/40 font-semibold shadow-xs'
+                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#162238]/50 border border-transparent font-medium'
             }`}
           >
             <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
@@ -626,11 +690,11 @@ function PlanningPageContent() {
 
           {/* 6. Validation */}
           <button
-            onClick={() => setActiveViewMode('VALIDATION')}
-            className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
+            onClick={() => handleSelectViewMode('VALIDATION')}
+            className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
               activeViewMode === 'VALIDATION'
-                ? 'bg-[#121D33] text-[#F8FAFC] border border-[#2B426B] font-semibold shadow-xs'
-                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36]/60 border border-transparent font-medium'
+                ? 'bg-[#162238] text-[#F8FAFC] border border-[#2563EB]/40 font-semibold shadow-xs'
+                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#162238]/50 border border-transparent font-medium'
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
@@ -644,11 +708,11 @@ function PlanningPageContent() {
 
           {/* 7. Diagnostics */}
           <button
-            onClick={() => setActiveViewMode('DIAGNOSTICS')}
-            className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
+            onClick={() => handleSelectViewMode('DIAGNOSTICS')}
+            className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
               activeViewMode === 'DIAGNOSTICS'
-                ? 'bg-[#121D33] text-[#F8FAFC] border border-[#2B426B] font-semibold shadow-xs'
-                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141F36]/60 border border-transparent font-medium'
+                ? 'bg-[#162238] text-[#F8FAFC] border border-[#2563EB]/40 font-semibold shadow-xs'
+                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#162238]/50 border border-transparent font-medium'
             }`}
           >
             <Activity className={`w-3.5 h-3.5 ${activeViewMode === 'DIAGNOSTICS' ? 'text-[#38BDF8]' : 'text-[#64748B]'}`} />
@@ -657,11 +721,11 @@ function PlanningPageContent() {
 
           {/* 8. Copilot Explainer */}
           <button
-            onClick={() => setActiveViewMode('COPILOT')}
-            className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
+            onClick={() => handleSelectViewMode('COPILOT')}
+            className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap h-7.5 text-xs cursor-pointer ${
               activeViewMode === 'COPILOT'
-                ? 'bg-[#121D33] text-[#F8FAFC] border border-[#2B426B] font-semibold shadow-xs'
-                : 'text-[#93C5FD] hover:text-[#F8FAFC] hover:bg-[#141F36]/60 border border-transparent font-medium'
+                ? 'bg-[#162238] text-[#F8FAFC] border border-[#2563EB]/40 font-semibold shadow-xs'
+                : 'text-[#93C5FD] hover:text-[#F8FAFC] hover:bg-[#162238]/50 border border-transparent font-medium'
             }`}
           >
             <Bot className="w-3.5 h-3.5 text-[#38BDF8]" />
@@ -672,7 +736,7 @@ function PlanningPageContent() {
 
         {/* Solver Progress Banner */}
         {isSolving && (
-          <div className="bg-[#141F36] border border-[#2563EB]/40 rounded-lg px-3 py-1.5 flex items-center justify-between text-xs text-[#F8FAFC] shrink-0">
+          <div className="bg-[#0B1120] border border-[#2563EB]/40 rounded-xl px-3.5 py-2 flex items-center justify-between text-xs text-[#F8FAFC] shrink-0">
             <div className="flex items-center gap-2">
               <RefreshCw className="w-3.5 h-3.5 text-[#38BDF8] animate-spin" />
               <span className="font-semibold">OPTIMIZING POSSESSION SCHEDULE:</span>
@@ -684,24 +748,33 @@ function PlanningPageContent() {
 
         {/* No-Data / Backend Unavailable Banner */}
         {!isSolving && scheduleResult === null && (
-          <div className="bg-amber-950/30 border border-amber-500/30 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs text-amber-300 shrink-0">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span>
-              <span className="font-semibold">No schedule computed.</span>
-              {' '}Backend unavailable or optimization has not yet run.
-              Planning data is unverified — no approval decision can be made.
-            </span>
+          <div className="bg-amber-950/20 border border-amber-500/30 rounded-xl px-3.5 py-2 flex items-center justify-between gap-2 text-xs text-amber-300 shrink-0">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>
+                <span className="font-semibold">No schedule computed.</span>
+                {' '}Backend unavailable or optimization has not yet run.
+                Planning data is unverified — no approval decision can be made.
+              </span>
+            </div>
+            <button
+              onClick={handleLoadDemoSchedule}
+              className="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 whitespace-nowrap cursor-pointer transition-colors"
+              title="Explicitly load synthetic demonstration schedule"
+            >
+              Load Demo Schedule (Synthetic)
+            </button>
           </div>
         )}
 
         {/* Error Alert */}
         {errorMessage && (
-          <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-1.5 text-xs text-rose-300 flex items-center justify-between shrink-0">
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl px-3.5 py-2 text-xs text-rose-300 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-400" />
               <span>{errorMessage}</span>
             </div>
-            <button onClick={() => setErrorMessage(null)} className="text-[#94A3B8] hover:text-white text-xs">
+            <button onClick={() => setErrorMessage(null)} className="text-[#94A3B8] hover:text-white text-xs cursor-pointer">
               Dismiss
             </button>
           </div>
@@ -724,13 +797,13 @@ function PlanningPageContent() {
                   FULL-SCREEN WORKSPACE
                 </span>
                 <h2 className="text-sm font-bold text-[#F8FAFC]">
-                  {activeViewMode === 'INTEGRATED' && 'Corridor 3-Panel Integrated Workstation'}
+                  {activeViewMode === 'INTEGRATED' && 'Corridor Railway Map (MapLibre Engine)'}
                   {activeViewMode === 'MAP' && 'Corridor Railway Map (MapLibre Engine)'}
                   {activeViewMode === 'TIMESPACE' && 'Corridor Time-Space Diagram'}
                   {activeViewMode === 'TIMELINE' && 'Corridor Gantt Schedule Timeline'}
                   {activeViewMode === 'TASKS' && 'Full Maintenance Task Queue'}
                   {activeViewMode === 'CONFLICTS' && 'Operational Conflict Resolution Engine'}
-                  {activeViewMode === 'VALIDATION' && '13-Check Safety Validation Firewall'}
+                  {activeViewMode === 'VALIDATION' && 'Independent Feasibility Validation Matrix'}
                   {activeViewMode === 'DIAGNOSTICS' && 'CP-SAT Solver Diagnostics & Bottlenecks'}
                   {activeViewMode === 'COPILOT' && 'Decision Support Copilot Workspace'}
                 </h2>
@@ -764,23 +837,24 @@ function PlanningPageContent() {
           <div className="flex-1 min-w-0 h-full overflow-hidden flex flex-col">
             {/* VIEW MODE 0: INTEGRATED 3-PANEL WORKSTATION (MASTER REFERENCE) */}
             {activeViewMode === 'INTEGRATED' && (
-              <div className="flex-1 w-full h-full min-h-0 flex flex-col gap-2 overflow-hidden">
-                {/* TOP 52%: Railway View Card */}
-                <div className="h-[52%] min-h-[290px] w-full bg-[#0B1120] border border-[#152238] rounded-lg overflow-hidden flex flex-col relative shrink-0">
-                  <div className="h-8.5 px-3 bg-[#0A101D] border-b border-[#152238] flex items-center justify-between shrink-0 select-none">
+              <div className="flex-1 w-full h-full min-h-0 flex flex-col gap-2.5 overflow-hidden">
+                {/* TOP 48%: Railway View Card */}
+                <div className="h-[48%] min-h-[280px] w-full bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden flex flex-col relative shrink-0">
+                  <div className="h-8.5 px-3 bg-[#070D18] border-b border-[#1A263D] flex items-center justify-between shrink-0 select-none">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-xs text-[#F8FAFC]">Railway View</span>
-                      <span className="text-[11px] font-mono text-[#8EA3BE] hidden sm:inline">NDLS → CNB (440 km Trunk)</span>
+                      <span className="text-[11px] font-mono text-[#94A3B8] hidden sm:inline">NDLS → CNB (440 km Trunk)</span>
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#111A2E] text-[#93C5FD] border border-[#172640] hidden md:inline">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#162238] text-[#93C5FD] border border-[#1E2D4A] hidden md:inline">
                         4 STATIONS • 14 SECTIONS • 6 TRAINS
                       </span>
                       <button
                         onClick={() => setActiveViewMode('MAP')}
-                        className="p-1 rounded text-[#8EA3BE] hover:text-white hover:bg-[#111A2E] transition-colors"
-                        title="Maximize Railway Map"
+                        className="p-1 rounded text-[#94A3B8] hover:text-white hover:bg-[#162238] transition-colors cursor-pointer"
+                        title="Maximize map view"
+                        aria-label="Maximize map view"
                       >
                         <Maximize2 className="w-3.5 h-3.5" />
                       </button>
@@ -800,63 +874,65 @@ function PlanningPageContent() {
                   </div>
                 </div>
 
-                {/* BOTTOM 48%: Split Tasks (50%) + Timeline/Time-Space (50%) */}
-                <div className="flex-1 min-h-[260px] w-full flex flex-col lg:flex-row gap-2 overflow-hidden">
+                {/* BOTTOM 52%: Split Tasks (50%) + Timeline/Time-Space (50%) */}
+                <div className="flex-1 min-h-[300px] w-full flex flex-col lg:flex-row gap-2.5 overflow-hidden">
                   {/* Bottom-Left 50%: Task Overview */}
-                  <div className="w-full lg:w-1/2 h-full bg-[#0B1120] border border-[#152238] rounded-lg overflow-hidden flex flex-col">
+                  <div className="w-full lg:w-1/2 h-full bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden flex flex-col">
                     <TaskQueueTable
                       tasks={tasks}
                       scheduleResult={scheduleResult}
                       selectedTaskId={selectedTaskId}
                       onSelectTask={handleSelectTask}
+                      isEmbedded={true}
                     />
                   </div>
 
                   {/* Bottom-Right 50%: Timeline / Time-Space Workspace */}
-                  <div className="w-full lg:w-1/2 h-full bg-[#0B1120] border border-[#152238] rounded-lg overflow-hidden flex flex-col">
-                    <div className="h-8.5 px-3 bg-[#0A101D] border-b border-[#152238] flex items-center justify-between shrink-0 select-none">
+                  <div className="w-full lg:w-1/2 h-full bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden flex flex-col">
+                    <div className="h-8.5 px-3 bg-[#070D18] border-b border-[#1A263D] flex items-center justify-between shrink-0 select-none">
                       <div className="flex items-center gap-1 text-xs">
                         <button
                           onClick={() => setBottomTab('TIMELINE')}
-                          className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
+                          className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                             bottomTab === 'TIMELINE'
-                              ? 'bg-[#16223B] text-[#38BDF8] border border-[#1E304E]'
-                              : 'text-[#8EA3BE] hover:text-white'
+                              ? 'bg-[#162238] text-[#38BDF8] border border-[#2563EB]/40'
+                              : 'text-[#94A3B8] hover:text-white'
                           }`}
                         >
                           Timeline
                         </button>
                         <button
                           onClick={() => setBottomTab('TIMESPACE')}
-                          className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
+                          aria-label="Motion Chart"
+                          className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                             bottomTab === 'TIMESPACE'
-                              ? 'bg-[#16223B] text-[#38BDF8] border border-[#1E304E]'
-                              : 'text-[#8EA3BE] hover:text-white'
+                              ? 'bg-[#162238] text-[#38BDF8] border border-[#2563EB]/40'
+                              : 'text-[#94A3B8] hover:text-white'
                           }`}
                         >
-                          Time-Space
+                          Motion Chart
                         </button>
                         <button
                           onClick={() => setBottomTab('DIAGNOSTICS')}
-                          className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
+                          className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                             bottomTab === 'DIAGNOSTICS'
-                              ? 'bg-[#16223B] text-[#38BDF8] border border-[#1E304E]'
-                              : 'text-[#8EA3BE] hover:text-white'
+                              ? 'bg-[#162238] text-[#38BDF8] border border-[#2563EB]/40'
+                              : 'text-[#94A3B8] hover:text-white'
                           }`}
                         >
                           Diagnostics
                         </button>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono text-[#8EA3BE] hidden sm:inline">Oct 10, 2026</span>
-                        <div className="flex items-center rounded bg-[#070D18] border border-[#152238] p-0.5 text-[10px] font-mono">
-                          <span className="px-1.5 py-0.2 rounded bg-[#16223B] text-[#38BDF8] font-bold">24h</span>
-                          <span className="px-1.5 py-0.2 text-[#566B85]">48h</span>
-                          <span className="px-1.5 py-0.2 text-[#566B85]">72h</span>
+                        <span className="text-[10px] font-mono text-[#94A3B8] hidden sm:inline">Oct 10, 2026</span>
+                        <div className="flex items-center rounded-md bg-[#070D18] border border-[#1A263D] p-0.5 text-[10px] font-mono">
+                          <span className="px-1.5 py-0.2 rounded bg-[#162238] text-[#38BDF8] font-bold">24h</span>
+                          <span className="px-1.5 py-0.2 text-[#64748B]">48h</span>
+                          <span className="px-1.5 py-0.2 text-[#64748B]">72h</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex-1 w-full min-h-0 overflow-hidden p-2">
+                    <div className="flex-1 w-full min-h-0 overflow-hidden">
                       {bottomTab === 'TIMELINE' && (
                         <TimelineScheduleView
                           trains={trains}
@@ -868,6 +944,7 @@ function PlanningPageContent() {
                           onSelectTask={handleSelectTask}
                           onSelectTrain={handleSelectTrain}
                           onSwitchToTimeSpace={() => setBottomTab('TIMESPACE')}
+                          isEmbedded={true}
                         />
                       )}
                       {bottomTab === 'TIMESPACE' && (
@@ -919,7 +996,7 @@ function PlanningPageContent() {
 
             {/* VIEW MODE 2: TIME-SPACE CHART */}
             {activeViewMode === 'TIMESPACE' && (
-              <div className="flex-1 bg-[#0B101C] border border-[#1E2D4A] rounded-xl overflow-hidden">
+              <div className="flex-1 bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden">
                 <TimeSpaceChart
                   corridor={corridor}
                   trains={trains}
@@ -937,7 +1014,7 @@ function PlanningPageContent() {
 
             {/* VIEW MODE 3: CORRIDOR TIMELINE */}
             {activeViewMode === 'TIMELINE' && (
-              <div className="flex-1 bg-[#0B101C] border border-[#1E2D4A] rounded-xl overflow-hidden p-3">
+              <div className="flex-1 bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden p-3">
                 <TimelineScheduleView
                   trains={trains}
                   tasks={tasks}
@@ -1003,57 +1080,38 @@ function PlanningPageContent() {
             )}
           </div>
 
-          {/* Docked Contextual Entity Inspector (Desktop Only, matches reference media_1791000572944.jpg) */}
-          {isInspectorOpen && (
-            <div className="hidden xl:flex w-[350px] 2xl:w-[380px] shrink-0 h-full bg-[#0B1120] border border-[#152238] rounded-lg overflow-hidden flex-col shadow-xl">
-              <div className="h-8.5 px-3 bg-[#0A101D] border-b border-[#152238] flex items-center justify-between shrink-0 select-none">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-xs text-[#F8FAFC]">Entity Inspector</span>
-                  {selectedTask && (
-                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-bold border border-amber-500/30">
-                      {selectedScheduled ? 'SCHEDULED' : 'UNSCHEDULED'}
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => setIsInspectorOpen(false)}
-                  className="w-6 h-6 flex items-center justify-center text-[#8EA3BE] hover:text-white rounded hover:bg-[#111A2E] transition-colors"
-                  title="Collapse Inspector"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <EntityInspector
-                  task={selectedTask}
-                  scheduledInterval={selectedScheduled}
-                  diagnostic={selectedDiagnostic}
-                  conflictingTrains={trains.filter((tr) => tr.train_number === '02073')}
-                  selectedTrain={selectedTrain}
-                  selectedSection={selectedSection}
-                  selectedStation={selectedStation}
-                  selectedConflict={selectedConflict}
-                  isDrawer={false}
-                  hideHeader={false}
-                  onClose={() => setIsInspectorOpen(false)}
-                  onNavigateToDiagnostics={(tId) => {
-                    setSelectedTaskId(tId);
-                    setActiveViewMode('DIAGNOSTICS');
-                  }}
-                  onNavigateToConflicts={(tId) => {
-                    setSelectedTaskId(tId);
-                    setActiveViewMode('CONFLICTS');
-                  }}
-                  onOpenDigitalTwin={handleOpenDigitalTwin}
-                />
-              </div>
+          {/* Docked Contextual Entity Inspector (Desktop Only) */}
+          {isInspectorOpen && (activeViewMode === 'INTEGRATED' || activeViewMode === 'MAP') && (
+            <div className="hidden xl:flex w-[360px] 2xl:w-[400px] shrink-0 h-full bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden shadow-xl flex-col">
+              <EntityInspector
+                task={selectedTask}
+                scheduledInterval={selectedScheduled}
+                diagnostic={selectedDiagnostic}
+                conflictingTrains={trains.filter((tr) => tr.train_number === '02073')}
+                selectedTrain={selectedTrain}
+                selectedSection={selectedSection}
+                selectedStation={selectedStation}
+                selectedConflict={selectedConflict}
+                isDrawer={false}
+                hideHeader={false}
+                onClose={() => setIsInspectorOpen(false)}
+                onNavigateToDiagnostics={(tId) => {
+                  setSelectedTaskId(tId);
+                  setActiveViewMode('DIAGNOSTICS');
+                }}
+                onNavigateToConflicts={(tId) => {
+                  setSelectedTaskId(tId);
+                  setActiveViewMode('CONFLICTS');
+                }}
+                onOpenDigitalTwin={handleOpenDigitalTwin}
+              />
             </div>
           )}
         </div>
       </div>
 
-      {/* Contextual Entity Inspector Drawer (Mobile & Tablet Only < xl) */}
-      <div className="xl:hidden">
+      {/* Contextual Entity Inspector Drawer (Mobile & Tablet, or Desktop when not in docked mode) */}
+      <div className={activeViewMode === 'INTEGRATED' || activeViewMode === 'MAP' ? 'xl:hidden' : 'block'}>
         <ResponsiveDrawer
           isOpen={isInspectorOpen}
           onClose={() => setIsInspectorOpen(false)}
@@ -1159,7 +1217,7 @@ function PlanningPageContent() {
         onApprove={handleApprove}
         onReject={handleReject}
       />
-    </AppShell>
+    </>
   );
 }
 

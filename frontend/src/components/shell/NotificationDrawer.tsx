@@ -7,10 +7,8 @@ import {
   AlertTriangle,
   AlertCircle,
   Info,
-  CheckCircle,
   ExternalLink,
   Check,
-  X,
   Clock,
 } from 'lucide-react';
 import { ResponsiveDrawer } from '@/components/common/ResponsiveDrawer';
@@ -41,31 +39,11 @@ const INITIAL_NOTIFICATIONS: OperationalNotification[] = [
     id: 'NOTIF-02',
     severity: 'WARNING',
     title: 'Pending Four-Eyes Governance Approval',
-    message: 'PlanVersion 1 candidate schedule awaiting secondary sign-off by designated approver ops_executive_officer.',
+    message: 'PlanVersion candidate schedule awaiting secondary sign-off by designated approver.',
     timestamp: '25m ago (14:17 UTC)',
     source: 'Governance Pipeline',
     targetUrl: '/governance',
     isRead: false,
-  },
-  {
-    id: 'NOTIF-03',
-    severity: 'INFORMATION',
-    title: 'CP-SAT Optimization Completed',
-    message: 'Scenario A schedule solved in 1.48s. 29 of 30 tasks assigned feasible time intervals with 0 hard violations.',
-    timestamp: '42m ago (14:00 UTC)',
-    source: 'OR-Tools CP-SAT Worker',
-    targetUrl: '/planning?subtab=TASKS',
-    isRead: true,
-  },
-  {
-    id: 'NOTIF-04',
-    severity: 'INFORMATION',
-    title: 'Independent Safety Firewall Certified',
-    message: '13/13 mathematical validation checks passed (100% pass rate) with SHA-256 fingerprint bae346ecf3...',
-    timestamp: '1h ago (13:42 UTC)',
-    source: 'Independent Validator',
-    targetUrl: '/governance',
-    isRead: true,
   },
 ];
 

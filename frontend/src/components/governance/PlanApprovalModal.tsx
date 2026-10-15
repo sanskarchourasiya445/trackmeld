@@ -101,10 +101,22 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
               <Fingerprint className="w-4 h-4 text-[#38BDF8]" />
               Schedule Identity (SHA-256):
             </span>
-            <span className="text-emerald-400 flex items-center gap-1 font-bold text-[11px]">
-              <Lock className="w-3 h-3" />
-              13/13 Validated
-            </span>
+            {validationSummary?.valid === true ? (
+              <span className="text-emerald-400 flex items-center gap-1 font-bold text-[11px]">
+                <Lock className="w-3 h-3" />
+                Feasibility Checked
+              </span>
+            ) : validationSummary?.valid === false ? (
+              <span className="text-rose-400 flex items-center gap-1 font-bold text-[11px]">
+                <AlertTriangle className="w-3 h-3" />
+                Validation Errors Present
+              </span>
+            ) : (
+              <span className="text-[#94A3B8] flex items-center gap-1 font-bold text-[11px]">
+                <Lock className="w-3 h-3" />
+                Identity Recorded
+              </span>
+            )}
           </div>
           <div className="text-[10px] text-[#38BDF8] break-all select-all font-mono">
             {scheduleFingerprint}
@@ -174,7 +186,7 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
                 className="mt-0.5 rounded border-[#1E2D4A] bg-[#0F172A] text-[#2563EB]"
               />
               <span className="text-[11px] text-[#94A3B8] leading-snug">
-                I certify that I have audited the schedule against corridor traffic conditions, confirmed zero active train conflicts, and authorize track possession issuance.
+                I confirm that I have reviewed the proposed possession schedule, validated that required checks have passed, and authorize this plan version for issuance.
               </span>
             </label>
           )}
@@ -204,7 +216,7 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
             <Button
               type="button"
               size="sm"
-              disabled={isSubmitting || (!isRejectMode && !acknowledged)}
+              disabled={isSubmitting || (!isRejectMode && (!acknowledged || validationSummary?.valid === false))}
               onClick={handleSubmit}
               className={`text-xs font-semibold px-4 h-8 ${
                 isRejectMode

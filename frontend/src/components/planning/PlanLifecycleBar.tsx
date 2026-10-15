@@ -67,8 +67,8 @@ export const PlanLifecycleBar: React.FC<PlanLifecycleBarProps> = ({
     },
     {
       key: 'VALIDATED',
-      label: 'Independently Certified',
-      description: isApprovable ? '12 Hard rules verified (0 errors)' : 'Hard constraint violations present',
+      label: 'Independently Validated',
+      description: isApprovable ? 'Independent feasibility verified (0 errors)' : 'Hard constraint violations present',
       icon: ShieldCheck,
       actor: 'SYSTEM',
     },
@@ -91,7 +91,7 @@ export const PlanLifecycleBar: React.FC<PlanLifecycleBarProps> = ({
         currentStage === 'REJECTED' || planVersionStatus === 'REJECTED'
           ? 'Formal rejection recorded'
           : approvedBy
-          ? 'Legally certified possession'
+          ? 'Authorized possession issuance'
           : 'Requires DRM / Sr. DOM sign-off',
       icon: currentStage === 'REJECTED' || planVersionStatus === 'REJECTED' ? XCircle : CheckCircle2,
       actor: 'HUMAN',

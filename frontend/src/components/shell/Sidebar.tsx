@@ -8,11 +8,8 @@ import {
   CalendarRange,
   FileCheck2,
   Network,
-  Train,
   ClipboardList,
-  Wrench,
   ShieldCheck,
-  Activity,
   Bot,
   X,
   TrainTrack,
@@ -94,7 +91,7 @@ interface NavGroup {
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    groupTitle: 'OPERATIONS',
+    groupTitle: 'Operational Workspaces',
     items: [
       {
         label: 'Overview',
@@ -105,28 +102,11 @@ const NAV_GROUPS: NavGroup[] = [
         label: 'Planning Workspace',
         href: '/planning',
         icon: <CalendarRange className="w-4 h-4 shrink-0" />,
-        badge: 'LIVE',
-        badgeVariant: 'green',
       },
-      {
-        label: 'Audit & Governance',
-        href: '/audit',
-        icon: <FileCheck2 className="w-4 h-4 shrink-0" />,
-      },
-    ],
-  },
-  {
-    groupTitle: 'DOMAIN SYSTEM',
-    items: [
       {
         label: 'Rail Network',
         href: '/network',
         icon: <Network className="w-4 h-4 shrink-0" />,
-      },
-      {
-        label: 'Rolling Stock',
-        href: '/network?tab=rolling-stock',
-        icon: <Train className="w-4 h-4 shrink-0" />,
       },
       {
         label: 'Work Orders',
@@ -134,26 +114,14 @@ const NAV_GROUPS: NavGroup[] = [
         icon: <ClipboardList className="w-4 h-4 shrink-0" />,
       },
       {
-        label: 'Resources',
-        href: '/work-orders?tab=resources',
-        icon: <Wrench className="w-4 h-4 shrink-0" />,
-      },
-    ],
-  },
-  {
-    groupTitle: 'INTELLIGENCE',
-    items: [
-      {
-        label: 'Safety Firewall',
+        label: 'Validation & Governance',
         href: '/governance',
         icon: <ShieldCheck className="w-4 h-4 shrink-0" />,
-        badge: '2',
-        badgeVariant: 'red',
       },
       {
-        label: 'Risk Intelligence',
-        href: '/overview?tab=risk',
-        icon: <Activity className="w-4 h-4 shrink-0" />,
+        label: 'Audit & Governance',
+        href: '/audit',
+        icon: <FileCheck2 className="w-4 h-4 shrink-0" />,
       },
       {
         label: 'Copilot',
@@ -239,30 +207,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
         aria-label="Railway Operations Navigation"
         className={`fixed lg:static top-0 bottom-0 left-0 z-50 bg-[#070D18] border-r border-[#152238] flex flex-col justify-between select-none shrink-0 transition-[width,transform] duration-200 ease-in-out font-sans ${
           isMobileOpen
-            ? 'translate-x-0 w-[218px] max-w-[85vw] shadow-2xl'
+            ? 'translate-x-0 w-64 max-w-[85vw] shadow-2xl'
             : '-translate-x-full lg:translate-x-0'
         } ${
-          isCollapsed ? 'lg:w-14' : 'lg:w-[218px]'
+          isCollapsed ? 'lg:w-16' : 'lg:w-64'
         }`}
       >
         {/* TOP SECTION: Grouped Navigation Items */}
         <div className={`flex flex-col flex-1 min-h-0 ${isCollapsed ? 'overflow-visible' : 'overflow-y-auto overflow-x-hidden'}`}>
           {/* Mobile Header with close button */}
-          {!isCollapsed && (
-            <div className="lg:hidden px-3 pt-2.5 pb-1 flex items-center justify-between shrink-0">
-              <span className="text-[10px] font-mono uppercase font-semibold text-[#64748B] tracking-wider select-none">
-                Navigation
+          <div className="lg:hidden px-3 pt-2.5 pb-1 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-[#F8FAFC] text-sm tracking-tight">TrackMeld</span>
+              <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
+                v1.0
               </span>
-              <button
-                onClick={onCloseMobile}
-                className="w-7 h-7 flex items-center justify-center text-[#94A3B8] hover:text-white rounded hover:bg-[#111A2E] transition-colors focus-visible:ring-1 focus-visible:ring-[#38BDF8] outline-none"
-                title="Close Navigation"
-                aria-label="Close navigation menu"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
-          )}
+            <button
+              onClick={onCloseMobile}
+              className="w-7 h-7 flex items-center justify-center text-[#94A3B8] hover:text-white rounded hover:bg-[#111A2E] transition-colors focus-visible:ring-1 focus-visible:ring-[#38BDF8] outline-none cursor-pointer"
+              title="Close Navigation"
+              aria-label="Close navigation menu"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
           <div className={`flex-1 ${isCollapsed ? 'py-2.5 px-1.5 space-y-3.5 overflow-visible' : 'py-2 px-2 space-y-3 overflow-y-auto'}`}>
             {NAV_GROUPS.map((group) => (
@@ -391,12 +360,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Link
                   href="/planning"
                   onClick={onCloseMobile}
-                  title="Active Scenario: SCN-DEMO-001 • Northern Corridor (440 km) • ACTIVE"
-                  aria-label="Active Scenario: SCN-DEMO-001"
+                  title="Active Corridor: NDLS → CNB (440 km Trunk)"
+                  aria-label="Active Corridor: NDLS → CNB (440 km)"
                   className="flex flex-col items-center justify-center w-9 h-9 rounded-md bg-[#0A101D] hover:bg-[#111A2E] border border-[#152238] hover:border-[#1E304E] text-[#38BDF8] transition-colors focus-visible:ring-1 focus-visible:ring-[#38BDF8] outline-none"
                 >
                   <TrainTrack className="w-3.5 h-3.5 text-[#38BDF8]" />
-                  <span className="text-[7px] font-mono font-bold text-emerald-400 mt-0.5">ACT</span>
+                  <span className="text-[7px] font-mono font-bold text-amber-400 mt-0.5">DEMO</span>
                 </Link>
 
                 <div
@@ -404,12 +373,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="absolute left-full top-1/2 -translate-y-1/2 ml-2.5 px-2.5 py-1.5 bg-[#0B1322] border border-[#1E304E] text-[#F8FAFC] text-[11px] rounded-md shadow-2xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 font-mono"
                 >
                   <div className="font-bold text-[#F8FAFC] flex items-center gap-2">
-                    <span>SCN-DEMO-001</span>
-                    <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/20 px-1 py-0.2 rounded border border-emerald-500/40">
-                      ACTIVE
+                    <span>NDLS → CNB</span>
+                    <span className="text-[9px] font-mono text-amber-400 bg-amber-500/20 px-1 py-0.2 rounded border border-amber-500/40">
+                      SYNTHETIC
                     </span>
                   </div>
-                  <div className="text-[10px] text-[#8EA3BE] font-sans">Northern Corridor (440 km)</div>
+                  <div className="text-[10px] text-[#8EA3BE] font-sans">440 km Trunk (SCN-DEMO-001)</div>
                 </div>
               </div>
             ) : (
@@ -417,20 +386,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 href="/planning"
                 onClick={onCloseMobile}
                 className="block p-2 rounded-md bg-[#0A101D] hover:bg-[#0F1728] border border-[#152238] hover:border-[#1E304E] transition-all group focus-visible:ring-1 focus-visible:ring-[#38BDF8] outline-none"
-                title="View Active Scenario in Planning Workspace"
+                title="Active Corridor: NDLS → CNB (440 km Trunk) • Synthetic Scenario"
+                aria-label="Active Corridor: NDLS → CNB (440 km)"
               >
                 <div className="flex items-center justify-between text-[8.5px] font-mono text-[#566B85] mb-1">
-                  <span className="uppercase tracking-wider font-semibold">Active Scenario</span>
-                  <span className="text-emerald-400 font-bold flex items-center gap-1 text-[8.5px] bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 rounded">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    + ACTIVE
+                  <span className="uppercase tracking-wider font-semibold text-[#8EA3BE]">Active Corridor</span>
+                  <span className="text-amber-400 font-bold flex items-center gap-1 text-[8.5px] bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.2 rounded">
+                    SYNTHETIC
                   </span>
                 </div>
                 <div className="font-mono text-[11px] font-bold text-[#E2E8F0] group-hover:text-white transition-colors">
-                  SCN-DEMO-001
+                  NDLS → CNB
                 </div>
                 <div className="text-[9.5px] text-[#8EA3BE] mt-0.5 truncate flex items-center justify-between">
-                  <span>Northern Corridor (440 km)</span>
+                  <span>440 km Trunk (SCN-DEMO-001)</span>
                   <span className="text-[#566B85] font-mono text-xs">›</span>
                 </div>
               </Link>

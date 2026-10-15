@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Corridor, TrainMovement, MaintenanceTask } from '@/types/railway';
 import { ScheduleResult, ScheduledTaskInterval } from '@/types/planning';
-import { Clock, ZoomIn, ZoomOut, Layers, AlertTriangle, Crosshair } from 'lucide-react';
+import { Clock, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getTrainOccurrenceKey } from '@/lib/railway/identity';
 
@@ -83,12 +83,6 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
     return paddingTop + (Math.min(maxDistance, Math.max(0, km)) / maxDistance) * chartAreaHeight;
   };
 
-  const getYForStation = (stationCode: string) => {
-    const st = stations.find((s) => s.code === stationCode || s.name === stationCode);
-    if (!st) return paddingTop + chartAreaHeight / 2;
-    return getYForKm(st.distance_km);
-  };
-
   // Base planning horizon: 2026-10-10 00:00 UTC to 2026-10-12 23:59 UTC
   const horizonStartMs = useMemo(() => new Date('2026-10-10T00:00:00Z').getTime(), []);
 
@@ -159,29 +153,29 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
   }, [selectedTaskId, scheduledMap, tasks]);
 
   return (
-    <div className="flex flex-col h-full bg-[#0B101C] border border-[#1E2D4A] rounded-xl overflow-hidden select-none font-sans text-xs">
+    <div className="flex flex-col h-full bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden select-none font-sans text-xs">
       {/* 1. Header Controls */}
-      <div className="h-12 bg-[#0F172A] border-b border-[#1E2D4A] px-4 flex items-center justify-between shrink-0">
+      <div className="h-10.5 bg-[#0F172A] border-b border-[#1A263D] px-3.5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <Clock className="w-4 h-4 text-[#38BDF8]" />
           <span className="text-xs font-bold text-[#F8FAFC]">
             Corridor Time-Space Diagram
           </span>
-          <span className="text-[10px] font-mono text-[#94A3B8] bg-[#141F36] border border-[#1E2D4A] px-2 py-0.5 rounded">
+          <span className="text-[10px] font-mono text-[#8EA3BE] bg-[#070D18] border border-[#1A263D] px-2 py-0.5 rounded hidden sm:inline">
             NDLS–CNB (440 km) • 72h Horizon
           </span>
         </div>
 
         <div className="flex items-center gap-3">
           {/* Day range filters */}
-          <div className="flex items-center rounded-md border border-[#1E2D4A] bg-[#0A0E17] p-0.5 text-xs font-mono">
+          <div className="flex items-center rounded-md border border-[#1A263D] bg-[#070D18] p-0.5 text-xs font-mono">
             {(['ALL', 'DAY1', 'DAY2', 'DAY3'] as const).map((filter) => (
               <button
                 key={filter}
                 onClick={() => setTimeFilter(filter)}
-                className={`px-2.5 py-1 rounded transition-colors ${
+                className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
                   timeFilter === filter
-                    ? 'bg-[#2563EB] text-white font-semibold'
+                    ? 'bg-[#2563EB] text-white font-semibold shadow-xs'
                     : 'text-[#94A3B8] hover:text-[#F8FAFC]'
                 }`}
               >
@@ -191,13 +185,13 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
           </div>
 
           {/* Zoom controls */}
-          <div className="flex items-center gap-1.5 border-l border-[#1E2D4A] pl-3">
+          <div className="flex items-center gap-1.5 border-l border-[#1A263D] pl-3">
             <Button
               variant="outline"
               size="icon-xs"
               onClick={() => setZoomLevel((z) => Math.max(1, z - 0.25))}
               disabled={zoomLevel <= 1}
-              className="border-[#1E2D4A] text-[#94A3B8] hover:text-white h-7 w-7"
+              className="border-[#1A263D] hover:border-[#2D436D] bg-[#070D18] text-[#94A3B8] hover:text-white h-7 w-7 cursor-pointer"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </Button>
@@ -209,7 +203,7 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
               size="icon-xs"
               onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.25))}
               disabled={zoomLevel >= 2.5}
-              className="border-[#1E2D4A] text-[#94A3B8] hover:text-white h-7 w-7"
+              className="border-[#1A263D] hover:border-[#2D436D] bg-[#070D18] text-[#94A3B8] hover:text-white h-7 w-7 cursor-pointer"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </Button>
@@ -219,13 +213,13 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
 
       {/* Pre-Solve / Status Notice */}
       {!scheduleResult && (
-        <div className="bg-[#0E1726]/90 border-b border-[#1E2D4A] px-4 py-1.5 flex items-center justify-between text-[11px] text-[#93C5FD] shrink-0">
+        <div className="bg-[#101A2F]/90 border-b border-[#1A263D] px-4 py-1.5 flex items-center justify-between text-[11px] text-[#93C5FD] shrink-0">
           <span className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
             <span className="font-semibold text-amber-300">PRE-SOLVE TIMETABLE:</span>
-            <span>Baseline train movements shown. Run CP-SAT discrete optimization to allocate certified possession windows.</span>
+            <span>Baseline train movements shown. Run CP-SAT discrete optimization to allocate conflict-free possession windows.</span>
           </span>
-          <span className="font-mono text-[10px] text-[#64748B] bg-[#141F36] px-2 py-0.5 rounded border border-[#1E2D4A]">
+          <span className="font-mono text-[10px] text-[#8EA3BE] bg-[#070D18] px-2 py-0.5 rounded border border-[#1A263D]">
             STATUS: NOT RUN
           </span>
         </div>
@@ -428,8 +422,9 @@ export const TimeSpaceChart: React.FC<TimeSpaceChartProps> = ({
             const isSelected = selectedTrainId === train.movement_id || selectedTrainId === trainServiceId;
             const isHighPriority = train.priority_tier === 1;
             const isFreight = train.train_name?.toLowerCase().includes('freight');
-            const entryIso = train.entry_time || train.scheduled_departure || (train as any).route_entry_time || (train as any).origin_departure;
-            const exitIso = train.exit_time || train.scheduled_arrival || (train as any).route_exit_time || (train as any).destination_arrival;
+            const legacyTrain = train as unknown as Record<string, string | undefined>;
+            const entryIso = train.entry_time || train.scheduled_departure || legacyTrain.route_entry_time || legacyTrain.origin_departure;
+            const exitIso = train.exit_time || train.scheduled_arrival || legacyTrain.route_exit_time || legacyTrain.destination_arrival;
 
             const isDown = train.direction === 'DOWN';
             const x1 = getXForTime(entryIso);

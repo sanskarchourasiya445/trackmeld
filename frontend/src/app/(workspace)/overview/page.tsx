@@ -2,30 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { AppShell } from '@/components/shell/AppShell';
 import { MapLibreRailwayMap } from '@/components/map/MapLibreRailwayMap';
 import { DigitalTwinInspectionModal } from '@/components/digital-twin/DigitalTwinInspectionModal';
 import {
-  DEMO_SCENARIO,
-  DEMO_CORRIDOR,
-  DEMO_TASKS,
-  DEMO_SCHEDULE_RESULT,
-  DEMO_VALIDATION_RESULT,
   DEMO_PLAN_VERSION,
 } from '@/lib/api/client';
 import {
   ArrowRight,
   Clock,
   ShieldCheck,
-  CheckCircle,
   AlertTriangle,
   Activity,
-  CalendarRange,
   FileCheck,
   Eye,
-  GitBranch,
-  Sparkles,
-  Zap,
   Maximize2,
   Minimize2,
 } from 'lucide-react';
@@ -73,27 +62,26 @@ export default function OverviewPage() {
   };
 
   return (
-    <AppShell
-      activeScenarioId={DEMO_SCENARIO.scenario_id}
-      scenarioName="Northern Trunk Corridor (NDLS - CNB)"
-      planningHorizon="Operational Situation Briefing: 24h"
-      tasksCount={30}
-      trainsCount={50}
-    >
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 space-y-3.5 max-w-[1920px] w-full mx-auto font-sans select-none">
+    <>
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 space-y-3.5 max-w-[1920px] w-full mx-auto font-sans bg-[#070D18] select-none">
         {/* ============================================================== */}
         {/* 1. OPERATIONAL SITUATION BRIEFING HEADER                       */}
         {/* ============================================================== */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[#1E2D4A]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[#1A263D]">
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#141F36] border border-[#2D436D] flex items-center justify-center text-[#38BDF8] shadow-xs">
+              <div className="w-8 h-8 rounded-lg bg-[#162238] border border-[#2563EB]/40 flex items-center justify-center text-[#38BDF8] shadow-xs">
                 <Activity className="w-4 h-4" />
               </div>
               <div>
-                <h1 className="text-xl font-bold tracking-tight text-[#F8FAFC]">
-                  Railway Operations Situation Briefing
-                </h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl font-bold tracking-tight text-[#F8FAFC]">
+                    Railway Operations Situation Briefing
+                  </h1>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 font-medium">
+                    DEMO SCENARIO • SYNTHETIC CORRIDOR MODEL
+                  </span>
+                </div>
                 <p className="text-[11px] text-[#94A3B8] mt-0.5">
                   Northern Trunk Mainline (New Delhi to Kanpur Central, 440 km) • 24-Hour Planning Horizon
                 </p>
@@ -102,7 +90,7 @@ export default function OverviewPage() {
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
-            <div className="bg-[#0B101C] border border-[#1E2D4A] rounded-md px-2.5 py-1 flex items-center gap-2 text-[11px] font-mono text-[#94A3B8]">
+            <div className="bg-[#0B1120] border border-[#1A263D] rounded-md px-2.5 py-1 flex items-center gap-2 text-[11px] font-mono text-[#94A3B8]">
               <Clock className="w-3.5 h-3.5 text-[#38BDF8]" />
               <span>Planning Clock: <strong className="text-[#F8FAFC]">{lastUpdated}</strong></span>
             </div>
@@ -121,7 +109,7 @@ export default function OverviewPage() {
         {/* ============================================================== */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2.5">
           {/* Card 1: What is happening? */}
-          <div className="bg-[#0B101C] border border-[#1E2D4A] rounded-lg p-3.5 shadow-xs space-y-2">
+          <div className="bg-[#0B1120] border border-[#1A263D] rounded-lg p-3.5 shadow-xs space-y-2">
             <div className="text-[10px] font-mono uppercase tracking-wider text-[#64748B] font-bold flex items-center gap-1.5">
               <Activity className="w-3 h-3 text-[#38BDF8]" />
               <span>1. WHAT IS HAPPENING?</span>
@@ -142,7 +130,7 @@ export default function OverviewPage() {
           {/* Card 2: What needs attention? */}
           <div
             onClick={() => setIsConflictDrawerOpen(true)}
-            className="bg-[#0B101C] border border-rose-500/40 hover:border-rose-400 rounded-lg p-3.5 shadow-xs space-y-2 cursor-pointer transition-colors group"
+            className="bg-[#0B1120] border border-rose-500/40 hover:border-rose-400 rounded-lg p-3.5 shadow-xs space-y-2 cursor-pointer transition-colors group"
             title="Click to inspect active conflict in drawer"
           >
             <div className="flex items-center justify-between">
@@ -167,16 +155,16 @@ export default function OverviewPage() {
             </p>
           </div>
 
-          {/* Card 3: Is the plan safe? */}
+          {/* Card 3: Is the plan feasible? */}
           <Link
             href="/governance"
-            className="bg-[#0B101C] border border-emerald-500/40 hover:border-emerald-400 rounded-lg p-3.5 shadow-xs space-y-2 block transition-colors group"
-            title="Click to view 13-check independent safety firewall"
+            className="bg-[#0B1120] border border-emerald-500/40 hover:border-emerald-400 rounded-lg p-3.5 shadow-xs space-y-2 block transition-colors group"
+            title="Click to view independent validation checks"
           >
             <div className="flex items-center justify-between">
               <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1.5">
                 <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                <span>3. IS THE PLAN SAFE?</span>
+                <span>3. IS THE PLAN FEASIBLE?</span>
               </div>
               <span className="text-[10px] font-mono text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
                 VIEW RULES →
@@ -184,21 +172,21 @@ export default function OverviewPage() {
             </div>
             <div>
               <div className="text-xl font-bold text-emerald-400 tracking-tight">
-                100% Certified
+                0 Hard Violations
               </div>
               <div className="text-[11px] font-mono text-emerald-300 font-semibold">
-                13/13 Hard Rules Verified
+                Algorithmic Feasibility Verified
               </div>
             </div>
             <p className="text-[11px] text-[#94A3B8] leading-relaxed">
-              Independent mathematical safety firewall audited candidate schedule and verified zero hard constraint breaches.
+              Independent validation engine audited candidate schedule against configured hard constraints (0 breaches reported).
             </p>
           </Link>
 
           {/* Card 4: What requires my decision? */}
           <div
             onClick={() => setIsApprovalModalOpen(true)}
-            className="bg-[#0B101C] border border-[#2563EB]/40 hover:border-[#38BDF8] rounded-lg p-3.5 shadow-xs space-y-2 cursor-pointer transition-colors group"
+            className="bg-[#0B1120] border border-[#2563EB]/40 hover:border-[#38BDF8] rounded-lg p-3.5 shadow-xs space-y-2 cursor-pointer transition-colors group"
             title="Click to open Four-Eyes approval gate"
           >
             <div className="flex items-center justify-between">
@@ -219,7 +207,7 @@ export default function OverviewPage() {
               </div>
             </div>
             <p className="text-[11px] text-[#94A3B8] leading-relaxed">
-              Candidate schedule requires formal sign-off by a certified railway operations executive before track issuance.
+              Candidate schedule requires formal sign-off by an authorized railway operations executive before track issuance.
             </p>
           </div>
         </div>
@@ -228,22 +216,22 @@ export default function OverviewPage() {
         {/* 3. CURRENT CORRIDOR STATE: LARGE SPATIAL VISUALIZATION         */}
         {/* ============================================================== */}
         <div
-          className={`bg-[#0B101C] border border-[#1E2D4A] rounded-lg p-3 sm:p-4 flex flex-col shadow-xs space-y-2.5 transition-all ${
-            isMapFullScreen ? 'fixed inset-0 z-50 rounded-none border-0 p-3 bg-[#0B101C]' : ''
+          className={`bg-[#0B1120] border border-[#1A263D] rounded-lg p-3 sm:p-4 flex flex-col shadow-xs space-y-2.5 transition-all ${
+            isMapFullScreen ? 'fixed inset-0 z-50 rounded-none border-0 p-3 bg-[#070D18]' : ''
           }`}
         >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-[#1E2D4A]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-[#1A263D]">
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-bold text-sm text-[#F8FAFC]">
                   Live Corridor Digital Twin & Network Topology
                 </h2>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#141F36] text-[#38BDF8] border border-[#2D436D]">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#162238] text-[#38BDF8] border border-[#2563EB]/30">
                   NDLS → CNB (440 km)
                 </span>
               </div>
               <p className="text-[11px] text-[#94A3B8] mt-0.5">
-                Real-time tracking of 50 train movements, 32 block sections, and 8 maintenance possessions
+                Simulated timetable tracking: 50 scheduled train runs, 32 block sections, and 8 maintenance possessions
               </p>
             </div>
 
@@ -252,7 +240,7 @@ export default function OverviewPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => handleOpenDigitalTwin(selectedSectionCode || 'SEC-12')}
-                className="text-xs border-[#2D436D] text-[#38BDF8] hover:text-white h-7.5 px-2.5"
+                className="text-xs border-[#1A263D] text-[#38BDF8] hover:bg-[#162238] hover:text-white h-7.5 px-2.5"
               >
                 <Eye className="w-3.5 h-3.5 mr-1" />
                 <span>3D Twin View</span>
@@ -261,13 +249,13 @@ export default function OverviewPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => setIsMapFullScreen(!isMapFullScreen)}
-                className="text-xs border-[#2D436D] text-[#94A3B8] hover:text-white h-7.5 px-2.5"
+                className="text-xs border-[#1A263D] text-[#94A3B8] hover:bg-[#162238] hover:text-white h-7.5 px-2.5"
                 title={isMapFullScreen ? 'Exit Full Screen (Esc)' : 'Expand to Full Screen'}
               >
                 {isMapFullScreen ? (
                   <>
                     <Minimize2 className="w-3.5 h-3.5 mr-1" />
-                    <span>Exit Full</span>
+                    <span>Exit Full Screen</span>
                   </>
                 ) : (
                   <>
@@ -289,7 +277,7 @@ export default function OverviewPage() {
 
           {/* Large Map Workspace */}
           <div
-            className={`w-full rounded-md overflow-hidden border border-[#1E2D4A] relative ${
+            className={`w-full rounded-md overflow-hidden border border-[#1A263D] relative ${
               isMapFullScreen ? 'flex-1 min-h-0' : 'h-[360px] sm:h-[400px] lg:h-[450px]'
             }`}
           >
@@ -308,8 +296,8 @@ export default function OverviewPage() {
         {/* ============================================================== */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
           {/* Left: CP-SAT Optimization vs Baseline Metrics */}
-          <div className="lg:col-span-6 bg-[#0B101C] border border-[#1E2D4A] rounded-lg p-3.5 sm:p-4 shadow-xs space-y-3">
-            <div className="flex items-center justify-between pb-2.5 border-b border-[#1E2D4A]">
+          <div className="lg:col-span-6 bg-[#0B1120] border border-[#1A263D] rounded-lg p-3.5 sm:p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#1A263D]">
               <div>
                 <h3 className="font-bold text-xs text-[#F8FAFC]">
                   CP-SAT Optimization vs Manual Baseline
@@ -337,10 +325,10 @@ export default function OverviewPage() {
                   <span className="font-mono font-bold text-[#F8FAFC]">96.7% vs 80.0%</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 h-2">
-                  <div className="bg-[#141F36] rounded-full overflow-hidden">
+                  <div className="bg-[#162238] rounded-full overflow-hidden">
                     <div className="bg-[#2563EB] h-full rounded-full" style={{ width: '96.7%' }} />
                   </div>
-                  <div className="bg-[#141F36] rounded-full overflow-hidden">
+                  <div className="bg-[#162238] rounded-full overflow-hidden">
                     <div className="bg-emerald-500 h-full rounded-full" style={{ width: '80%' }} />
                   </div>
                 </div>
@@ -352,10 +340,10 @@ export default function OverviewPage() {
                   <span className="font-mono font-bold text-[#F8FAFC]">+11m vs +68m</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 h-2">
-                  <div className="bg-[#141F36] rounded-full overflow-hidden">
+                  <div className="bg-[#162238] rounded-full overflow-hidden">
                     <div className="bg-[#2563EB] h-full rounded-full" style={{ width: '16%' }} />
                   </div>
-                  <div className="bg-[#141F36] rounded-full overflow-hidden">
+                  <div className="bg-[#162238] rounded-full overflow-hidden">
                     <div className="bg-rose-500 h-full rounded-full" style={{ width: '85%' }} />
                   </div>
                 </div>
@@ -367,10 +355,10 @@ export default function OverviewPage() {
                   <span className="font-mono font-bold text-emerald-400">0 vs 4</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 h-2">
-                  <div className="bg-[#141F36] rounded-full overflow-hidden">
+                  <div className="bg-[#162238] rounded-full overflow-hidden">
                     <div className="bg-emerald-500 h-full rounded-full" style={{ width: '100%' }} />
                   </div>
-                  <div className="bg-[#141F36] rounded-full overflow-hidden">
+                  <div className="bg-[#162238] rounded-full overflow-hidden">
                     <div className="bg-rose-500 h-full rounded-full" style={{ width: '30%' }} />
                   </div>
                 </div>
@@ -379,8 +367,8 @@ export default function OverviewPage() {
           </div>
 
           {/* Right: Urgent Decisions Required */}
-          <div className="lg:col-span-6 bg-[#0B101C] border border-[#1E2D4A] rounded-lg p-3.5 sm:p-4 shadow-xs space-y-3">
-            <div className="flex items-center justify-between pb-2.5 border-b border-[#1E2D4A]">
+          <div className="lg:col-span-6 bg-[#0B1120] border border-[#1A263D] rounded-lg p-3.5 sm:p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#1A263D]">
               <div>
                 <h3 className="font-bold text-xs text-[#F8FAFC]">
                   Pending Operational Decisions
@@ -395,7 +383,7 @@ export default function OverviewPage() {
             </div>
 
             <div className="space-y-2.5 font-sans">
-              <div className="bg-[#0F172A] border border-[#1E2D4A] hover:border-[#2D436D] rounded-lg p-3 flex items-center justify-between gap-3 transition-colors">
+              <div className="bg-[#070D18] border border-[#1A263D] hover:border-[#2563EB]/40 rounded-lg p-3 flex items-center justify-between gap-3 transition-colors">
                 <div className="space-y-0.5">
                   <span className="font-semibold text-xs text-[#F8FAFC] block">
                     Perform Four-Eyes Sign-Off on PlanVersion 1
@@ -411,7 +399,7 @@ export default function OverviewPage() {
                 </Link>
               </div>
 
-              <div className="bg-[#0F172A] border border-[#1E2D4A] hover:border-[#2D436D] rounded-lg p-3 flex items-center justify-between gap-3 transition-colors">
+              <div className="bg-[#070D18] border border-[#1A263D] hover:border-[#2563EB]/40 rounded-lg p-3 flex items-center justify-between gap-3 transition-colors">
                 <div className="space-y-0.5">
                   <span className="font-semibold text-xs text-[#F8FAFC] block">
                     Resolve Headway Conflict at SEC-12 (TSK-0007)
@@ -421,7 +409,7 @@ export default function OverviewPage() {
                   </p>
                 </div>
                 <Link href="/planning?subtab=CONFLICTS" className="shrink-0">
-                  <Button size="sm" variant="outline" className="border-[#2D436D] text-[#38BDF8] text-xs h-7.5 px-3 font-semibold">
+                  <Button size="sm" variant="outline" className="border-[#1A263D] text-[#38BDF8] hover:bg-[#162238] text-xs h-7.5 px-3 font-semibold">
                     Resolve
                   </Button>
                 </Link>
@@ -475,6 +463,6 @@ export default function OverviewPage() {
         kmRange="km 209.0 – 301.0"
         workOrderTitle="Section Track Geometry & Catenary Digital Twin"
       />
-    </AppShell>
+    </>
   );
 }

@@ -35,6 +35,7 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const saved = localStorage.getItem('trackmeld_sidebar_collapsed');
       if (saved !== null) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsCollapsed(saved === 'true');
       }
     } catch {

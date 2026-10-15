@@ -245,7 +245,7 @@ In adherence to Indian Railways decision support boundaries, the Copilot cannot 
       )}
 
       {/* 2. Read-Only Guardrail Warning Banner */}
-      <div className="bg-[#141F36] border border-[#2D436D] rounded-lg px-3 py-1.5 flex items-center justify-between gap-2.5 shrink-0">
+      <div className="bg-[#141F36] border border-[#2D436D] rounded-lg px-3 py-1.5 flex items-center justify-between gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
         <div className="flex items-center gap-2">
           <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
           <div className="text-[11px] text-[#CBD5E1]">
@@ -255,9 +255,17 @@ In adherence to Indian Railways decision support boundaries, the Copilot cannot 
             </span>
           </div>
         </div>
-        <span className="text-[10px] font-mono text-amber-400 font-bold shrink-0">
-          COMPLETED ≠ APPROVED
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 font-bold">
+            Verified Evidence Records
+          </span>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 text-amber-400 font-bold">
+            Deterministic Safety Boundary
+          </span>
+          <span className="text-[10px] font-mono text-amber-400 font-bold shrink-0">
+            COMPLETED ≠ APPROVED
+          </span>
+        </div>
       </div>
 
       {/* 3. Primary Conversation Workspace */}
@@ -359,10 +367,10 @@ In adherence to Indian Railways decision support boundaries, the Copilot cannot 
             Explain headway clearance margins
           </button>
           <button
-            onClick={() => handleSend('What safety rules are verified by the 13-check independent firewall?')}
+            onClick={() => handleSend('What constraint rules are verified by the independent validator?')}
             className="text-[11px] bg-[#141F36] hover:bg-[#1E2D4A] hover:border-[#38BDF8] text-[#CBD5E1] hover:text-white border border-[#1E2D4A] px-2.5 py-1 rounded-md whitespace-nowrap transition-colors cursor-pointer"
           >
-            List 13 safety firewall checks
+            List independent validation checks
           </button>
           <button
             onClick={() => handleSend('What is the governance review status of Plan Version 1?')}

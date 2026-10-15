@@ -79,9 +79,9 @@ export const ConflictsWorkspace: React.FC<ConflictsWorkspaceProps> = ({
   onNavigateToDiagnostics,
 }) => {
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0A0E17] p-4 gap-3 overflow-hidden select-none font-sans text-xs">
+    <div className="flex-1 flex flex-col h-full bg-[#0B1120] p-3 sm:p-4 gap-2.5 overflow-hidden select-none font-sans text-xs">
       {/* 1. Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3.5 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F172A] border border-[#1A263D] rounded-lg p-3 sm:p-3.5 shrink-0">
         <div>
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-rose-400" />
@@ -112,10 +112,10 @@ export const ConflictsWorkspace: React.FC<ConflictsWorkspaceProps> = ({
           return (
             <div
               key={cnf.id}
-              className="bg-[#0F172A] border border-[#1E2D4A] hover:border-[#2D436D] rounded-lg p-4 space-y-3 transition-colors"
+              className="bg-[#0F172A] border border-[#1A263D] hover:border-[#2D436D] rounded-lg p-3.5 sm:p-4 space-y-3 transition-colors"
             >
               {/* Conflict Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1E2D4A] pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1A263D] pb-3">
                 <div className="flex items-center gap-2.5">
                   <span
                     className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
@@ -128,7 +128,7 @@ export const ConflictsWorkspace: React.FC<ConflictsWorkspaceProps> = ({
                   >
                     {cnf.severity}
                   </span>
-                  <span className="font-mono text-xs text-[#64748B]">{cnf.id}</span>
+                  <span className="font-mono text-xs text-[#8EA3BE]">{cnf.id}</span>
                   <span className="font-semibold text-sm text-[#F8FAFC]">{cnf.title}</span>
                 </div>
 
@@ -142,7 +142,7 @@ export const ConflictsWorkspace: React.FC<ConflictsWorkspaceProps> = ({
               {/* Conflict Body */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                 {/* Involved Entities */}
-                <div className="bg-[#0A0E17]/60 border border-[#1E2D4A] rounded-md p-3 space-y-1.5">
+                <div className="bg-[#070D18]/80 border border-[#1A263D] rounded-md p-3 space-y-1.5">
                   <span className="text-[10px] uppercase font-bold text-[#64748B] tracking-wider block">
                     Involved Entities
                   </span>
@@ -150,7 +150,7 @@ export const ConflictsWorkspace: React.FC<ConflictsWorkspaceProps> = ({
                     {cnf.entitiesInvolved.map((entity, idx) => (
                       <li key={idx} className="flex items-center gap-1.5 text-[#F8FAFC]">
                         {entity.includes('Train') ? (
-                          <Train className="w-3.5 h-3.5 text-[#3B82F6] shrink-0" />
+                          <Train className="w-3.5 h-3.5 text-[#38BDF8] shrink-0" />
                         ) : (
                           <Wrench className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                         )}
@@ -161,7 +161,7 @@ export const ConflictsWorkspace: React.FC<ConflictsWorkspaceProps> = ({
                 </div>
 
                 {/* Conflict Description & Impact */}
-                <div className="bg-[#0A0E17]/60 border border-[#1E2D4A] rounded-md p-3 space-y-1 md:col-span-2">
+                <div className="bg-[#070D18]/80 border border-[#1A263D] rounded-md p-3 space-y-1 md:col-span-2">
                   <span className="text-[10px] uppercase font-bold text-[#64748B] tracking-wider block">
                     Causal Geometry & Rule Violation
                   </span>
@@ -175,9 +175,9 @@ export const ConflictsWorkspace: React.FC<ConflictsWorkspaceProps> = ({
               </div>
 
               {/* Recommended Action & Navigations */}
-              <div className="bg-[#141F36]/60 border border-[#1E2D4A] rounded-md p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="bg-[#101A2F]/80 border border-[#1A263D] rounded-md p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-start sm:items-center gap-2">
-                  <Clock className="w-4 h-4 text-[#3B82F6] shrink-0 mt-0.5 sm:mt-0" />
+                  <Clock className="w-4 h-4 text-[#38BDF8] shrink-0 mt-0.5 sm:mt-0" />
                   <div>
                     <span className="font-semibold text-xs text-[#F8FAFC] mr-1">Recommended Path:</span>
                     <span className="text-xs text-[#CBD5E1]">{cnf.recommendedAction}</span>
@@ -187,16 +187,16 @@ export const ConflictsWorkspace: React.FC<ConflictsWorkspaceProps> = ({
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => onSelectTask(cnf.taskId)}
-                    className="px-2.5 py-1 rounded text-xs font-medium bg-[#0A0E17] hover:bg-[#1E2D4A] border border-[#1E2D4A] text-[#F8FAFC] transition-colors flex items-center gap-1"
+                    className="px-2.5 py-1 rounded text-xs font-medium bg-[#070D18] hover:bg-[#142038] border border-[#1A263D] text-[#F8FAFC] transition-colors flex items-center gap-1 cursor-pointer"
                   >
                     <span>Inspect Task</span>
-                    <ArrowRight className="w-3 h-3 text-[#3B82F6]" />
+                    <ArrowRight className="w-3 h-3 text-[#38BDF8]" />
                   </button>
 
                   {onNavigateToDiagnostics && (
                     <button
                       onClick={() => onNavigateToDiagnostics(cnf.taskId)}
-                      className="px-2.5 py-1 rounded text-xs font-medium bg-[#2563EB] hover:bg-[#1D4ED8] text-white transition-colors flex items-center gap-1"
+                      className="px-2.5 py-1 rounded text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white transition-colors flex items-center gap-1 cursor-pointer shadow-xs"
                     >
                       <span>Root Cause</span>
                       <ExternalLink className="w-3 h-3" />

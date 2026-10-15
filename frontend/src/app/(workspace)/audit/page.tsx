@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { AppShell } from '@/components/shell/AppShell';
 import {
   getPlanVersions,
   getPlanVersionAudit,
@@ -94,7 +93,7 @@ const INITIAL_COMMENTS: ReviewComment[] = [
     author: 'S. K. Verma',
     role: 'Traction Power Inspector (OHE)',
     time: '14:22 UTC',
-    text: 'OHE power block window certified for 25kV de-energization on track 2 (UP Main) from 14:00 to 15:30. Tower wagon GZB-TW-02 mobilized.',
+    text: 'OHE power block window confirmed for 25kV de-energization on track 2 (UP Main) from 14:00 to 15:30. Tower wagon GZB-TW-02 mobilized.',
   },
   {
     id: 'REV-02',
@@ -305,9 +304,14 @@ export default function AuditPage() {
     total_unscheduled: selectedVersion.unplacedCount,
   };
 
+  // Dynamic KPI counts computed from versions state
+  const pendingCount = versions.filter((v) => v.status === 'PENDING_REVIEW' || v.status === 'UNDER_REVIEW').length;
+  const approvedCount = versions.filter((v) => v.status === 'APPROVED').length;
+  const rejectedCount = versions.filter((v) => v.status === 'REJECTED').length;
+
   return (
-    <AppShell activeScenarioId="SCN-DEMO-001">
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 max-w-7xl mx-auto w-full bg-[#060A13] font-sans text-xs">
+    <>
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 max-w-7xl mx-auto w-full bg-[#070D18] font-sans text-xs">
         {/* Top Header Block */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
           <div>
@@ -320,7 +324,7 @@ export default function AuditPage() {
                     : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
                 }`}
               >
-                {isAuthoritative ? 'AUTHORITATIVE BACKEND LEDGER' : 'SYNTHETIC / DEMO ONLY'}
+                {isAuthoritative ? 'AUTHORITATIVE BACKEND LEDGER' : 'DEMO AUDIT TRAIL • READ ONLY'}
               </span>
             </div>
             <p className="text-xs text-[#94A3B8] mt-0.5">
@@ -334,7 +338,7 @@ export default function AuditPage() {
               size="sm"
               onClick={handleManualRefresh}
               disabled={loading}
-              className="border-[#1E2D4A] text-xs text-[#94A3B8] hover:text-white bg-[#0F172A] h-8"
+              className="border-[#1A263D] text-xs text-[#94A3B8] hover:bg-[#162238] hover:text-white bg-[#0B1120] h-8"
             >
               <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
               Refresh Ledger
@@ -343,7 +347,7 @@ export default function AuditPage() {
             <Button
               size="sm"
               onClick={() =>
-                setInfoMessage('New Plan Version candidates can be created directly from certified runs in the Planning Workspace.')
+                setInfoMessage('New Plan Version candidates can be created directly from validated runs in the Planning Workspace.')
               }
               className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold h-8 shadow-xs"
             >
@@ -382,38 +386,38 @@ export default function AuditPage() {
         {/* 4 Summary KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {/* Card 1: Total Plan Versions */}
-          <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3.5">
+          <div className="bg-[#0B1120] border border-[#1A263D] rounded-lg p-3.5">
             <span className="text-[10px] uppercase font-semibold text-[#64748B] tracking-wider block">
               Total Plan Versions
             </span>
-            <div className="text-2xl font-bold font-mono text-[#F8FAFC] mt-1">5</div>
+            <div className="text-2xl font-bold font-mono text-[#F8FAFC] mt-1">{versions.length}</div>
             <span className="text-[10px] text-[#94A3B8] mt-1 block">Across all scenarios</span>
           </div>
 
           {/* Card 2: Pending Review */}
-          <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3.5">
+          <div className="bg-[#0B1120] border border-[#1A263D] rounded-lg p-3.5">
             <span className="text-[10px] uppercase font-semibold text-[#64748B] tracking-wider block">
               Pending Review
             </span>
-            <div className="text-2xl font-bold font-mono text-[#F59E0B] mt-1">1</div>
+            <div className="text-2xl font-bold font-mono text-[#F59E0B] mt-1">{pendingCount}</div>
             <span className="text-[10px] text-amber-400 mt-1 block">Awaiting approval</span>
           </div>
 
           {/* Card 3: Approved Plans */}
-          <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3.5">
+          <div className="bg-[#0B1120] border border-[#1A263D] rounded-lg p-3.5">
             <span className="text-[10px] uppercase font-semibold text-[#64748B] tracking-wider block">
               Approved Plans
             </span>
-            <div className="text-2xl font-bold font-mono text-[#10B981] mt-1">2</div>
+            <div className="text-2xl font-bold font-mono text-[#10B981] mt-1">{approvedCount}</div>
             <span className="text-[10px] text-emerald-400 mt-1 block">Ready for execution</span>
           </div>
 
           {/* Card 4: Rejected Plans */}
-          <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3.5">
+          <div className="bg-[#0B1120] border border-[#1A263D] rounded-lg p-3.5">
             <span className="text-[10px] uppercase font-semibold text-[#64748B] tracking-wider block">
               Rejected Plans
             </span>
-            <div className="text-2xl font-bold font-mono text-[#EF4444] mt-1">1</div>
+            <div className="text-2xl font-bold font-mono text-[#EF4444] mt-1">{rejectedCount}</div>
             <span className="text-[10px] text-rose-400 mt-1 block">Revision required</span>
           </div>
         </div>
@@ -421,8 +425,8 @@ export default function AuditPage() {
         {/* Split Workstation: Plan Versions Table (Left 45%) & Detailed Inspector (Right 55%) */}
         <div className="grid grid-cols-12 gap-4 items-start">
           {/* Left Side: Plan Versions List */}
-          <div className="col-span-12 lg:col-span-5 bg-[#0F172A] border border-[#1E2D4A] rounded-lg overflow-hidden flex flex-col">
-            <div className="bg-[#141F36] border-b border-[#1E2D4A] px-3.5 py-2.5 flex items-center justify-between">
+          <div className="col-span-12 lg:col-span-5 bg-[#0B1120] border border-[#1A263D] rounded-lg overflow-hidden flex flex-col">
+            <div className="bg-[#162238] border-b border-[#1A263D] px-3.5 py-2.5 flex items-center justify-between">
               <span className="font-semibold text-[#F8FAFC]">Plan Versions</span>
               <span className="text-[10px] font-mono text-[#64748B]">History & Ledger</span>
             </div>
@@ -430,14 +434,14 @@ export default function AuditPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#0A0E17]/80 border-b border-[#1E2D4A] text-[#64748B] text-[10px] uppercase font-semibold">
+                  <tr className="bg-[#070D18] border-b border-[#1A263D] text-[#94A3B8] text-[10px] uppercase font-semibold">
                     <th className="py-2.5 px-3">Version</th>
                     <th className="py-2.5 px-2.5">Status</th>
                     <th className="py-2.5 px-2.5">Created</th>
                     <th className="py-2.5 px-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#1E2D4A]/50">
+                <tbody className="divide-y divide-[#1A263D]/60">
                   {versions.map((ver) => {
                     const isSelected = selectedVersionId === ver.id;
                     const isPending = ver.status === 'PENDING_REVIEW';
@@ -450,8 +454,8 @@ export default function AuditPage() {
                         onClick={() => setSelectedVersionId(ver.id)}
                         className={`cursor-pointer transition-colors ${
                           isSelected
-                            ? 'bg-[#1E2D4A] text-[#F8FAFC] border-l-2 border-l-[#2563EB]'
-                            : 'hover:bg-[#141F36]/80 text-[#94A3B8]'
+                            ? 'bg-[#162238] text-[#F8FAFC] border-l-2 border-l-[#2563EB]'
+                            : 'hover:bg-[#162238]/80 text-[#94A3B8]'
                         }`}
                       >
                         <td className="py-3 px-3">
@@ -507,7 +511,7 @@ export default function AuditPage() {
                                 e.stopPropagation();
                                 setSelectedVersionId(ver.id);
                               }}
-                              className="px-2.5 py-1 rounded text-[11px] font-medium bg-[#141F36] hover:bg-[#1E2D4A] text-[#CBD5E1] border border-[#1E2D4A] transition-colors"
+                              className="px-2.5 py-1 rounded text-[11px] font-medium bg-[#162238] hover:bg-[#1A263D] text-[#CBD5E1] border border-[#1A263D] transition-colors"
                             >
                               View
                             </button>
@@ -522,22 +526,22 @@ export default function AuditPage() {
           </div>
 
           {/* Right Side: Detailed Plan Version Inspector */}
-          <div className="col-span-12 lg:col-span-7 bg-[#0F172A] border border-[#1E2D4A] rounded-lg overflow-hidden flex flex-col">
+          <div className="col-span-12 lg:col-span-7 bg-[#0B1120] border border-[#162238] rounded-lg overflow-hidden flex flex-col">
             {/* Inspector Header with Tabs */}
-            <div className="bg-[#141F36] border-b border-[#1E2D4A] px-4 py-3 flex items-center justify-between">
+            <div className="bg-[#070D18] border-b border-[#162238] px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <FileCheck className="w-4 h-4 text-[#2563EB]" />
+                <FileCheck className="w-4 h-4 text-[#38BDF8]" />
                 <span className="font-semibold text-[#F8FAFC]">
                   Plan Version {selectedVersion.version} ({selectedVersion.status === 'PENDING_REVIEW' ? 'Active' : selectedVersion.status})
                 </span>
               </div>
 
               {/* Inspector Sub-Tabs: [Details | Review | Audit Trail] */}
-              <div className="flex items-center gap-1 bg-[#0A0E17] border border-[#1E2D4A] p-0.5 rounded text-[11px] font-medium">
+              <div className="flex items-center gap-1 bg-[#070D18] border border-[#162238] p-0.5 rounded text-[11px] font-medium">
                 <button
                   onClick={() => setInspectorTab('DETAILS')}
                   className={`px-3 py-1 rounded transition-colors ${
-                    inspectorTab === 'DETAILS' ? 'bg-[#2563EB] text-white' : 'text-[#94A3B8] hover:text-white'
+                    inspectorTab === 'DETAILS' ? 'bg-[#2563EB] text-white shadow-xs' : 'text-[#94A3B8] hover:text-[#F8FAFC]'
                   }`}
                 >
                   Details
@@ -545,7 +549,7 @@ export default function AuditPage() {
                 <button
                   onClick={() => setInspectorTab('REVIEW')}
                   className={`px-3 py-1 rounded transition-colors ${
-                    inspectorTab === 'REVIEW' ? 'bg-[#2563EB] text-white' : 'text-[#94A3B8] hover:text-white'
+                    inspectorTab === 'REVIEW' ? 'bg-[#2563EB] text-white shadow-xs' : 'text-[#94A3B8] hover:text-[#F8FAFC]'
                   }`}
                 >
                   Review ({comments.length})
@@ -553,7 +557,7 @@ export default function AuditPage() {
                 <button
                   onClick={() => setInspectorTab('AUDIT')}
                   className={`px-3 py-1 rounded transition-colors ${
-                    inspectorTab === 'AUDIT' ? 'bg-[#2563EB] text-white' : 'text-[#94A3B8] hover:text-white'
+                    inspectorTab === 'AUDIT' ? 'bg-[#2563EB] text-white shadow-xs' : 'text-[#94A3B8] hover:text-[#F8FAFC]'
                   }`}
                 >
                   Audit Trail
@@ -564,7 +568,7 @@ export default function AuditPage() {
             {/* Tab 1: Details Content */}
             {inspectorTab === 'DETAILS' && (
               <div className="p-4 space-y-4">
-                <div className="grid grid-cols-2 gap-3 bg-[#0A0E17]/60 border border-[#1E2D4A] rounded-lg p-3.5 text-xs">
+                <div className="grid grid-cols-2 gap-3 bg-[#070D18] border border-[#162238] rounded-lg p-3.5 text-xs">
                   <div>
                     <span className="text-[10px] text-[#64748B] block font-mono">Plan Version ID</span>
                     <span className="font-mono font-semibold text-[#F8FAFC]">{selectedVersion.id}</span>
@@ -592,29 +596,57 @@ export default function AuditPage() {
                 </div>
 
                 {/* SHA-256 Fingerprint */}
-                <div className="bg-[#0A0E17]/60 border border-[#1E2D4A] rounded-lg p-3.5 text-xs space-y-1">
+                <div className="bg-[#070D18] border border-[#162238] rounded-lg p-3.5 text-xs space-y-1">
                   <div className="flex items-center gap-1.5 text-[#94A3B8]">
-                    <Fingerprint className="w-3.5 h-3.5 text-[#2563EB]" />
+                    <Fingerprint className="w-3.5 h-3.5 text-[#38BDF8]" />
                     <span className="font-semibold text-[#F8FAFC]">Schedule Fingerprint (SHA-256)</span>
                   </div>
-                  <code className="block bg-[#141F36] border border-[#1E2D4A] p-2 rounded text-[11px] font-mono text-[#93C5FD] break-all select-all">
+                  <code className="block bg-[#0B1120] border border-[#162238] p-2 rounded text-[11px] font-mono text-[#38BDF8] break-all select-all">
                     {selectedVersion.hash}
                   </code>
                 </div>
 
                 {/* Independent Validation Banner */}
-                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-xs flex items-center justify-between text-[#F8FAFC]">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    <div>
-                      <span className="font-semibold text-emerald-300">Independent Feasibility Certified</span>
-                      <p className="text-[11px] text-[#94A3B8]">12 of 12 Hard Rules Certified (0 hard violations)</p>
+                {selectedVersion.status === 'APPROVED' ? (
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-xs flex items-center justify-between text-[#F8FAFC]">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <div>
+                        <span className="font-semibold text-emerald-300">Independent Feasibility Verified</span>
+                        <p className="text-[11px] text-[#94A3B8]">Algorithmic feasibility verified (0 hard constraint violations prior to sign-off)</p>
+                      </div>
                     </div>
+                    <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
+                      APPROVED
+                    </span>
                   </div>
-                  <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
-                    VALID
-                  </span>
-                </div>
+                ) : selectedVersion.status === 'REJECTED' ? (
+                  <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 text-xs flex items-center justify-between text-[#F8FAFC]">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-rose-400" />
+                      <div>
+                        <span className="font-semibold text-rose-300">Governance Review: Rejected</span>
+                        <p className="text-[11px] text-[#94A3B8]">Plan version rejected during Four-Eyes review gate</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-800">
+                      REJECTED
+                    </span>
+                  </div>
+                ) : (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs flex items-center justify-between text-[#F8FAFC]">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-amber-400" />
+                      <div>
+                        <span className="font-semibold text-amber-300">Candidate Evaluation</span>
+                        <p className="text-[11px] text-[#94A3B8]">Validation findings subject to formal Four-Eyes sign-off</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800">
+                      PENDING
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -625,7 +657,7 @@ export default function AuditPage() {
                   {comments.map((c) => (
                     <div
                       key={c.id}
-                      className="bg-[#0A0E17]/60 border border-[#1E2D4A] rounded-lg p-3 space-y-1.5 text-xs"
+                      className="bg-[#070D18] border border-[#162238] rounded-lg p-3 space-y-1.5 text-xs"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -651,7 +683,7 @@ export default function AuditPage() {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleAddComment();
                       }}
-                      className="w-full bg-[#0A0E17] border border-[#1E2D4A] rounded-lg pl-9 pr-3 py-2 text-xs text-[#F8FAFC] placeholder-[#64748B] focus:outline-hidden focus:border-[#2563EB]"
+                      className="w-full bg-[#070D18] border border-[#162238] rounded-lg pl-9 pr-3 py-2 text-xs text-[#F8FAFC] placeholder-[#64748B] focus:outline-hidden focus:border-[#2563EB]"
                     />
                   </div>
                   <Button
@@ -671,9 +703,9 @@ export default function AuditPage() {
               <div className="p-4 space-y-3">
                 <div className="space-y-3 text-xs">
                   {auditLogs.map((log, idx) => (
-                    <div key={idx} className="relative pl-6 pb-3 border-l border-[#1E2D4A] last:border-0 last:pb-0">
-                      <div className="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full bg-[#2563EB] border-2 border-[#0F172A]" />
-                      <div className="bg-[#0A0E17]/60 border border-[#1E2D4A] rounded-lg p-2.5 space-y-1">
+                    <div key={idx} className="relative pl-6 pb-3 border-l border-[#162238] last:border-0 last:pb-0">
+                      <div className="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full bg-[#2563EB] border-2 border-[#0B1120]" />
+                      <div className="bg-[#070D18] border border-[#162238] rounded-lg p-2.5 space-y-1">
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-[#F8FAFC]">
                             {log.event_type || 'PLAN_VERSION_EVENT'}
@@ -696,7 +728,7 @@ export default function AuditPage() {
             )}
 
             {/* Bottom Persistent Human Decision Bar */}
-            <div className="bg-[#141F36] border-t border-[#1E2D4A] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-auto">
+            <div className="bg-[#070D18] border-t border-[#162238] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-auto">
               <div className="flex items-center gap-1.5 text-xs text-amber-400 font-medium">
                 <Lock className="w-3.5 h-3.5 text-amber-400" />
                 <span>Human Decision Required: COMPLETED ≠ APPROVED</span>
@@ -706,8 +738,8 @@ export default function AuditPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => alert('Returned plan version for revisions.')}
-                  className="border-[#1E2D4A] text-xs text-[#CBD5E1] hover:text-white bg-[#0A0E17] h-8"
+                  onClick={() => setInfoMessage('Returned plan version for revisions in workflow queue.')}
+                  className="border-[#162238] text-xs text-[#CBD5E1] hover:text-white bg-[#0B1120] hover:bg-[#162238] h-8"
                 >
                   <RotateCcw className="w-3 h-3 mr-1" />
                   Return for Revision
@@ -757,6 +789,6 @@ export default function AuditPage() {
           })
         }
       />
-    </AppShell>
+    </>
   );
 }

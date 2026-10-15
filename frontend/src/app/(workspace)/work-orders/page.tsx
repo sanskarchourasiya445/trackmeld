@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AppShell } from '@/components/shell/AppShell';
 import { EntityInspector } from '@/components/planning/EntityInspector';
 import { ResponsiveDrawer } from '@/components/common/ResponsiveDrawer';
 import { DigitalTwinInspectionModal } from '@/components/digital-twin/DigitalTwinInspectionModal';
@@ -10,17 +9,8 @@ import { MaintenanceTask, formatTrackSpatial } from '@/types/railway';
 import {
   ClipboardList,
   Search,
-  Filter,
-  CheckCircle,
-  AlertTriangle,
-  Clock,
-  Wrench,
-  ShieldCheck,
   Eye,
   PanelRight,
-  ArrowUpDown,
-  Download,
-  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -155,25 +145,24 @@ export default function WorkOrdersPage() {
   };
 
   return (
-    <AppShell
-      activeScenarioId="SCN-DEMO-001"
-      scenarioName="Northern Trunk Corridor (NDLS - CNB)"
-      planningHorizon="Maintenance Work Orders: 24h Window"
-      tasksCount={tasks.length}
-      trainsCount={50}
-    >
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-2 sm:p-2.5 lg:p-3 gap-2 bg-[#04070D] font-sans max-w-[1920px] w-full mx-auto">
+    <>
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-2 sm:p-2.5 lg:p-3 gap-2 bg-[#070D18] font-sans max-w-[1920px] w-full mx-auto">
         {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-[#0B101C] border border-[#1E2D4A] rounded-lg px-3.5 py-2 shrink-0 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-[#0B1120] border border-[#1A263D] rounded-lg px-3.5 py-2 shrink-0 shadow-sm">
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#141F36] border border-[#2D436D] flex items-center justify-center text-[#38BDF8]">
+              <div className="w-8 h-8 rounded-lg bg-[#162238] border border-[#2563EB]/40 flex items-center justify-center text-[#38BDF8]">
                 <ClipboardList className="w-4 h-4" />
               </div>
               <div>
-                <h1 className="text-base font-bold text-[#F8FAFC]">Maintenance Work Orders & Requisitions</h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-base font-bold text-[#F8FAFC]">Maintenance Work Orders & Requisitions</h1>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 font-medium">
+                    DEMONSTRATION REQUISITIONS • 24H HORIZON
+                  </span>
+                </div>
                 <p className="text-[11px] text-[#94A3B8]">
-                  Permanent Way (P-Way), S&T point machines, and 25 kV AC Traction electrical possession requests
+                  Engineering, Signalling, and 25 kV Traction electrical possession blocks
                 </p>
               </div>
             </div>
@@ -184,7 +173,7 @@ export default function WorkOrdersPage() {
               size="sm"
               variant="outline"
               onClick={() => handleOpenDigitalTwin(selectedTask?.section_code || 'SEC-12')}
-              className="border-[#2D436D] hover:bg-[#141F36] text-[#38BDF8] text-xs font-semibold h-7.5 px-2.5 cursor-pointer"
+              className="border-[#1A263D] hover:bg-[#162238] text-[#38BDF8] text-xs font-semibold h-7.5 px-2.5 cursor-pointer"
             >
               <Eye className="w-3.5 h-3.5 mr-1" />
               <span>3D Twin</span>
@@ -193,8 +182,8 @@ export default function WorkOrdersPage() {
               size="sm"
               variant="outline"
               onClick={() => setIsInspectorOpen((prev) => !prev)}
-              className={`border-[#2D436D] text-xs font-semibold h-7.5 px-2.5 transition-colors cursor-pointer ${
-                isInspectorOpen ? 'bg-[#141F36] text-white border-[#2563EB]' : 'text-[#CBD5E1] hover:text-white'
+              className={`border-[#1A263D] text-xs font-semibold h-7.5 px-2.5 transition-colors cursor-pointer ${
+                isInspectorOpen ? 'bg-[#162238] text-white border-[#2563EB]' : 'text-[#CBD5E1] hover:bg-[#162238] hover:text-white'
               }`}
             >
               <PanelRight className="w-3.5 h-3.5 mr-1 text-[#38BDF8]" />
@@ -205,7 +194,7 @@ export default function WorkOrdersPage() {
 
         {/* Operational Statistics Row (Compact Operational KPI Strip) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 shrink-0">
-          <div className="bg-[#0B101C] border border-[#1E2D4A] rounded-lg px-3 py-1.5 flex items-center justify-between">
+          <div className="bg-[#0B1120] border border-[#1A263D] rounded-lg px-3 py-1.5 flex items-center justify-between">
             <span className="text-[10px] font-mono text-[#64748B] uppercase font-bold tracking-wider">
               Requisitions
             </span>
@@ -214,16 +203,16 @@ export default function WorkOrdersPage() {
               <span className="text-[10px] text-[#64748B]">Orders</span>
             </div>
           </div>
-          <div className="bg-[#0B101C] border border-emerald-500/30 rounded-lg px-3 py-1.5 flex items-center justify-between">
+          <div className="bg-[#0B1120] border border-emerald-500/30 rounded-lg px-3 py-1.5 flex items-center justify-between">
             <span className="text-[10px] font-mono text-emerald-400 uppercase font-bold tracking-wider">
-              Certified
+              Scheduled
             </span>
             <div className="flex items-baseline gap-1.5 font-mono">
               <span className="text-sm font-bold text-emerald-400">{scheduledCount}</span>
-              <span className="text-[10px] text-emerald-500/70">13/13 Pass</span>
+              <span className="text-[10px] text-emerald-500/70">In Plan</span>
             </div>
           </div>
-          <div className="bg-[#0B101C] border border-rose-500/30 rounded-lg px-3 py-1.5 flex items-center justify-between">
+          <div className="bg-[#0B1120] border border-rose-500/30 rounded-lg px-3 py-1.5 flex items-center justify-between">
             <span className="text-[10px] font-mono text-rose-400 uppercase font-bold tracking-wider">
               Unplaced
             </span>
@@ -232,7 +221,7 @@ export default function WorkOrdersPage() {
               <span className="text-[10px] text-rose-500/70">Headway</span>
             </div>
           </div>
-          <div className="bg-[#0B101C] border border-[#2563EB]/30 rounded-lg px-3 py-1.5 flex items-center justify-between">
+          <div className="bg-[#0B1120] border border-[#2563EB]/30 rounded-lg px-3 py-1.5 flex items-center justify-between">
             <span className="text-[10px] font-mono text-[#38BDF8] uppercase font-bold tracking-wider">
               Possessions
             </span>
@@ -244,12 +233,12 @@ export default function WorkOrdersPage() {
         </div>
 
         {/* Filters and Search Bar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-[#0B101C] border border-[#1E2D4A] rounded-lg px-3 py-1.5 shrink-0 text-xs">
-          <div className="flex items-center gap-2 flex-1 max-w-md bg-[#0F172A] border border-[#1E2D4A] rounded-md px-2.5 py-1">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-[#0B1120] border border-[#1A263D] rounded-lg px-3 py-1.5 shrink-0 text-xs">
+          <div className="flex items-center gap-2 flex-1 max-w-md bg-[#070D18] border border-[#1A263D] rounded-md px-2.5 py-1">
             <Search className="w-3.5 h-3.5 text-[#64748B] shrink-0" />
             <input
               type="text"
-              placeholder="Search by ID, asset, task code, or location..."
+              placeholder="Search by Work Order ID, asset, task code, or location..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent text-white placeholder-[#64748B] outline-none text-xs w-full font-mono"
@@ -262,7 +251,7 @@ export default function WorkOrdersPage() {
               value={deptFilter}
               onChange={(e) => setDeptFilter(e.target.value)}
               aria-label="Filter by department"
-              className="bg-[#0F172A] border border-[#1E2D4A] text-[#CBD5E1] rounded-md px-2.5 py-1 text-xs outline-none cursor-pointer h-7"
+              className="bg-[#070D18] border border-[#1A263D] text-[#CBD5E1] rounded-md px-2.5 py-1 text-xs outline-none cursor-pointer h-7"
             >
               <option value="ALL">All Departments</option>
               <option value="ENGINEERING">Civil Engineering (P-Way)</option>
@@ -275,10 +264,10 @@ export default function WorkOrdersPage() {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               aria-label="Filter by schedule status"
-              className="bg-[#0F172A] border border-[#1E2D4A] text-[#CBD5E1] rounded-md px-2.5 py-1 text-xs outline-none cursor-pointer h-7"
+              className="bg-[#070D18] border border-[#1A263D] text-[#CBD5E1] rounded-md px-2.5 py-1 text-xs outline-none cursor-pointer h-7"
             >
               <option value="ALL">All Statuses</option>
-              <option value="SCHEDULED">Scheduled (Certified)</option>
+              <option value="SCHEDULED">Scheduled</option>
               <option value="UNSCHEDULED">Unplaced / Conflicts</option>
             </select>
 
@@ -289,12 +278,12 @@ export default function WorkOrdersPage() {
         </div>
 
         {/* Spacious Full-Width Table Workspace & Responsive Mobile Cards */}
-        <div className="flex-1 min-h-0 bg-[#0B101C] border border-[#1E2D4A] rounded-lg overflow-hidden flex flex-col shadow-sm">
+        <div className="flex-1 min-h-0 bg-[#0B1120] border border-[#1A263D] rounded-lg overflow-hidden flex flex-col shadow-sm">
           {/* 1. Desktop & Tablet Responsive Table View (hidden on mobile < md) */}
           <div className="hidden md:flex flex-1 overflow-auto">
             {filteredTasks.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-2.5">
-                <div className="w-10 h-10 rounded-full bg-[#141F36] border border-[#2D436D] flex items-center justify-center text-[#64748B]">
+                <div className="w-10 h-10 rounded-full bg-[#162238] border border-[#1A263D] flex items-center justify-center text-[#64748B]">
                   <Search className="w-5 h-5" />
                 </div>
                 <div className="font-semibold text-sm text-[#F8FAFC]">No work orders match filter criteria</div>
@@ -309,14 +298,14 @@ export default function WorkOrdersPage() {
                     setDeptFilter('ALL');
                     setStatusFilter('ALL');
                   }}
-                  className="border-[#2D436D] text-xs text-[#38BDF8] hover:bg-[#141F36] h-7 mt-1"
+                  className="border-[#1A263D] text-xs text-[#38BDF8] hover:bg-[#162238] h-7 mt-1"
                 >
                   Reset Filters
                 </Button>
               </div>
             ) : (
               <table className="w-full min-w-[900px] text-xs text-left border-collapse font-sans">
-                <thead className="bg-[#0F172A] text-[#94A3B8] font-sans font-semibold uppercase text-[10px] sticky top-0 border-b border-[#1E2D4A] z-10 tracking-wider">
+                <thead className="bg-[#070D18] text-[#94A3B8] font-sans font-semibold uppercase text-[10px] sticky top-0 border-b border-[#1A263D] z-10 tracking-wider">
                   <tr>
                     <th className="py-2.5 px-3 min-w-[95px]">ID / Code</th>
                     <th className="py-2.5 px-3 min-w-[240px]">Work Title & Type</th>
@@ -329,7 +318,7 @@ export default function WorkOrdersPage() {
                     <th className="py-2.5 px-3 min-w-[95px] text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#1E2D4A]/50">
+                <tbody className="divide-y divide-[#1A263D]/60">
                   {filteredTasks.map((t) => {
                     const isSelected = selectedTaskId === t.task_id;
                     const isUnplaced = t.task_id === 'TSK-0007';
@@ -347,10 +336,10 @@ export default function WorkOrdersPage() {
                             handleRowClick(t.task_id);
                           }
                         }}
-                        className={`transition-colors cursor-pointer outline-none border-b border-[#1E2D4A]/40 ${
+                        className={`transition-colors cursor-pointer outline-none border-b border-[#1A263D]/40 ${
                           isSelected
-                            ? 'bg-[#13233F] text-white border-l-4 border-l-[#38BDF8] ring-1 ring-inset ring-[#2563EB]/40'
-                            : 'hover:bg-[#141F36]/80 border-l-4 border-l-transparent text-[#CBD5E1]'
+                            ? 'bg-[#162238] text-white border-l-4 border-l-[#38BDF8] ring-1 ring-inset ring-[#2563EB]/40'
+                            : 'hover:bg-[#162238]/80 border-l-4 border-l-transparent text-[#CBD5E1]'
                         }`}
                       >
                         <td className="py-3.5 px-4 whitespace-nowrap">
@@ -366,7 +355,7 @@ export default function WorkOrdersPage() {
                             {t.title}
                           </div>
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                            <span className="text-[10px] text-[#93C5FD] font-mono bg-[#141F36] px-1.5 py-0.5 rounded border border-[#2D436D]">
+                            <span className="text-[10px] text-[#93C5FD] font-mono bg-[#070D18] px-1.5 py-0.5 rounded border border-[#1A263D]">
                               {t.work_type}
                             </span>
                             {t.requires_traffic_block && (
@@ -431,7 +420,7 @@ export default function WorkOrdersPage() {
                               e.stopPropagation();
                               handleRowClick(t.task_id);
                             }}
-                            className="text-xs text-[#38BDF8] border-[#2D436D] hover:bg-[#141F36] hover:text-white mr-1.5 h-7.5 px-2.5"
+                            className="text-xs text-[#38BDF8] border-[#1A263D] hover:bg-[#162238] hover:text-white mr-1.5 h-7.5 px-2.5"
                           >
                             Inspect
                           </Button>
@@ -469,7 +458,7 @@ export default function WorkOrdersPage() {
                     setDeptFilter('ALL');
                     setStatusFilter('ALL');
                   }}
-                  className="border-[#2D436D] text-xs text-[#38BDF8] hover:bg-[#141F36] h-7 px-2 mt-1"
+                  className="border-[#1A263D] text-xs text-[#38BDF8] hover:bg-[#162238] h-7 px-2 mt-1"
                 >
                   Reset Filters
                 </Button>
@@ -485,7 +474,7 @@ export default function WorkOrdersPage() {
                     onClick={() => handleRowClick(t.task_id)}
                     tabIndex={0}
                     role="button"
-                    aria-selected={isSelected}
+                    aria-pressed={isSelected}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
@@ -494,8 +483,8 @@ export default function WorkOrdersPage() {
                     }}
                     className={`p-3.5 rounded-xl border transition-all cursor-pointer space-y-2.5 ${
                       isSelected
-                        ? 'bg-[#13233F] border-[#38BDF8] shadow-md ring-1 ring-[#38BDF8]/40'
-                        : 'bg-[#0E1526] border-[#1E2D4A] hover:bg-[#141F36]'
+                        ? 'bg-[#162238] border-[#38BDF8] shadow-md ring-1 ring-[#38BDF8]/40'
+                        : 'bg-[#0B1120] border-[#1A263D] hover:bg-[#162238]'
                     }`}
                   >
                     {/* Card Top: Code + Badges */}
@@ -534,7 +523,7 @@ export default function WorkOrdersPage() {
                     </div>
 
                     {/* Card Details Grid */}
-                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1.5 border-t border-[#1E2D4A]/60">
+                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1.5 border-t border-[#1A263D]/60">
                       <div>
                         <span className="text-[#64748B] text-[10px] block">Location:</span>
                         <span className="font-mono text-[#CBD5E1] font-medium">{formatTrackSpatial(t)}</span>
@@ -556,7 +545,7 @@ export default function WorkOrdersPage() {
                     </div>
 
                     {/* Card Actions */}
-                    <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#1E2D4A]/40">
+                    <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#1A263D]/40">
                       <Button
                         size="sm"
                         variant="outline"
@@ -564,7 +553,7 @@ export default function WorkOrdersPage() {
                           e.stopPropagation();
                           handleRowClick(t.task_id);
                         }}
-                        className="text-xs text-[#38BDF8] border-[#2D436D] hover:bg-[#141F36] h-8 px-3"
+                        className="text-xs text-[#38BDF8] border-[#1A263D] hover:bg-[#162238] h-8 px-3"
                       >
                         Inspect Details
                       </Button>
@@ -628,6 +617,6 @@ export default function WorkOrdersPage() {
         workOrderTitle={selectedTask?.title}
         task={selectedTask}
       />
-    </AppShell>
+    </>
   );
 }

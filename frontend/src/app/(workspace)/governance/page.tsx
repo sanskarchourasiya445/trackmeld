@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
-import { AppShell } from '@/components/shell/AppShell';
+import React, { useState, useEffect } from 'react';
 import { PlanApprovalModal } from '@/components/governance/PlanApprovalModal';
 import { ResponsiveDrawer } from '@/components/common/ResponsiveDrawer';
 import {
   DEMO_VALIDATION_RESULT,
   DEMO_PLAN_VERSION,
   DEMO_AUDIT_LOGS,
+  getPlanVersions,
   approvePlanVersion,
   rejectPlanVersion,
 } from '@/lib/api/client';
@@ -16,17 +16,11 @@ import {
   ShieldCheck,
   FileCheck,
   CheckCircle,
-  AlertTriangle,
-  Clock,
+  AlertCircle,
   UserCheck,
-  Lock,
   History,
   Hash,
-  ExternalLink,
-  ChevronRight,
-  ArrowRight,
   FileText,
-  Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -193,8 +187,28 @@ export default function GovernancePage() {
   const [validationResult] = useState<ScheduleValidationResult>(DEMO_VALIDATION_RESULT);
   const [isApprovalOpen, setIsApprovalOpen] = useState(false);
   const [selectedCheck, setSelectedCheck] = useState<ValidationCheckCategory | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadVersion() {
+      try {
+        const versions = await getPlanVersions('SCN-DEMO-001');
+        if (isMounted && versions && versions.length > 0) {
+          setPlanVersion(versions[0]);
+        }
+      } catch (err) {
+        console.warn('Could not load plan versions from server, retaining initial candidate:', err);
+      }
+    }
+    loadVersion();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleApprove = async (payload: { reviewer_name: string; reviewer_role: string; approval_notes: string }) => {
+    setActionError(null);
     try {
       const updated = await approvePlanVersion(
         planVersion.plan_version_id,
@@ -203,40 +217,31 @@ export default function GovernancePage() {
         payload.reviewer_role
       );
       setPlanVersion(updated);
-    } catch {
-      setPlanVersion((prev) => ({
-        ...prev,
-        status: 'APPROVED',
-        approved_by: payload.reviewer_name,
-        approved_at: new Date().toISOString(),
-        approval_notes: payload.approval_notes,
-      }));
+      setIsApprovalOpen(false);
+    } catch (err: unknown) {
+      console.error('Plan approval error:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setActionError(`GOVERNANCE ACTION REJECTED: ${msg}`);
+      setIsApprovalOpen(false);
     }
   };
 
   const handleReject = async (payload: { reviewer_name: string; reviewer_role: string; rejection_reason: string }) => {
+    setActionError(null);
     try {
       const updated = await rejectPlanVersion(planVersion.plan_version_id, payload.rejection_reason);
       setPlanVersion(updated);
-    } catch {
-      setPlanVersion((prev) => ({
-        ...prev,
-        status: 'REJECTED',
-        rejected_by: payload.reviewer_name,
-        rejected_at: new Date().toISOString(),
-        rejection_reason: payload.rejection_reason,
-      }));
+      setIsApprovalOpen(false);
+    } catch (err: unknown) {
+      console.error('Plan rejection error:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setActionError(`GOVERNANCE ACTION REJECTED: ${msg}`);
+      setIsApprovalOpen(false);
     }
   };
 
   return (
-    <AppShell
-      activeScenarioId="SCN-DEMO-001"
-      scenarioName="Northern Trunk Corridor (NDLS - CNB)"
-      planningHorizon="Governance: Four-Eyes Principle Gate"
-      tasksCount={29}
-      trainsCount={50}
-    >
+    <>
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 space-y-3.5 max-w-[1920px] w-full mx-auto font-sans select-none">
         {/* ============================================================== */}
         {/* 1. GOVERNANCE COMMAND HEADER                                   */}
@@ -252,7 +257,7 @@ export default function GovernancePage() {
                   Safety Validation & Human Governance
                 </h1>
                 <p className="text-[11px] text-[#94A3B8] mt-0.5">
-                  Independent 13-check mathematical safety firewall and Four-Eyes human operator sign-off
+                  Independent mathematical validation check and Four-Eyes human operator sign-off
                 </p>
               </div>
             </div>
@@ -266,22 +271,51 @@ export default function GovernancePage() {
               <span className={`px-2 py-0.5 rounded font-bold text-[10px] border ${
                 planVersion.status === 'APPROVED'
                   ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40'
+                  : planVersion.status === 'REJECTED'
+                  ? 'bg-rose-950/80 text-rose-400 border-rose-500/40'
                   : 'bg-amber-950/80 text-amber-400 border-amber-500/40'
               }`}>
-                {planVersion.status === 'APPROVED' ? 'APPROVED' : 'PENDING REVIEW'}
+                {planVersion.status === 'APPROVED'
+                  ? 'APPROVED'
+                  : planVersion.status === 'REJECTED'
+                  ? 'REJECTED'
+                  : 'PENDING REVIEW'}
               </span>
             </div>
 
             <Button
               size="sm"
+              disabled={planVersion.status === 'APPROVED' || planVersion.status === 'REJECTED'}
               onClick={() => setIsApprovalOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 h-8 shadow-xs cursor-pointer"
+              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold px-3 h-8 shadow-xs cursor-pointer"
             >
               <FileCheck className="w-3.5 h-3.5 mr-1.5" />
-              <span>Perform Four-Eyes Review</span>
+              <span>
+                {planVersion.status === 'APPROVED'
+                  ? 'Plan Approved'
+                  : planVersion.status === 'REJECTED'
+                  ? 'Plan Rejected'
+                  : 'Perform Four-Eyes Review'}
+              </span>
             </Button>
           </div>
         </div>
+
+        {/* Action Error Banner */}
+        {actionError && (
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 text-xs text-rose-300 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{actionError}</span>
+            </div>
+            <button
+              onClick={() => setActionError(null)}
+              className="text-[#94A3B8] hover:text-white text-xs px-2 py-0.5 rounded hover:bg-rose-500/20 cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* ============================================================== */}
         {/* 2. FORMAL OPERATIONAL GOVERNANCE WORKFLOW PIPELINE             */}
@@ -301,8 +335,8 @@ export default function GovernancePage() {
             <div className="bg-[#0F172A] border border-emerald-500/40 rounded-lg p-3 relative">
               <span className="text-[10px] font-mono text-emerald-400 block font-bold">STAGE 2</span>
               <span className="font-bold text-xs text-[#F8FAFC] block mt-0.5">Independent Validation</span>
-              <p className="text-[11px] text-emerald-400 font-mono mt-0.5 font-semibold">13/13 CHECKS PASSED (100%)</p>
-              <span className="text-[10.5px] text-[#94A3B8] block mt-0.5">Separated verification firewall</span>
+              <p className="text-[11px] text-emerald-400 font-mono mt-0.5 font-semibold">ALL CHECKS PASSED ({VALIDATION_CHECKS.length}/{VALIDATION_CHECKS.length})</p>
+              <span className="text-[10.5px] text-[#94A3B8] block mt-0.5">Separated verification engine</span>
             </div>
 
             <div className="bg-[#0F172A] border border-[#2563EB]/40 rounded-lg p-3 relative">
@@ -315,17 +349,31 @@ export default function GovernancePage() {
             <div className={`border rounded-lg p-3 relative ${
               planVersion.status === 'APPROVED'
                 ? 'bg-emerald-950/20 border-emerald-500/50'
+                : planVersion.status === 'REJECTED'
+                ? 'bg-rose-950/20 border-rose-500/40'
                 : 'bg-amber-950/20 border-amber-500/40'
             }`}>
               <span className="text-[10px] font-mono block text-[#94A3B8] font-bold">STAGE 4</span>
               <span className="font-bold text-xs text-[#F8FAFC] block mt-0.5">Final Track Clearance</span>
               <p className={`text-[11px] font-mono mt-0.5 font-bold ${
-                planVersion.status === 'APPROVED' ? 'text-emerald-400' : 'text-amber-400'
+                planVersion.status === 'APPROVED'
+                  ? 'text-emerald-400'
+                  : planVersion.status === 'REJECTED'
+                  ? 'text-rose-400'
+                  : 'text-amber-400'
               }`}>
-                {planVersion.status === 'APPROVED' ? 'PLAN AUTHORIZED & SIGNED' : 'AWAITING EXECUTIVE SIGN-OFF'}
+                {planVersion.status === 'APPROVED'
+                  ? 'PLAN AUTHORIZED & SIGNED'
+                  : planVersion.status === 'REJECTED'
+                  ? 'PLAN REJECTED BY GOVERNANCE'
+                  : 'AWAITING EXECUTIVE SIGN-OFF'}
               </p>
               <span className="text-[10.5px] text-[#94A3B8] block mt-0.5">
-                {planVersion.status === 'APPROVED' ? 'Ready for field dispatch' : 'Action required by DRM/Sr. DOM'}
+                {planVersion.status === 'APPROVED'
+                  ? 'Ready for field dispatch'
+                  : planVersion.status === 'REJECTED'
+                  ? 'Cannot dispatch to live corridor'
+                  : 'Action required by DRM/Sr. DOM'}
               </span>
             </div>
           </div>
@@ -356,11 +404,25 @@ export default function GovernancePage() {
                 <span className="text-[10.5px] text-[#94A3B8] block mt-0.5">Chief Operations Planner</span>
               </div>
               <div className="bg-[#0F172A] p-2.5 rounded-md border border-[#1E2D4A]">
-                <span className="text-[10px] text-[#64748B] block font-bold">DESIGNATED APPROVER:</span>
-                <span className="font-bold text-emerald-400 text-xs block mt-0.5">
-                  {planVersion.approved_by || 'ops_executive_officer'}
+                <span className="text-[10px] text-[#64748B] block font-bold">
+                  {planVersion.status === 'APPROVED' ? 'APPROVED BY:' : planVersion.status === 'REJECTED' ? 'REJECTED BY:' : 'DESIGNATED APPROVER:'}
                 </span>
-                <span className="text-[10.5px] text-[#94A3B8] block mt-0.5">Safety & Governance Officer</span>
+                <span className={`font-bold text-xs block mt-0.5 ${
+                  planVersion.status === 'APPROVED' ? 'text-emerald-400' : planVersion.status === 'REJECTED' ? 'text-rose-400' : 'text-[#94A3B8]'
+                }`}>
+                  {planVersion.status === 'APPROVED'
+                    ? (planVersion.approved_by || 'ops_executive_officer')
+                    : planVersion.status === 'REJECTED'
+                    ? (planVersion.rejected_by || 'Operations Reviewer')
+                    : 'Pending Four-Eyes Review'}
+                </span>
+                <span className="text-[10.5px] text-[#94A3B8] block mt-0.5">
+                  {planVersion.status === 'APPROVED'
+                    ? `Authorized on ${planVersion.approved_at ? new Date(planVersion.approved_at).toLocaleDateString() : 'Confirmed'}`
+                    : planVersion.status === 'REJECTED'
+                    ? `Rejected: ${planVersion.rejection_reason || 'Safety criteria not met'}`
+                    : 'Independent Safety & Governance Officer'}
+                </span>
               </div>
             </div>
           </div>
@@ -386,7 +448,7 @@ export default function GovernancePage() {
               <div className="flex justify-between text-[11px] text-[#94A3B8] pt-0.5">
                 <span>Snapshot: <strong className="text-white">SNAP-297E475AC983</strong></span>
                 <span>Audit Latency: <strong className="text-emerald-400">18.4 ms</strong></span>
-                <span>Entities Certified: <strong className="text-white">29 / 29 Tasks</strong></span>
+                <span>Scheduled Tasks: <strong className="text-white">29 / 29</strong></span>
               </div>
             </div>
           </div>
@@ -399,14 +461,14 @@ export default function GovernancePage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-[#1E2D4A]">
             <div>
               <h2 className="text-sm font-bold text-[#F8FAFC]">
-                13-Check Independent Safety Validation Firewall
+                Independent Feasibility Validation Suite ({VALIDATION_CHECKS.length} Checks)
               </h2>
               <p className="text-[11px] text-[#94A3B8] mt-0.5">
                 Executed outside the solver process by an isolated deterministic validation engine
               </p>
             </div>
             <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 px-2.5 py-1 rounded-md border border-emerald-500/40">
-              100% PASS RATE (13/13)
+              {VALIDATION_CHECKS.length}/{VALIDATION_CHECKS.length} CHECKS PASSED
             </span>
           </div>
 
@@ -570,6 +632,6 @@ export default function GovernancePage() {
         onApprove={handleApprove}
         onReject={handleReject}
       />
-    </AppShell>
+    </>
   );
 }

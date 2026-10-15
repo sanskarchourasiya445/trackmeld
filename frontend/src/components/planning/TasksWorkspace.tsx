@@ -78,9 +78,9 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0A0E17] p-4 gap-3 overflow-hidden select-none font-sans text-xs">
+    <div className="flex-1 flex flex-col h-full bg-[#0B1120] p-3 sm:p-4 gap-2.5 overflow-hidden select-none font-sans text-xs">
       {/* 1. Header & Counter KPIs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3.5 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F172A] border border-[#1A263D] rounded-lg p-3 sm:p-3.5 shrink-0">
         <div>
           <h2 className="text-base font-bold text-[#F8FAFC]">Task Management Workspace</h2>
           <p className="text-xs text-[#94A3B8] mt-0.5">
@@ -90,23 +90,23 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
 
         {/* Counter Pills */}
         <div className="flex items-center gap-2 font-mono text-[11px]">
-          <span className="bg-[#141F36] border border-[#1E2D4A] px-2.5 py-1 rounded text-[#F8FAFC]">
+          <span className="bg-[#070D18] border border-[#1A263D] px-2.5 py-1 rounded text-[#F8FAFC] font-semibold">
             Total: <strong>{tasks.length}</strong>
           </span>
-          <span className="bg-emerald-950/40 border border-emerald-500/30 px-2.5 py-1 rounded text-emerald-400">
+          <span className="bg-emerald-950/40 border border-emerald-500/30 px-2.5 py-1 rounded text-emerald-400 font-semibold">
             Scheduled: <strong>{scheduledCount}</strong>
           </span>
-          <span className="bg-amber-950/40 border border-amber-500/30 px-2.5 py-1 rounded text-amber-400">
+          <span className="bg-amber-950/40 border border-amber-500/30 px-2.5 py-1 rounded text-amber-400 font-semibold">
             Unplaced: <strong>{unplacedCount}</strong>
           </span>
-          <span className="bg-rose-950/40 border border-rose-500/30 px-2.5 py-1 rounded text-rose-400">
+          <span className="bg-rose-950/40 border border-rose-500/30 px-2.5 py-1 rounded text-rose-400 font-semibold">
             Conflicts: <strong>{conflictsCount}</strong>
           </span>
         </div>
       </div>
 
       {/* 2. Filter & Search Toolbar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-2.5 shrink-0">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-[#0F172A] border border-[#1A263D] rounded-lg p-2.5 shrink-0">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
           <Search className="w-3.5 h-3.5 text-[#64748B] absolute left-3 top-1/2 -translate-y-1/2" />
@@ -115,24 +115,24 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
             placeholder="Search by Task ID, section, work title..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-[#0A0E17] border border-[#1E2D4A] rounded-md pl-9 pr-3 py-1.5 text-xs text-[#F8FAFC] placeholder-[#64748B] focus:outline-hidden focus:border-[#2563EB]"
+            className="w-full bg-[#070D18] border border-[#1A263D] rounded-md pl-9 pr-3 py-1.5 text-xs text-[#F8FAFC] placeholder-[#64748B] focus:outline-hidden focus:border-[#2563EB] transition-colors"
           />
         </div>
 
         {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1 bg-[#0A0E17] border border-[#1E2D4A] p-0.5 rounded-md text-[11px] font-medium">
+        <div className="flex items-center gap-1 bg-[#070D18] border border-[#1A263D] p-0.5 rounded-md text-[11px] font-medium">
           <button
             onClick={() => setStatusFilter('ALL')}
-            className={`px-3 py-1 rounded transition-colors ${
-              statusFilter === 'ALL' ? 'bg-[#2563EB] text-white' : 'text-[#94A3B8] hover:text-white'
+            className={`px-3 py-1 rounded transition-colors cursor-pointer ${
+              statusFilter === 'ALL' ? 'bg-[#2563EB] text-white shadow-xs' : 'text-[#94A3B8] hover:text-white'
             }`}
           >
             All ({tasks.length})
           </button>
           <button
             onClick={() => setStatusFilter('SCHEDULED')}
-            className={`px-3 py-1 rounded transition-colors flex items-center gap-1 ${
-              statusFilter === 'SCHEDULED' ? 'bg-emerald-600 text-white' : 'text-[#94A3B8] hover:text-emerald-400'
+            className={`px-3 py-1 rounded transition-colors flex items-center gap-1 cursor-pointer ${
+              statusFilter === 'SCHEDULED' ? 'bg-emerald-600 text-white shadow-xs' : 'text-[#94A3B8] hover:text-emerald-400'
             }`}
           >
             <CheckCircle2 className="w-3 h-3" />
@@ -140,8 +140,8 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
           </button>
           <button
             onClick={() => setStatusFilter('UNPLACED')}
-            className={`px-3 py-1 rounded transition-colors flex items-center gap-1 ${
-              statusFilter === 'UNPLACED' ? 'bg-amber-600 text-white' : 'text-[#94A3B8] hover:text-amber-400'
+            className={`px-3 py-1 rounded transition-colors flex items-center gap-1 cursor-pointer ${
+              statusFilter === 'UNPLACED' ? 'bg-amber-600 text-white shadow-xs' : 'text-[#94A3B8] hover:text-amber-400'
             }`}
           >
             <Clock className="w-3 h-3" />
@@ -149,8 +149,8 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
           </button>
           <button
             onClick={() => setStatusFilter('CONFLICTS')}
-            className={`px-3 py-1 rounded transition-colors flex items-center gap-1 ${
-              statusFilter === 'CONFLICTS' ? 'bg-rose-600 text-white' : 'text-[#94A3B8] hover:text-rose-400'
+            className={`px-3 py-1 rounded transition-colors flex items-center gap-1 cursor-pointer ${
+              statusFilter === 'CONFLICTS' ? 'bg-rose-600 text-white shadow-xs' : 'text-[#94A3B8] hover:text-rose-400'
             }`}
           >
             <AlertTriangle className="w-3 h-3" />
@@ -164,7 +164,7 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            className="bg-[#0A0E17] border border-[#1E2D4A] rounded px-2.5 py-1 text-xs text-[#CBD5E1] focus:outline-hidden"
+            className="bg-[#070D18] border border-[#1A263D] rounded px-2.5 py-1 text-xs text-[#CBD5E1] focus:outline-hidden cursor-pointer"
           >
             <option value="ALL">All Priorities</option>
             <option value="HIGH">Critical / High</option>
@@ -174,7 +174,7 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
       </div>
 
       {/* 3. Comprehensive Task Table (Desktop/Tablet) & Mobile Card Records */}
-      <div className="flex-1 bg-[#0F172A] border border-[#1E2D4A] rounded-lg overflow-auto">
+      <div className="flex-1 bg-[#0F172A] border border-[#1A263D] rounded-lg overflow-auto">
         {filteredTasks.length === 0 ? (
           <div className="py-12 text-center text-[#64748B]">
             No maintenance tasks match the selected criteria.
@@ -184,7 +184,7 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
             {/* Desktop & Tablet Table */}
             <table className="hidden md:table w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-[#141F36] border-b border-[#1E2D4A] text-[#64748B] text-[10px] uppercase font-semibold sticky top-0 z-10">
+                <tr className="bg-[#070D18]/90 border-b border-[#1A263D] text-[#64748B] text-[10px] uppercase font-semibold sticky top-0 z-10">
                   <th className="py-2.5 px-3">Task ID</th>
                   <th className="py-2.5 px-3">Section</th>
                   <th className="py-2.5 px-3">Type & Activity</th>
@@ -195,7 +195,7 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
                   <th className="py-2.5 px-3 text-right">Inspect</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#1E2D4A]/50">
+              <tbody className="divide-y divide-[#1A263D]/50">
                 {filteredTasks.map((t) => {
                   const isSelected = selectedTaskId === t.task_id;
                   const scheduled = scheduledMap.get(t.task_id);
@@ -212,20 +212,20 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
                       onClick={() => onSelectTask(t.task_id)}
                       className={`cursor-pointer transition-colors ${
                         isSelected
-                          ? 'bg-[#1E2D4A] text-[#F8FAFC] border-l-2 border-l-[#2563EB]'
-                          : 'hover:bg-[#141F36]/80 text-[#94A3B8]'
+                          ? 'bg-[#142038] text-[#F8FAFC] border-l-2 border-l-[#38BDF8]'
+                          : 'hover:bg-[#111A2E] text-[#94A3B8]'
                       }`}
                     >
-                      <td className="py-3 px-3 font-mono font-semibold text-[#F8FAFC]">
+                      <td className="py-3 px-3 font-mono font-bold text-[#F8FAFC]">
                         {t.task_code || t.task_id}
                       </td>
 
-                      <td className="py-3 px-3 font-mono text-[#CBD5E1]">
+                      <td className="py-3 px-3 font-mono text-[#93C5FD]">
                         {t.section_code || t.section_id || 'SEC-12'}
                       </td>
 
                       <td className="py-3 px-3 text-[#F8FAFC] max-w-[220px]">
-                        <div className="font-medium truncate">{t.title}</div>
+                        <div className="font-semibold truncate">{t.title}</div>
                         <div className="text-[10px] text-[#64748B] truncate">
                           {t.department || 'ENGINEERING'} • {t.work_type || 'TRACK_WORK'}
                         </div>
@@ -272,7 +272,7 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
             </table>
 
             {/* Mobile Card Records (< md) */}
-            <div className="md:hidden divide-y divide-[#1E2D4A]/60 p-2 space-y-2">
+            <div className="md:hidden divide-y divide-[#1A263D]/60 p-2 space-y-2">
               {filteredTasks.map((t) => {
                 const isSelected = selectedTaskId === t.task_id;
                 const scheduled = scheduledMap.get(t.task_id);
@@ -289,8 +289,8 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
                     onClick={() => onSelectTask(t.task_id)}
                     className={`p-3 rounded-lg border transition-colors cursor-pointer space-y-2 ${
                       isSelected
-                        ? 'bg-[#1E2D4A] border-[#2563EB] text-[#F8FAFC]'
-                        : 'bg-[#0A0E17]/60 border-[#1E2D4A] hover:bg-[#141F36]'
+                        ? 'bg-[#142038] border-[#38BDF8] text-[#F8FAFC]'
+                        : 'bg-[#070D18]/80 border-[#1A263D] hover:bg-[#0F172A]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -316,7 +316,7 @@ export const TasksWorkspace: React.FC<TasksWorkspaceProps> = ({
                       {t.title}
                     </div>
 
-                    <div className="flex items-center justify-between text-[10.5px] font-mono text-[#94A3B8] pt-1.5 border-t border-[#1E2D4A]/60">
+                    <div className="flex items-center justify-between text-[10.5px] font-mono text-[#94A3B8] pt-1.5 border-t border-[#1A263D]/60">
                       <span>{t.section_code || t.section_id || 'SEC-12'}</span>
                       <span className="text-[#93C5FD]">
                         {formatWindow(startWindow, '07:00')} – {formatWindow(endWindow, '10:00')}

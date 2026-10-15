@@ -27,8 +27,13 @@ export const TopBar: React.FC<TopBarProps> = ({
   activeScenarioId = 'SCN-DEMO-001',
   scenarioName = 'Northern Corridor',
   planningHorizon = '72-Hour Planning Horizon',
+  onToggleSidebar: propOnToggleSidebar,
+  isSidebarCollapsed: propIsSidebarCollapsed,
 }) => {
-  const { openMobile } = useSidebar();
+  const { openMobile, isCollapsed, handleGlobalToggle } = useSidebar();
+  const onToggleSidebar = propOnToggleSidebar || handleGlobalToggle;
+  const isSidebarCollapsed =
+    propIsSidebarCollapsed !== undefined ? propIsSidebarCollapsed : isCollapsed;
   const [isScenarioDrawerOpen, setIsScenarioDrawerOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -49,9 +54,21 @@ export const TopBar: React.FC<TopBarProps> = ({
     <>
       <header className="h-14 bg-[#070D18] border-b border-[#152238] px-3 sm:px-4 lg:px-5 flex items-center justify-between z-40 select-none shrink-0 font-sans">
         {/* ============================================================== */}
-        {/* LEFT SECTION: Brand Identity (Emblem + Wordmark + v1.0 badge)  */}
+        {/* LEFT SECTION: Toggle Button + Brand Identity (Emblem + Wordmark)*/}
         {/* ============================================================== */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="hidden lg:flex w-8 h-8 rounded-lg bg-[#0B1322] hover:bg-[#111A2E] border border-[#172640] hover:border-[#1E3A6B] text-[#8EA3BE] hover:text-[#38BDF8] transition-colors items-center justify-center cursor-pointer shrink-0 focus-visible:ring-1 focus-visible:ring-[#38BDF8] outline-none"
+            title={isSidebarCollapsed ? "Expand sidebar navigation (Ctrl+B)" : "Collapse sidebar navigation (Ctrl+B)"}
+            aria-label="Toggle sidebar navigation"
+            aria-expanded={!isSidebarCollapsed}
+            aria-controls="railway-navigation-sidebar"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+
           <Link
             href="/"
             className="flex items-center gap-2.5 group shrink-0 outline-none focus-visible:ring-1 focus-visible:ring-[#38BDF8] rounded"
@@ -80,7 +97,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             title={`Active Scenario: ${activeScenarioId}`}
             aria-label={`Selected Scenario: ${activeScenarioId}`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8] shrink-0" />
             <span className="text-[#64748B] font-sans text-[11px] hidden md:inline">Scenario:</span>
             <span className="font-semibold text-[#38BDF8]">{activeScenarioId}</span>
             <ChevronDown className="w-3.5 h-3.5 text-[#64748B] shrink-0" />
@@ -97,9 +114,9 @@ export const TopBar: React.FC<TopBarProps> = ({
               {planningHorizon}
             </span>
             <span className="hidden xl:inline text-[#1E304E] shrink-0">•</span>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-              <span>Live Data (Synthetic)</span>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[11px] font-medium shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+              <span>Synthetic Demo</span>
             </div>
           </div>
         </div>
@@ -143,7 +160,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             onClick={openMobile}
             className="lg:hidden w-8 h-8 rounded-lg bg-[#0B1322] hover:bg-[#111A2E] border border-[#172640] text-[#8EA3BE] hover:text-[#F8FAFC] transition-colors flex items-center justify-center cursor-pointer shrink-0 focus-visible:ring-1 focus-visible:ring-[#38BDF8] outline-none"
             title="Open navigation menu"
-            aria-label="Open navigation menu"
+            aria-label="Open sidebar navigation menu"
             aria-controls="railway-navigation-sidebar"
           >
             <Menu className="w-4 h-4" />

@@ -131,13 +131,14 @@ export const RailwayMapFallback: React.FC<RailwayMapFallbackProps> = ({
           </button>
           <button
             onClick={() => toggleLayer('signals')}
+            aria-label="Toggle signalling infrastructure layer"
             className={`px-2 py-0.5 rounded border transition-colors hidden md:block ${
               activeLayers.signals
                 ? 'bg-[#141F36] text-white border-[#10B981]'
                 : 'text-[#64748B] border-[#1E2D4A] hover:text-[#94A3B8]'
             }`}
           >
-            Signals
+            Signalling
           </button>
         </div>
       </div>

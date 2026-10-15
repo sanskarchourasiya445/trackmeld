@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -23,14 +23,9 @@ import {
   GitCompare,
   RefreshCw,
   Info,
-  CheckCircle2,
   AlertTriangle,
   Play,
   Layers,
-  ArrowRight,
-  ShieldCheck,
-  Clock,
-  Train,
 } from 'lucide-react';
 
 interface ComparePlansModalProps {
@@ -57,7 +52,7 @@ export const DEMO_BENCHMARK_RESULT: BenchmarkComparisonResult = {
     { metric: 'Total Possession Allocated', FCFS: '42.5 hrs', 'Priority-Greedy': '58.0 hrs', 'CP-SAT': '74.8 hrs' },
     { metric: 'Priority Score Captured', FCFS: '61.4%', 'Priority-Greedy': '79.2%', 'CP-SAT': '98.6%' },
     { metric: 'Solver Wall Time', FCFS: '0.04s', 'Priority-Greedy': '0.08s', 'CP-SAT': '1.48s' },
-    { metric: '13-Check Safety Firewall', FCFS: 'FAIL (3 Violations)', 'Priority-Greedy': 'FAIL (1 Violation)', 'CP-SAT': 'PASS (13 / 13 Certified)' },
+    { metric: 'Constraint Satisfaction', FCFS: '3 Hard Violations', 'Priority-Greedy': '1 Hard Violation', 'CP-SAT': '0 Hard Violations' },
   ],
 };
 
@@ -68,7 +63,6 @@ export const ComparePlansModal: React.FC<ComparePlansModalProps> = ({
   baselineTasks,
   candidateSchedule,
   validationResult,
-  planVersion,
   onTriggerSolve,
 }) => {
   const [activeTab, setActiveTab] = useState<'DIFF' | 'BENCHMARK'>('DIFF');
@@ -76,9 +70,7 @@ export const ComparePlansModal: React.FC<ComparePlansModalProps> = ({
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkComparisonResult | null>(null);
   const [benchmarkError, setBenchmarkError] = useState<string | null>(null);
 
-  const hasCandidate = Boolean(candidateSchedule);
-
-  const fetchBenchmark = async () => {
+  const fetchBenchmark = useCallback(async () => {
     setLoadingBenchmark(true);
     setBenchmarkError(null);
     try {
@@ -89,18 +81,21 @@ export const ComparePlansModal: React.FC<ComparePlansModalProps> = ({
       const data = await Promise.race([dataPromise, timeoutPromise]);
       setBenchmarkData(data);
     } catch (err: unknown) {
-      console.warn('Benchmark query notice: using certified synthetic benchmark comparison snapshot:', err);
+      console.warn('Benchmark query notice: using synthetic benchmark comparison snapshot:', err);
       setBenchmarkData(DEMO_BENCHMARK_RESULT);
     } finally {
       setLoadingBenchmark(false);
     }
-  };
+  }, [scenarioId]);
 
   useEffect(() => {
     if (isOpen && activeTab === 'BENCHMARK' && !benchmarkData && !loadingBenchmark) {
-      fetchBenchmark();
+      const timer = setTimeout(() => {
+        fetchBenchmark();
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [isOpen, activeTab, benchmarkData, loadingBenchmark]);
+  }, [isOpen, activeTab, benchmarkData, loadingBenchmark, fetchBenchmark]);
 
   // Format date-time helper (UTC)
   const formatTimeUtc = (isoStr?: string | null) => {
@@ -178,7 +173,7 @@ export const ComparePlansModal: React.FC<ComparePlansModalProps> = ({
                     </h3>
                     <p className="text-xs text-[#94A3B8] leading-relaxed">
                       A candidate plan has not been generated for the current scenario session. Run CP-SAT discrete
-                      optimization to allocate certified maintenance windows and compare against baseline requisitions.
+                      optimization to allocate conflict-free maintenance windows and compare against baseline requisitions.
                     </p>
                   </div>
                   {onTriggerSolve && (
@@ -238,15 +233,23 @@ export const ComparePlansModal: React.FC<ComparePlansModalProps> = ({
                     </div>
 
                     <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3 space-y-1">
-                      <span className="text-[10px] uppercase font-mono text-[#64748B] block">Safety Validation</span>
+                      <span className="text-[10px] uppercase font-mono text-[#64748B] block">Independent Validation</span>
                       <div className="text-xs space-y-0.5">
                         <div className="text-amber-400 font-mono flex items-center justify-between">
                           <span>Baseline:</span>
                           <span>3 Conflicts</span>
                         </div>
-                        <div className="text-emerald-400 font-mono font-bold flex items-center justify-between">
-                          <span>Candidate:</span>
-                          <span>{validationResult?.valid ? 'PASSED (13/13)' : 'CERTIFIED'}</span>
+                        <div className="font-mono font-bold flex items-center justify-between">
+                          <span className="text-[#94A3B8]">Candidate:</span>
+                          {validationResult ? (
+                            validationResult.valid ? (
+                              <span className="text-emerald-400">0 Hard Violations</span>
+                            ) : (
+                              <span className="text-rose-400">{validationResult.error_count ?? 1} Violations</span>
+                            )
+                          ) : (
+                            <span className="text-amber-400 font-normal">Pending Validation</span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -273,7 +276,7 @@ export const ComparePlansModal: React.FC<ComparePlansModalProps> = ({
                         Work Order Possession Schedule Diffs (Timezone: UTC)
                       </span>
                       <span className="text-[10px] font-mono text-[#64748B]">
-                        Baseline: Requested Window → Candidate: Certified Window
+                        Baseline: Requested Window → Candidate: Scheduled Window
                       </span>
                     </div>
 

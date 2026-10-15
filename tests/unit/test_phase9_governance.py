@@ -21,6 +21,7 @@ from backend.app.repositories.plan_version_repo import (
     PlanFingerprintMismatchError,
     PlanVersionImmutableError,
     PlanVersionAlreadyExistsError,
+    FourEyesViolationError,
     LEGAL_PLAN_TRANSITIONS,
 )
 from backend.app.core.auth import KNOWN_CREDENTIALS, AuthUser, UserRole
@@ -316,3 +317,136 @@ async def test_approve_plan_persists_declared_reviewer_in_audit_metadata():
     assert audit_event.event_metadata["declared_reviewer"]["name"] == "Shri R. K. Sharma"
     assert audit_event.event_metadata["declared_reviewer"]["role"] == "Sr. DOM / DLI"
 
+
+@pytest.mark.asyncio
+async def test_approve_plan_blocks_four_eyes_creator_conflict():
+    """Separation of duties: Author cannot approve their own plan candidate."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    mock_plan = MagicMock(spec=PlanVersionModel)
+    mock_plan.plan_version_id = "PV-TEST-01"
+    mock_plan.planning_run_id = "RUN-TEST-01"
+    mock_plan.status = PlanVersionStatus.PENDING_REVIEW.value
+    mock_plan.validation_status = "VALID"
+    mock_plan.is_approvable = True
+    mock_plan.validation_findings_summary = {"error_count": 0}
+    mock_plan.schedule_identity = "FINGERPRINT_AAA"
+    mock_plan.snapshot_hash = "SNAPSHOT_HASH_AAA"
+    mock_plan.input_hash = "INPUT_HASH_AAA"
+    mock_plan.created_by = "operations_officer"
+
+    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=mock_plan)
+
+    mock_run = MagicMock(spec=PlanningRunModel)
+    mock_run.validation_fingerprint = "FINGERPRINT_AAA"
+    mock_run.snapshot_hash = "SNAPSHOT_HASH_AAA"
+    mock_run.input_hash = "INPUT_HASH_AAA"
+    service.run_repo.get_by_run_id = AsyncMock(return_value=mock_run)
+
+    # Actor matches creator username
+    same_actor = AuthUser(
+        user_id="user-op-1",
+        username="operations_officer",
+        role=UserRole.OPERATOR,
+        permissions=["plan:approve"],
+    )
+
+    with pytest.raises(FourEyesViolationError, match="Separation of duties violation"):
+        await service.approve_plan("PV-TEST-01", same_actor)
+
+
+@pytest.mark.asyncio
+async def test_approve_plan_blocks_when_validation_findings_contain_errors():
+    """Approval must be rejected if validation findings summary contains error_count > 0."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    mock_plan = MagicMock(spec=PlanVersionModel)
+    mock_plan.plan_version_id = "PV-TEST-01"
+    mock_plan.planning_run_id = "RUN-TEST-01"
+    mock_plan.status = PlanVersionStatus.PENDING_REVIEW.value
+    mock_plan.validation_status = "VALID"
+    mock_plan.is_approvable = True
+    # Non-zero error count violates approval precondition
+    mock_plan.validation_findings_summary = {"error_count": 2, "errors": ["HEADWAY_VIOLATION", "BUFFER_OVERLAP"]}
+    mock_plan.schedule_identity = "FINGERPRINT_AAA"
+    mock_plan.snapshot_hash = "SNAPSHOT_HASH_AAA"
+    mock_plan.input_hash = "INPUT_HASH_AAA"
+    mock_plan.created_by = "different_user"
+
+    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=mock_plan)
+
+    actor = KNOWN_CREDENTIALS["approver-token-2026"]
+    with pytest.raises(PlanVersionApprovalBlockedError, match="Contains 2 unresolved hard validation errors"):
+        await service.approve_plan("PV-TEST-01", actor)
+
+
+@pytest.mark.asyncio
+async def test_approve_plan_blocks_snapshot_or_input_hash_mismatch():
+    """Approval must fail if snapshot or input configuration hash differs from source run."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    mock_plan = MagicMock(spec=PlanVersionModel)
+    mock_plan.plan_version_id = "PV-TEST-01"
+    mock_plan.planning_run_id = "RUN-TEST-01"
+    mock_plan.status = PlanVersionStatus.PENDING_REVIEW.value
+    mock_plan.validation_status = "VALID"
+    mock_plan.is_approvable = True
+    mock_plan.validation_findings_summary = {"error_count": 0}
+    mock_plan.schedule_identity = "FINGERPRINT_AAA"
+    mock_plan.snapshot_hash = "SNAPSHOT_HASH_AAA"
+    mock_plan.input_hash = "INPUT_HASH_AAA"
+    mock_plan.created_by = "different_user"
+
+    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=mock_plan)
+
+    # Source run has different snapshot hash
+    mock_run = MagicMock(spec=PlanningRunModel)
+    mock_run.validation_fingerprint = "FINGERPRINT_AAA"
+    mock_run.snapshot_hash = "SNAPSHOT_HASH_TAMPERED"
+    mock_run.input_hash = "INPUT_HASH_AAA"
+    service.run_repo.get_by_run_id = AsyncMock(return_value=mock_run)
+
+    actor = KNOWN_CREDENTIALS["approver-token-2026"]
+    with pytest.raises(PlanFingerprintMismatchError, match="Planning snapshot hash does not match source run"):
+        await service.approve_plan("PV-TEST-01", actor)
+
+
+@pytest.mark.asyncio
+async def test_reject_plan_records_rejection_audit_and_sets_rejected_status():
+    """Rejection sets REJECTED status, records mandatory rationale, and appends audit event."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    mock_plan = MagicMock(spec=PlanVersionModel)
+    mock_plan.plan_version_id = "PV-TEST-01"
+    mock_plan.status = PlanVersionStatus.PENDING_REVIEW.value
+    mock_plan.schedule_identity = "FINGERPRINT_AAA"
+    mock_plan.snapshot_hash = "SNAPSHOT_HASH_AAA"
+    mock_plan.input_hash = "INPUT_HASH_AAA"
+    mock_plan.scenario_id = "SCN-TEST-01"
+    mock_plan.version_number = 1
+
+    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=mock_plan)
+    service.plan_repo.add_review_comment = AsyncMock()
+    service.plan_repo.add_audit_event = AsyncMock()
+    service.plan_repo.get_by_plan_version_id = AsyncMock(return_value=mock_plan)
+
+    actor = KNOWN_CREDENTIALS["approver-token-2026"]
+    rejection_reason = "Headway buffer violation intersects with high-priority Vande Bharat movement."
+
+    result = await service.reject_plan("PV-TEST-01", actor, reason=rejection_reason)
+
+    assert mock_plan.status == PlanVersionStatus.REJECTED.value
+    assert mock_plan.rejected_by == actor.username
+    assert mock_plan.rejection_reason == rejection_reason
+
+    # Verify audit event registered with reason
+    service.plan_repo.add_audit_event.assert_called_once()
+    audit_event = service.plan_repo.add_audit_event.call_args[0][0]
+    assert audit_event.event_type == GovernanceEventType.PLAN_REJECTED.value
+    assert audit_event.reason == rejection_reason
+    assert audit_event.previous_state == PlanVersionStatus.PENDING_REVIEW.value
+    assert audit_event.new_state == PlanVersionStatus.REJECTED.value

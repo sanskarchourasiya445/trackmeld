@@ -65,9 +65,9 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
   ) || (diagnosticsReport?.diagnostics?.[0] ?? null);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0A0E17] p-3 sm:p-4 gap-3 overflow-hidden select-none font-sans text-xs">
+    <div className="flex-1 flex flex-col h-full bg-[#0B1120] p-3 sm:p-4 gap-2.5 overflow-hidden select-none font-sans text-xs">
       {/* 1. Header & Solver Telemetry Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3 sm:p-3.5 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F172A] border border-[#1A263D] rounded-lg p-3 sm:p-3.5 shrink-0">
         <div>
           <div className="flex items-center gap-2">
             <Cpu className="w-5 h-5 text-[#38BDF8]" />
@@ -100,7 +100,7 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
             )}
 
             {selectedTaskId && (
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#141F36] text-[#93C5FD] border border-[#2D436D]">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#101A2F] text-[#93C5FD] border border-[#203254]">
                 Target: {selectedTaskId}
               </span>
             )}
@@ -116,7 +116,7 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
               size="sm"
               onClick={onTriggerSolve}
               disabled={isSolving}
-              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold h-8 flex items-center gap-1.5 cursor-pointer"
+              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold h-8 flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
               <span>{hasRun ? 'Re-Run Optimization' : 'Run CP-SAT Solver'}</span>
@@ -127,7 +127,7 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
             size="sm"
             variant="outline"
             onClick={() => setShowTechnicalDetails((prev) => !prev)}
-            className="border-[#2D436D] text-xs text-[#CBD5E1] hover:text-white h-8 flex items-center gap-1"
+            className="border-[#1A263D] hover:border-[#2D436D] bg-[#070D18] text-xs text-[#CBD5E1] hover:text-white h-8 flex items-center gap-1 cursor-pointer transition-colors"
           >
             <span>Telemetry</span>
             {showTechnicalDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -137,7 +137,7 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
 
       {/* 2. Expandable Mathematical Solver Telemetry Drawer/Panel */}
       {showTechnicalDetails && (
-        <div className="bg-[#0B101C] border border-[#1E2D4A] rounded-lg p-3.5 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 shrink-0 animate-in fade-in duration-150">
+        <div className="bg-[#070D18] border border-[#1A263D] rounded-lg p-3.5 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 shrink-0 animate-in fade-in duration-150">
           <div>
             <span className="text-[10px] uppercase font-mono text-[#64748B] block">Solver Engine</span>
             <span className="font-mono font-semibold text-[#F8FAFC]">
@@ -181,8 +181,8 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
       <div className="flex-1 overflow-y-auto space-y-3.5 pr-0.5">
         {/* STATE A: NOT RUN */}
         {!hasRun && !isSolving && (
-          <div className="flex flex-col items-center justify-center py-12 px-6 bg-[#0F172A] border border-[#1E2D4A] rounded-xl text-center space-y-4">
-            <div className="w-12 h-12 rounded-xl bg-[#141F36] border border-[#2D436D] flex items-center justify-center text-[#38BDF8] shadow-inner">
+          <div className="flex flex-col items-center justify-center py-12 px-6 bg-[#0F172A] border border-[#1A263D] rounded-xl text-center space-y-4">
+            <div className="w-12 h-12 rounded-xl bg-[#101A2F] border border-[#203254] flex items-center justify-center text-[#38BDF8] shadow-inner">
               <Cpu className="w-6 h-6" />
             </div>
             <div className="max-w-md space-y-1.5">
@@ -197,7 +197,7 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
             {onTriggerSolve && (
               <Button
                 onClick={onTriggerSolve}
-                className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold px-5 py-2 rounded-lg flex items-center gap-2 cursor-pointer shadow-sm"
+                className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold px-5 py-2 rounded-lg flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
               >
                 <Play className="w-4 h-4 fill-current" />
                 <span>Run CP-SAT Discrete Optimization</span>
@@ -205,14 +205,14 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
             )}
             <div className="pt-2 text-[11px] font-mono text-[#64748B] flex items-center gap-2">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Independent 13-Rule Safety Firewall Standby • Zero False Positives</span>
+              <span>Independent Validation Suite Standby • Deterministic Rule Audit</span>
             </div>
           </div>
         )}
 
         {/* STATE B: SOLVING IN PROGRESS */}
         {isSolving && (
-          <div className="flex flex-col items-center justify-center py-16 px-6 bg-[#0F172A] border border-[#1E2D4A] rounded-xl text-center space-y-4">
+          <div className="flex flex-col items-center justify-center py-16 px-6 bg-[#0F172A] border border-[#1A263D] rounded-xl text-center space-y-4">
             <RefreshCw className="w-8 h-8 text-[#38BDF8] animate-spin" />
             <div className="space-y-1">
               <h3 className="text-sm font-bold text-[#F8FAFC]">
@@ -222,7 +222,7 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
                 {solvingMessage || 'Evaluating train headway buffers and spatial occupancy limits'}
               </p>
             </div>
-            <span className="text-[10px] text-[#64748B] font-mono bg-[#141F36] px-3 py-1 rounded">
+            <span className="text-[10px] text-[#64748B] font-mono bg-[#070D18] border border-[#1A263D] px-3 py-1 rounded">
               Search Workers: 4 Threads • Timeout Limit: 5.0s
             </span>
           </div>
@@ -233,7 +233,7 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
           <>
             {/* KPI Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3.5 space-y-1">
+              <div className="bg-[#0F172A] border border-[#1A263D] rounded-lg p-3.5 space-y-1">
                 <span className="text-[10px] uppercase font-mono text-[#64748B]">Scheduled Requisitions</span>
                 <div className="flex items-baseline gap-2">
                   <span className="text-lg font-bold text-emerald-400">
@@ -246,7 +246,7 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
                 <span className="text-[11px] text-[#94A3B8] block">Passes all physical track constraints</span>
               </div>
 
-              <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3.5 space-y-1">
+              <div className="bg-[#0F172A] border border-[#1A263D] rounded-lg p-3.5 space-y-1">
                 <span className="text-[10px] uppercase font-mono text-[#64748B]">Unscheduled / Conflicted</span>
                 <div className="flex items-baseline gap-2">
                   <span className={`text-lg font-bold ${unscheduledTasks.length > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
@@ -261,15 +261,29 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
                 </span>
               </div>
 
-              <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-3.5 space-y-1">
-                <span className="text-[10px] uppercase font-mono text-[#64748B]">Validation Firewall Gate</span>
+              <div className="bg-[#0F172A] border border-[#1A263D] rounded-lg p-3.5 space-y-1">
+                <span className="text-[10px] uppercase font-mono text-[#64748B]">Independent Validation Gate</span>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-lg font-bold text-[#38BDF8]">
-                    {scheduleResult?.validation_summary?.valid ? 'VALIDATED' : 'PASS: 13 CHECKS'}
+                  <span className={`text-lg font-bold ${
+                    scheduleResult?.validation_summary?.valid === true
+                      ? 'text-emerald-400'
+                      : scheduleResult?.validation_summary?.valid === false
+                      ? 'text-rose-400'
+                      : 'text-[#94A3B8]'
+                  }`}>
+                    {scheduleResult?.validation_summary?.valid === true
+                      ? 'FEASIBLE (0 ERRORS)'
+                      : scheduleResult?.validation_summary?.valid === false
+                      ? 'FAILED'
+                      : 'NOT EVALUATED'}
                   </span>
                 </div>
                 <span className="text-[11px] text-[#94A3B8] block">
-                  Zero hard safety firewall violations
+                  {scheduleResult?.validation_summary?.valid === true
+                    ? 'Algorithmic constraint check passed'
+                    : scheduleResult?.validation_summary?.valid === false
+                    ? 'Hard constraint violations detected'
+                    : 'Independent validation pending on this schedule'}
                 </span>
               </div>
             </div>
@@ -311,7 +325,7 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
                 {/* Conflicting Entities */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                   {currentUnscheduledDiagnostic.conflicting_train_movements && currentUnscheduledDiagnostic.conflicting_train_movements.length > 0 && (
-                    <div className="bg-[#0A0E17]/80 border border-[#1E2D4A] rounded-lg p-3 space-y-1.5">
+                    <div className="bg-[#070D18]/90 border border-[#1A263D] rounded-lg p-3 space-y-1.5">
                       <span className="text-[10px] uppercase font-bold text-[#64748B] tracking-wider block">
                         Conflicting Train Movement
                       </span>
@@ -328,7 +342,7 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
                   )}
 
                   {currentUnscheduledDiagnostic.conflicting_resources && currentUnscheduledDiagnostic.conflicting_resources.length > 0 && (
-                    <div className="bg-[#0A0E17]/80 border border-[#1E2D4A] rounded-lg p-3 space-y-1.5">
+                    <div className="bg-[#070D18]/90 border border-[#1A263D] rounded-lg p-3 space-y-1.5">
                       <span className="text-[10px] uppercase font-bold text-[#64748B] tracking-wider block">
                         Contending Resource
                       </span>
@@ -348,18 +362,18 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
             ) : null}
 
             {/* 5-Step Causal Decision Pipeline */}
-            <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-4 space-y-3">
+            <div className="bg-[#0F172A] border border-[#1A263D] rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-bold text-[#F8FAFC]">
                   <GitBranch className="w-4 h-4 text-[#38BDF8]" />
                   <span>Deterministic Causal Decision Pipeline</span>
                 </div>
-                <span className="text-[10px] font-mono text-[#64748B]">
+                <span className="text-[10px] font-mono text-[#8EA3BE] bg-[#070D18] px-2 py-0.5 rounded border border-[#1A263D]">
                   AUDITED AGAINST 13 HARD CONSTRAINTS
                 </span>
               </div>
 
-              <div className="space-y-2 border-l-2 border-[#1E2D4A] pl-3 ml-2 text-xs">
+              <div className="space-y-2 border-l-2 border-[#1A263D] pl-3 ml-2 text-xs">
                 <div className="flex items-center gap-2 text-emerald-400">
                   <Check className="w-3.5 h-3.5 shrink-0" />
                   <span className="font-semibold">Step 1: Physical Topology & Interval Feasibility</span>
@@ -385,20 +399,20 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
 
             {/* Hypothetical Relaxation Analyses if unplaced tasks */}
             {currentUnscheduledDiagnostic?.relaxation_analyses && currentUnscheduledDiagnostic.relaxation_analyses.length > 0 && (
-              <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-4 space-y-3">
+              <div className="bg-[#0F172A] border border-[#1A263D] rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
                     <Lightbulb className="w-4 h-4" />
                     <span>Hypothetical Relaxation Analyses (What-If Scenarios)</span>
                   </div>
-                  <span className="text-[10px] font-mono text-[#64748B] bg-[#141F36] px-2 py-0.5 rounded">
+                  <span className="text-[10px] font-mono text-[#8EA3BE] bg-[#070D18] px-2 py-0.5 rounded border border-[#1A263D]">
                     DECISION SUPPORT ONLY • NOT AUTO-COMMITTED
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {currentUnscheduledDiagnostic.relaxation_analyses.map((rel, idx) => (
-                    <div key={idx} className="bg-[#0A0E17]/60 border border-[#1E2D4A] rounded-md p-3 space-y-1.5">
+                    <div key={idx} className="bg-[#070D18]/80 border border-[#1A263D] rounded-md p-3 space-y-1.5">
                       <div className="flex justify-between items-center">
                         <span className="font-bold text-[#F8FAFC]">{rel.description}</span>
                         <span className="text-[9.5px] font-bold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-800">
@@ -418,7 +432,7 @@ export const DiagnosticsWorkspace: React.FC<DiagnosticsWorkspaceProps> = ({
       </div>
 
       {/* Mandatory Safety & Governance Disclaimer Strip */}
-      <div className="bg-[#141F36] border border-[#1E2D4A] rounded-lg p-2.5 flex items-center justify-between text-[11px] text-[#94A3B8] shrink-0">
+      <div className="bg-[#101A2F] border border-[#203254] rounded-lg p-2.5 flex items-center justify-between text-[11px] text-[#94A3B8] shrink-0">
         <div className="flex items-center gap-2">
           <Info className="w-3.5 h-3.5 text-[#38BDF8] shrink-0" />
           <span>

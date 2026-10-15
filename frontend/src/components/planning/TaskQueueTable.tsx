@@ -11,6 +11,8 @@ interface TaskQueueTableProps {
   selectedTaskId?: string | null;
   onSelectTask: (taskId: string) => void;
   isCollapsible?: boolean;
+  isEmbedded?: boolean;
+  className?: string;
 }
 
 export const TaskQueueTable: React.FC<TaskQueueTableProps> = ({
@@ -19,6 +21,8 @@ export const TaskQueueTable: React.FC<TaskQueueTableProps> = ({
   selectedTaskId,
   onSelectTask,
   isCollapsible = false,
+  isEmbedded = false,
+  className = '',
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTab, setFilterTab] = useState<'ALL' | 'SCHEDULED' | 'UNPLACED' | 'CONFLICTS'>('ALL');
@@ -70,13 +74,17 @@ export const TaskQueueTable: React.FC<TaskQueueTableProps> = ({
   };
 
   return (
-    <div className="bg-[#0F172A] border border-[#1E2D4A] rounded-lg overflow-hidden flex flex-col h-full select-none font-sans text-xs">
+    <div
+      className={`bg-[#0B1120] flex flex-col h-full select-none font-sans text-xs ${
+        isEmbedded ? '' : 'border border-[#1A263D] rounded-lg overflow-hidden'
+      } ${className}`}
+    >
       {/* Top Header & Search */}
-      <div className="bg-[#141F36] border-b border-[#1E2D4A] p-2.5 space-y-2 shrink-0">
+      <div className="bg-[#0F172A] border-b border-[#1A263D] p-2 sm:p-2.5 space-y-2 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-[#F8FAFC]">Task Overview</span>
-            <span className="text-[10px] font-mono text-[#64748B] bg-[#0A0E17] px-1.5 py-0.5 rounded border border-[#1E2D4A]">
+            <span className="font-semibold text-xs text-[#F8FAFC]">Task Overview</span>
+            <span className="text-[10px] font-mono text-[#8EA3BE] bg-[#070D18] px-1.5 py-0.5 rounded border border-[#172640]">
               {tasks.length} tasks
             </span>
           </div>
@@ -84,7 +92,7 @@ export const TaskQueueTable: React.FC<TaskQueueTableProps> = ({
           {isCollapsible && (
             <button
               onClick={() => setIsCollapsed((prev) => !prev)}
-              className="text-[#94A3B8] hover:text-white p-0.5 rounded"
+              className="text-[#94A3B8] hover:text-white p-0.5 rounded transition-colors"
               title={isCollapsed ? 'Expand table' : 'Collapse table'}
             >
               {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
@@ -102,46 +110,48 @@ export const TaskQueueTable: React.FC<TaskQueueTableProps> = ({
                 placeholder="Search tasks..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-[#0A0E17] border border-[#1E2D4A] rounded pl-8 pr-2.5 py-1 text-[11px] text-[#F8FAFC] placeholder-[#64748B] focus:outline-hidden focus:border-[#2563EB]"
+                className="w-full bg-[#070D18] border border-[#1A263D] rounded pl-8 pr-2.5 py-1 text-[11px] text-[#F8FAFC] placeholder-[#64748B] focus:outline-hidden focus:border-[#2563EB] transition-colors"
               />
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex items-center gap-1 overflow-x-auto text-[11px]">
+            <div className="flex items-center gap-1 overflow-x-auto text-[11px] scrollbar-none">
               <button
                 onClick={() => setFilterTab('ALL')}
-                className={`px-2.5 py-0.5 rounded transition-colors whitespace-nowrap font-medium ${
-                  filterTab === 'ALL' ? 'bg-[#2563EB] text-white' : 'text-[#94A3B8] hover:text-white bg-[#0A0E17]'
+                className={`px-2.5 py-0.5 rounded transition-colors whitespace-nowrap font-medium cursor-pointer ${
+                  filterTab === 'ALL'
+                    ? 'bg-[#2563EB] text-white shadow-xs'
+                    : 'text-[#94A3B8] hover:text-white bg-[#070D18] hover:bg-[#131E35]'
                 }`}
               >
                 All ({tasks.length})
               </button>
               <button
                 onClick={() => setFilterTab('SCHEDULED')}
-                className={`px-2.5 py-0.5 rounded transition-colors whitespace-nowrap font-medium ${
+                className={`px-2.5 py-0.5 rounded transition-colors whitespace-nowrap font-medium cursor-pointer ${
                   filterTab === 'SCHEDULED'
-                    ? 'bg-emerald-600 text-white'
-                    : 'text-[#94A3B8] hover:text-emerald-400 bg-[#0A0E17]'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-[#94A3B8] hover:text-emerald-400 bg-[#070D18] hover:bg-[#131E35]'
                 }`}
               >
                 Scheduled ({scheduledCount})
               </button>
               <button
                 onClick={() => setFilterTab('UNPLACED')}
-                className={`px-2.5 py-0.5 rounded transition-colors whitespace-nowrap font-medium ${
+                className={`px-2.5 py-0.5 rounded transition-colors whitespace-nowrap font-medium cursor-pointer ${
                   filterTab === 'UNPLACED'
-                    ? 'bg-amber-600 text-white'
-                    : 'text-[#94A3B8] hover:text-amber-400 bg-[#0A0E17]'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-[#94A3B8] hover:text-amber-400 bg-[#070D18] hover:bg-[#131E35]'
                 }`}
               >
                 Unplaced ({unplacedCount})
               </button>
               <button
                 onClick={() => setFilterTab('CONFLICTS')}
-                className={`px-2.5 py-0.5 rounded transition-colors whitespace-nowrap font-medium ${
+                className={`px-2.5 py-0.5 rounded transition-colors whitespace-nowrap font-medium cursor-pointer ${
                   filterTab === 'CONFLICTS'
-                    ? 'bg-rose-600 text-white'
-                    : 'text-[#94A3B8] hover:text-rose-400 bg-[#0A0E17]'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'text-[#94A3B8] hover:text-rose-400 bg-[#070D18] hover:bg-[#131E35]'
                 }`}
               >
                 Conflicts ({conflictsCount})
@@ -163,7 +173,7 @@ export const TaskQueueTable: React.FC<TaskQueueTableProps> = ({
               {/* Desktop & Tablet Table (Hidden on small mobile screens < sm) */}
               <table className="hidden sm:table w-full text-left text-[11px] border-collapse">
                 <thead>
-                  <tr className="bg-[#0A0E17]/80 border-b border-[#1E2D4A] text-[#64748B] text-[10px] uppercase font-semibold sticky top-0 z-10">
+                  <tr className="bg-[#070D18]/90 border-b border-[#1A263D] text-[#64748B] text-[10px] uppercase font-semibold sticky top-0 z-10">
                     <th className="py-2 px-2.5">ID</th>
                     <th className="py-2 px-2">SECTION</th>
                     <th className="py-2 px-2 hidden lg:table-cell">TYPE</th>
@@ -173,7 +183,7 @@ export const TaskQueueTable: React.FC<TaskQueueTableProps> = ({
                     <th className="py-2 px-2 text-right"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#1E2D4A]/50">
+                <tbody className="divide-y divide-[#1A263D]/50">
                   {filteredTasks.map((task) => {
                     const scheduled = scheduledMap.get(task.task_id);
                     const isScheduled = !!scheduled;
@@ -199,23 +209,23 @@ export const TaskQueueTable: React.FC<TaskQueueTableProps> = ({
                         onClick={() => onSelectTask(task.task_id)}
                         className={`cursor-pointer transition-colors ${
                           isSelected
-                            ? 'bg-[#1E2D4A] text-[#F8FAFC] border-l-2 border-l-[#2563EB]'
-                            : 'hover:bg-[#141F36]/80 text-[#94A3B8]'
+                            ? 'bg-[#142038] text-[#F8FAFC] border-l-2 border-l-[#38BDF8]'
+                            : 'hover:bg-[#0F172A] text-[#94A3B8]'
                         }`}
                       >
-                        <td className="py-2 px-2.5 font-mono font-medium text-[#F8FAFC]">
+                        <td className="py-2 px-2.5 font-mono font-bold text-[#F8FAFC]">
                           {task.task_code || task.task_id}
                         </td>
 
-                        <td className="py-2 px-2 font-mono text-[#CBD5E1]">
+                        <td className="py-2 px-2 font-mono text-[#93C5FD] text-[10.5px]">
                           {secCode}
                         </td>
 
-                        <td className="py-2 px-2 truncate max-w-[120px] text-[#94A3B8] hidden lg:table-cell" title={task.title}>
+                        <td className="py-2 px-2 truncate max-w-[120px] text-[#CBD5E1] hidden lg:table-cell" title={task.title}>
                           {workTypeLabel}
                         </td>
 
-                        <td className="py-2 px-2 font-mono text-[10px] text-[#94A3B8] whitespace-nowrap">
+                        <td className="py-2 px-2 font-mono text-[10px] text-[#8EA3BE] whitespace-nowrap">
                           {windowText}
                         </td>
 
@@ -256,7 +266,7 @@ export const TaskQueueTable: React.FC<TaskQueueTableProps> = ({
               </table>
 
               {/* Mobile Card Records (< sm) */}
-              <div className="sm:hidden divide-y divide-[#1E2D4A]/60 p-2 space-y-2">
+              <div className="sm:hidden divide-y divide-[#1A263D]/60 p-2 space-y-2">
                 {filteredTasks.map((task) => {
                   const scheduled = scheduledMap.get(task.task_id);
                   const isScheduled = !!scheduled;
@@ -278,8 +288,8 @@ export const TaskQueueTable: React.FC<TaskQueueTableProps> = ({
                       onClick={() => onSelectTask(task.task_id)}
                       className={`p-2.5 rounded-md border transition-colors cursor-pointer ${
                         isSelected
-                          ? 'bg-[#1E2D4A] border-[#2563EB] text-[#F8FAFC]'
-                          : 'bg-[#0A0E17]/60 border-[#1E2D4A] hover:bg-[#141F36]'
+                          ? 'bg-[#142038] border-[#38BDF8] text-[#F8FAFC]'
+                          : 'bg-[#070D18]/80 border-[#1A263D] hover:bg-[#0F172A]'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
@@ -305,7 +315,7 @@ export const TaskQueueTable: React.FC<TaskQueueTableProps> = ({
                         {task.title || 'Track Maintenance Work'}
                       </div>
 
-                      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#1E2D4A]/60 text-[10px] text-[#94A3B8] font-mono">
+                      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#1A263D]/60 text-[10px] text-[#94A3B8] font-mono">
                         <span>{secCode} • {windowText}</span>
                         <span className={`font-semibold ${isCritical ? 'text-rose-400' : 'text-blue-400'}`}>
                           {isCritical ? 'High Priority' : 'Medium'}

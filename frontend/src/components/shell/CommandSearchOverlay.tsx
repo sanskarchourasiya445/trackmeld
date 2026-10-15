@@ -11,10 +11,8 @@ import {
   Zap,
   AlertTriangle,
   ShieldCheck,
-  FileText,
   X,
   ArrowRight,
-  CornerDownLeft,
 } from 'lucide-react';
 import {
   CORRIDOR_STATIONS_GIS,
@@ -126,7 +124,7 @@ const SEARCH_DATABASE: SearchResultItem[] = [
     id: 'VAL-STRUCT-01',
     title: 'VAL-STRUCT-01: Structural Topology & Boundary Adjacency',
     category: 'GOVERNANCE',
-    subtitle: 'Statutory Safety Rule • 100% Pass Rate across 32 block sections',
+    subtitle: 'Validation Rule • Verified across 32 block sections',
     targetUrl: '/governance?rule=VAL-STRUCT-01',
     code: 'RULE-01',
     badge: 'PASSED',
@@ -136,7 +134,7 @@ const SEARCH_DATABASE: SearchResultItem[] = [
     id: 'VAL-HEADWAY-05',
     title: 'VAL-HEADWAY-05: Train Separation & Signal Overlap Margins',
     category: 'GOVERNANCE',
-    subtitle: 'Statutory Safety Rule • Verifies 7.0 min headway margin on express trunks',
+    subtitle: 'Validation Rule • Checks 7.0 min headway margin on express trunks',
     targetUrl: '/governance?rule=VAL-HEADWAY-05',
     code: 'RULE-05',
     badge: 'MANDATORY',
@@ -155,12 +153,15 @@ export const CommandSearchOverlay: React.FC<CommandSearchOverlayProps> = ({ isOp
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Focus input when opened
+  // Focus input and reset query when opened
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 50);
-      setQuery('');
-      setSelectedIndex(0);
+      const t = setTimeout(() => {
+        inputRef.current?.focus();
+        setQuery('');
+        setSelectedIndex(0);
+      }, 50);
+      return () => clearTimeout(t);
     }
   }, [isOpen]);
 
