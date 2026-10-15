@@ -13,6 +13,8 @@ export interface WorkspaceTelemetry {
   workerStatus: string;
   validatorStatus: string;
   dbStatus: string;
+  activePlanVersionId?: string | null;
+  activeScheduleIdentity?: string | null;
 }
 
 const DEFAULT_TELEMETRY: WorkspaceTelemetry = {
@@ -20,12 +22,14 @@ const DEFAULT_TELEMETRY: WorkspaceTelemetry = {
   scenarioName: 'Northern Trunk Corridor (NDLS - CNB)',
   planningHorizon: '24-Hour Planning Horizon',
   tasksCount: null,
-  totalTasks: 30,
-  trainsCount: 50,
+  totalTasks: null,
+  trainsCount: null,
   lastSolveDuration: null,
   workerStatus: 'Standby',
   validatorStatus: 'Standby',
   dbStatus: 'Standalone (Demo Data)',
+  activePlanVersionId: null,
+  activeScheduleIdentity: null,
 };
 
 interface WorkspaceContextValue {

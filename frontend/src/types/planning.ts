@@ -5,6 +5,8 @@
 
 export type SchedulerType = 'FCFS' | 'PRIORITY_GREEDY' | 'CP_SAT';
 
+export type DataProvenance = 'backend' | 'synthetic' | 'unavailable' | 'loading';
+
 export type PlanningRunStatus =
   | 'PENDING'
   | 'RUNNING'
@@ -187,6 +189,7 @@ export interface ScheduleResult {
   best_bound?: number;
   scheduled_tasks: ScheduledTaskInterval[];
   unscheduled_tasks: UnscheduledTaskReport[];
+  validation?: ScheduleValidationResult;
   validation_summary?: ScheduleValidationResult;
   diagnostics?: UnscheduledTaskDiagnostic[];
   solver_diagnostics?: Record<string, unknown>;
@@ -250,6 +253,10 @@ export interface PlanVersion {
   schedule_identity: string;
   is_approvable: boolean;
   validation_status?: string;
+  validation_findings_summary?: Record<string, unknown> | null;
+  schedule_result?: ScheduleResult | Record<string, unknown> | null;
+  snapshot_hash?: string;
+  input_hash?: string;
   result_summary?: Record<string, unknown>;
   created_at: string;
   created_by: string;

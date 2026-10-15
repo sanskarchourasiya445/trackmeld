@@ -47,8 +47,17 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
   const [isRejectMode, setIsRejectMode] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
 
+  const hasPlanVersion = Boolean(planVersion && planVersion.plan_version_id);
+  const versionIdentity = planVersion?.schedule_identity || null;
+  const validationIdentity = validationSummary?.schedule_identity || null;
+  const isIdentityMismatch = Boolean(
+    versionIdentity &&
+    validationIdentity &&
+    versionIdentity !== validationIdentity
+  );
+
   const handleSubmit = async () => {
-    if (!reviewerName || !notes) return;
+    if (!reviewerName || !notes || !hasPlanVersion || isIdentityMismatch) return;
     setIsSubmitting(true);
     try {
       if (isRejectMode) {
@@ -71,9 +80,9 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
   };
 
   const scheduleFingerprint =
-    planVersion?.schedule_identity ||
-    validationSummary?.schedule_identity ||
-    'bae346ecf37b1fd80608cc5e0b8dae030517a44d5d5305f640d5767ed46999aa';
+    versionIdentity ||
+    validationIdentity ||
+    'NO_CRYPTOGRAPHIC_IDENTITY';
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -88,7 +97,10 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
                 {isRejectMode ? 'Reject Maintenance Plan Version' : 'Authorize & Approve Plan Version'}
               </DialogTitle>
               <DialogDescription className="text-xs text-[#94A3B8]">
-                Plan Version {planVersion?.version_number ?? 1} • Immutable Four-Eyes Governance Gate
+                {hasPlanVersion
+                  ? `Plan Version ${planVersion?.version_number ?? 1}`
+                  : 'Unpersisted Candidate Schedule'}{' '}
+                • Immutable Four-Eyes Governance Gate
               </DialogDescription>
             </div>
           </div>
@@ -101,7 +113,12 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
               <Fingerprint className="w-4 h-4 text-[#38BDF8]" />
               Schedule Identity (SHA-256):
             </span>
-            {validationSummary?.valid === true ? (
+            {isIdentityMismatch ? (
+              <span className="text-rose-400 flex items-center gap-1 font-bold text-[11px]">
+                <AlertTriangle className="w-3 h-3" />
+                Identity Mismatch
+              </span>
+            ) : validationSummary?.valid === true ? (
               <span className="text-emerald-400 flex items-center gap-1 font-bold text-[11px]">
                 <Lock className="w-3 h-3" />
                 Feasibility Checked
@@ -122,6 +139,46 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
             {scheduleFingerprint}
           </div>
         </div>
+
+        {/* Error Callout: Cryptographic Identity Mismatch */}
+        {isIdentityMismatch && (
+          <div className="bg-rose-500/15 border border-rose-500/40 rounded-lg p-3 text-xs text-rose-300 space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-rose-400 text-[11px]">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span>CRYPTOGRAPHIC IDENTITY MISMATCH</span>
+            </div>
+            <p className="text-[11px] leading-relaxed text-rose-300/90 font-sans">
+              The validation certificate ({validationIdentity?.slice(0, 12)}...) does not match the target PlanVersion ({versionIdentity?.slice(0, 12)}...).
+              Approval is strictly blocked to prevent authorizing an unvalidated or stale schedule.
+            </p>
+          </div>
+        )}
+
+        {/* Warning Callout: Unpersisted Plan */}
+        {!hasPlanVersion && (
+          <div className="bg-rose-500/15 border border-rose-500/40 rounded-lg p-3 text-xs text-rose-300 space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-rose-400 text-[11px]">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span>UNPERSISTED SCHEDULE CANDIDATE</span>
+            </div>
+            <p className="text-[11px] leading-relaxed text-rose-300/90 font-sans">
+              No authoritative PlanVersion record exists in the backend for this schedule. Only persisted plan versions can be submitted for Four-Eyes approval.
+            </p>
+          </div>
+        )}
+
+        {/* Warning Callout: Validation Incomplete or Failed */}
+        {(!validationSummary || !validationSummary.is_approvable || validationSummary.valid === false || validationSummary.status !== 'VALID') && (
+          <div className="bg-rose-500/15 border border-rose-500/40 rounded-lg p-3 text-xs text-rose-300 space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-rose-400 text-[11px]">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span>VALIDATION INCOMPLETE OR FAILED</span>
+            </div>
+            <p className="text-[11px] leading-relaxed text-rose-300/90 font-sans">
+              Independent validation has not certified this plan version as valid and approvable. Approval is strictly blocked until all safety rules and hard constraints pass.
+            </p>
+          </div>
+        )}
 
         {/* Warning Callout: COMPLETED != APPROVED */}
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-200 space-y-1">
@@ -216,7 +273,18 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
             <Button
               type="button"
               size="sm"
-              disabled={isSubmitting || (!isRejectMode && (!acknowledged || validationSummary?.valid === false))}
+              disabled={
+                isSubmitting ||
+                !hasPlanVersion ||
+                isIdentityMismatch ||
+                (!isRejectMode && (
+                  !acknowledged ||
+                  !validationSummary ||
+                  !validationSummary.is_approvable ||
+                  validationSummary.valid === false ||
+                  validationSummary.status !== 'VALID'
+                ))
+              }
               onClick={handleSubmit}
               className={`text-xs font-semibold px-4 h-8 ${
                 isRejectMode

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ScheduleValidationResult } from '@/types/planning';
+import { ScheduleValidationResult, PlanVersion } from '@/types/planning';
 import {
   ShieldCheck,
   Lock,
@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 
 interface ValidationWorkspaceProps {
   validationResult?: ScheduleValidationResult | null;
+  planVersion?: PlanVersion | null;
   onOpenGovernance?: () => void;
 }
 
@@ -36,6 +37,7 @@ const HARD_RULES_AUDIT = [
 
 export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
   validationResult,
+  planVersion,
   onOpenGovernance,
 }) => {
   const getRuleCertification = (ruleId: string, ruleCategory: string) => {
@@ -83,6 +85,12 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
     };
   };
 
+  const isIdentityMismatch = Boolean(
+    planVersion &&
+    validationResult &&
+    planVersion.schedule_identity !== validationResult.schedule_identity
+  );
+
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0B1120] p-3 sm:p-4 gap-2.5 overflow-hidden select-none font-sans text-xs">
       {/* 1. Header Block */}
@@ -111,14 +119,18 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
             <Button
               size="sm"
               onClick={onOpenGovernance}
-              disabled={!validationResult?.is_approvable}
+              disabled={!validationResult?.is_approvable || !planVersion || isIdentityMismatch}
               className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold h-8 cursor-pointer transition-colors"
               title={
                 !validationResult
                   ? 'Validation has not yet been executed'
                   : !validationResult.is_approvable
                     ? 'Schedule validation failed: cannot proceed to governance'
-                    : 'Proceed to Four-Eyes Governance Sign-Off'
+                    : !planVersion
+                      ? 'Candidate schedule is not yet linked to a persisted plan version'
+                      : isIdentityMismatch
+                        ? 'Cryptographic identity mismatch between plan version and validation certification'
+                        : 'Proceed to Four-Eyes Governance Sign-Off'
               }
             >
               <FileCheck className="w-3.5 h-3.5 mr-1.5" />
@@ -161,6 +173,23 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
               <Fingerprint className="w-3 h-3 text-[#38BDF8]" />
               <span>{validationResult.schedule_identity?.slice(0, 10) ?? '—'}...</span>
             </div>
+            {planVersion ? (
+              <span
+                className={`px-2 py-1 rounded border font-mono font-bold ${
+                  !isIdentityMismatch
+                    ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30'
+                    : 'bg-rose-950/60 text-rose-400 border-rose-500/30'
+                }`}
+              >
+                {!isIdentityMismatch
+                  ? `PERSISTED: v${planVersion.version_number}`
+                  : 'IDENTITY MISMATCH'}
+              </span>
+            ) : (
+              <span className="bg-amber-950/60 text-amber-400 border border-amber-500/30 px-2 py-1 rounded font-mono font-bold">
+                UNPERSISTED CANDIDATE
+              </span>
+            )}
           </div>
         ) : (
           <div className="text-[10px] text-[#94A3B8] font-mono flex items-center gap-1.5 bg-[#070D18] border border-[#1A263D] px-2.5 py-1.5 rounded">

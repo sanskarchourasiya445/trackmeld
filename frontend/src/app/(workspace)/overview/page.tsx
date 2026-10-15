@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { MapLibreRailwayMap } from '@/components/map/MapLibreRailwayMap';
 import { DigitalTwinInspectionModal } from '@/components/digital-twin/DigitalTwinInspectionModal';
 import {
-  DEMO_PLAN_VERSION,
+  getPlanVersions,
 } from '@/lib/api/client';
+import { PlanVersion, DataProvenance } from '@/types/planning';
 import {
   ArrowRight,
   Clock,
@@ -21,7 +22,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { EntityInspector } from '@/components/planning/EntityInspector';
 import { ResponsiveDrawer } from '@/components/common/ResponsiveDrawer';
-import { PlanApprovalModal } from '@/components/governance/PlanApprovalModal';
 
 const SAMPLE_CONFLICT = {
   conflict_id: 'CONF-HDW-01',
@@ -42,9 +42,27 @@ export default function OverviewPage() {
   const [isDigitalTwinOpen, setIsDigitalTwinOpen] = useState<boolean>(false);
   const [digitalTwinSection, setDigitalTwinSection] = useState<string>('SEC-12');
   const [isConflictDrawerOpen, setIsConflictDrawerOpen] = useState<boolean>(false);
-  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState<boolean>(false);
   const [isMapFullScreen, setIsMapFullScreen] = useState<boolean>(false);
   const [lastUpdated] = useState('18 Oct 2026, 06:00 UTC');
+  const [planVersion, setPlanVersion] = useState<PlanVersion | null>(null);
+  const [provenance, setProvenance] = useState<DataProvenance>('synthetic');
+
+  useEffect(() => {
+    let cancelled = false;
+    getPlanVersions('SCN-DEMO-001')
+      .then((versions) => {
+        if (!cancelled && versions && versions.length > 0) {
+          setPlanVersion(versions[0]);
+          setProvenance('backend');
+        }
+      })
+      .catch(() => {
+        // Retain synthetic demo state
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -78,8 +96,16 @@ export default function OverviewPage() {
                   <h1 className="text-xl font-bold tracking-tight text-[#F8FAFC]">
                     Railway Operations Situation Briefing
                   </h1>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 font-medium">
-                    DEMO SCENARIO • SYNTHETIC CORRIDOR MODEL
+                  <span
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded font-medium ${
+                      provenance === 'backend'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                    }`}
+                  >
+                    {provenance === 'backend'
+                      ? 'AUTHORITATIVE SCENARIO • BACKEND DATA'
+                      : 'DEMO SCENARIO • SYNTHETIC CORRIDOR MODEL'}
                   </span>
                 </div>
                 <p className="text-[11px] text-[#94A3B8] mt-0.5">
@@ -110,9 +136,14 @@ export default function OverviewPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2.5">
           {/* Card 1: What is happening? */}
           <div className="bg-[#0B1120] border border-[#1A263D] rounded-lg p-3.5 shadow-xs space-y-2">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-[#64748B] font-bold flex items-center gap-1.5">
-              <Activity className="w-3 h-3 text-[#38BDF8]" />
-              <span>1. WHAT IS HAPPENING?</span>
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-[#64748B] font-bold flex items-center gap-1.5">
+                <Activity className="w-3 h-3 text-[#38BDF8]" />
+                <span>1. WHAT IS HAPPENING?</span>
+              </div>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
+                DEMO CORRIDOR
+              </span>
             </div>
             <div>
               <div className="text-xl font-bold text-[#F8FAFC] tracking-tight">
@@ -131,15 +162,15 @@ export default function OverviewPage() {
           <div
             onClick={() => setIsConflictDrawerOpen(true)}
             className="bg-[#0B1120] border border-rose-500/40 hover:border-rose-400 rounded-lg p-3.5 shadow-xs space-y-2 cursor-pointer transition-colors group"
-            title="Click to inspect active conflict in drawer"
+            title="Click to inspect simulated conflict in drawer"
           >
             <div className="flex items-center justify-between">
               <div className="text-[10px] font-mono uppercase tracking-wider text-rose-400 font-bold flex items-center gap-1.5">
                 <AlertTriangle className="w-3 h-3 text-rose-400" />
                 <span>2. WHAT NEEDS ATTENTION?</span>
               </div>
-              <span className="text-[10px] font-mono text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                INSPECT →
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/30 font-semibold">
+                SIMULATED CONFLICT
               </span>
             </div>
             <div>
@@ -159,15 +190,15 @@ export default function OverviewPage() {
           <Link
             href="/governance"
             className="bg-[#0B1120] border border-emerald-500/40 hover:border-emerald-400 rounded-lg p-3.5 shadow-xs space-y-2 block transition-colors group"
-            title="Click to view independent validation checks"
+            title="Click to view independent validation checks in Governance"
           >
             <div className="flex items-center justify-between">
               <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1.5">
                 <ShieldCheck className="w-3 h-3 text-emerald-400" />
                 <span>3. IS THE PLAN FEASIBLE?</span>
               </div>
-              <span className="text-[10px] font-mono text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                VIEW RULES →
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold">
+                DEMO BASELINE
               </span>
             </div>
             <div>
@@ -175,19 +206,19 @@ export default function OverviewPage() {
                 0 Hard Violations
               </div>
               <div className="text-[11px] font-mono text-emerald-300 font-semibold">
-                Algorithmic Feasibility Verified
+                Candidate Feasibility
               </div>
             </div>
             <p className="text-[11px] text-[#94A3B8] leading-relaxed">
-              Independent validation engine audited candidate schedule against configured hard constraints (0 breaches reported).
+              Audit against modeled hard constraints in Governance view (0 breaches on baseline demo run).
             </p>
           </Link>
 
           {/* Card 4: What requires my decision? */}
-          <div
-            onClick={() => setIsApprovalModalOpen(true)}
-            className="bg-[#0B1120] border border-[#2563EB]/40 hover:border-[#38BDF8] rounded-lg p-3.5 shadow-xs space-y-2 cursor-pointer transition-colors group"
-            title="Click to open Four-Eyes approval gate"
+          <Link
+            href="/governance"
+            className="bg-[#0B1120] border border-[#2563EB]/40 hover:border-[#38BDF8] rounded-lg p-3.5 shadow-xs space-y-2 block transition-colors group"
+            title="Navigate to formal Four-Eyes governance workspace"
           >
             <div className="flex items-center justify-between">
               <div className="text-[10px] font-mono uppercase tracking-wider text-[#38BDF8] font-bold flex items-center gap-1.5">
@@ -195,7 +226,7 @@ export default function OverviewPage() {
                 <span>4. DECISION REQUIRED</span>
               </div>
               <span className="text-[10px] font-mono text-[#38BDF8] opacity-0 group-hover:opacity-100 transition-opacity">
-                SIGN OFF →
+                GOVERNANCE →
               </span>
             </div>
             <div>
@@ -203,13 +234,13 @@ export default function OverviewPage() {
                 Four-Eyes Review
               </div>
               <div className="text-[11px] font-mono text-[#38BDF8] font-semibold">
-                PlanVersion 1 Pending
+                {planVersion ? `PlanVersion v${planVersion.version_number} (${planVersion.status})` : 'PlanVersion 1 (Pending Review)'}
               </div>
             </div>
             <p className="text-[11px] text-[#94A3B8] leading-relaxed">
-              Candidate schedule requires formal sign-off by an authorized railway operations executive before track issuance.
+              Candidate schedule requires formal sign-off in the governance workspace by an authorized railway operations officer before track issuance.
             </p>
-          </div>
+          </Link>
         </div>
 
         {/* ============================================================== */}
@@ -299,9 +330,14 @@ export default function OverviewPage() {
           <div className="lg:col-span-6 bg-[#0B1120] border border-[#1A263D] rounded-lg p-3.5 sm:p-4 shadow-xs space-y-3">
             <div className="flex items-center justify-between pb-2.5 border-b border-[#1A263D]">
               <div>
-                <h3 className="font-bold text-xs text-[#F8FAFC]">
-                  CP-SAT Optimization vs Manual Baseline
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-xs text-[#F8FAFC]">
+                    CP-SAT Optimization vs Manual Baseline
+                  </h3>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
+                    SYNTHETIC BENCHMARK
+                  </span>
+                </div>
                 <p className="text-[10px] text-[#94A3B8] mt-0.5">
                   Comparison against priority-greedy dispatch rules
                 </p>
@@ -378,7 +414,7 @@ export default function OverviewPage() {
                 </p>
               </div>
               <span className="text-[10px] font-mono text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-500/30 font-semibold">
-                1 ACTION REQUIRED
+                1 ACTION REQUIRED (SYNTHETIC)
               </span>
             </div>
 
@@ -386,10 +422,10 @@ export default function OverviewPage() {
               <div className="bg-[#070D18] border border-[#1A263D] hover:border-[#2563EB]/40 rounded-lg p-3 flex items-center justify-between gap-3 transition-colors">
                 <div className="space-y-0.5">
                   <span className="font-semibold text-xs text-[#F8FAFC] block">
-                    Perform Four-Eyes Sign-Off on PlanVersion 1
+                    Perform Four-Eyes Sign-Off on {planVersion ? `PlanVersion v${planVersion.version_number}` : 'PlanVersion 1 (Candidate)'}
                   </span>
                   <p className="text-[10.5px] text-[#94A3B8] leading-normal">
-                    Generated by chief_operations_admin • Validated under 13 safety rules
+                    Candidate schedule • Subject to independent governance verification
                   </p>
                 </div>
                 <Link href="/governance" className="shrink-0">
@@ -440,19 +476,6 @@ export default function OverviewPage() {
           />
         </div>
       </ResponsiveDrawer>
-
-      {/* Four-Eyes Governance Approval Modal */}
-      <PlanApprovalModal
-        isOpen={isApprovalModalOpen}
-        onClose={() => setIsApprovalModalOpen(false)}
-        planVersion={DEMO_PLAN_VERSION}
-        onApprove={async () => {
-          setIsApprovalModalOpen(false);
-        }}
-        onReject={async () => {
-          setIsApprovalModalOpen(false);
-        }}
-      />
 
       {/* 3D Digital Twin Modal */}
       <DigitalTwinInspectionModal

@@ -55,6 +55,23 @@ async def add_request_id_middleware(request: Request, call_next):
     return response
 
 
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none';"
+    ),
+}
+
+
 @app.middleware("http")
 async def add_security_headers_middleware(request: Request, call_next):
     """Attach standard HTTP security headers to every response.
@@ -65,20 +82,8 @@ async def add_security_headers_middleware(request: Request, call_next):
     production once nonce-based inline scripts are implemented.
     """
     response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-    # Basic CSP compatible with Next.js without nonces
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-        "style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data: blob:; "
-        "font-src 'self' data:; "
-        "connect-src 'self'; "
-        "frame-ancestors 'none';"
-    )
+    for k, v in SECURITY_HEADERS.items():
+        response.headers[k] = v
     return response
 
 
@@ -94,10 +99,13 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
                 "message": str(exc.detail),
             }
         }
+    headers = dict(SECURITY_HEADERS)
+    if getattr(exc, "headers", None):
+        headers.update(exc.headers)
     return JSONResponse(
         status_code=exc.status_code,
         content=payload,
-        headers=getattr(exc, "headers", None),
+        headers=headers,
     )
 
 
@@ -113,6 +121,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
                 "details": exc.errors(),
             }
         },
+        headers=SECURITY_HEADERS,
     )
 
 
@@ -128,6 +137,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
                 "message": "An unexpected internal server error occurred.",
             }
         },
+        headers=SECURITY_HEADERS,
     )
 
 

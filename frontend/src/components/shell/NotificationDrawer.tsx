@@ -22,6 +22,7 @@ export interface OperationalNotification {
   source: string;
   targetUrl: string;
   isRead: boolean;
+  isDemo?: boolean;
 }
 
 const INITIAL_NOTIFICATIONS: OperationalNotification[] = [
@@ -34,6 +35,7 @@ const INITIAL_NOTIFICATIONS: OperationalNotification[] = [
     source: 'CP-SAT Interval Engine',
     targetUrl: '/planning?subtab=CONFLICTS&conflict=CONF-HDW-01',
     isRead: false,
+    isDemo: true,
   },
   {
     id: 'NOTIF-02',
@@ -44,6 +46,7 @@ const INITIAL_NOTIFICATIONS: OperationalNotification[] = [
     source: 'Governance Pipeline',
     targetUrl: '/governance',
     isRead: false,
+    isDemo: true,
   },
 ];
 
@@ -154,6 +157,11 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, 
                       <Info className="w-4 h-4 text-[#38BDF8] shrink-0" />
                     )}
                     <span className="font-bold text-xs">{item.title}</span>
+                    {item.isDemo && (
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold shrink-0">
+                        DEMO
+                      </span>
+                    )}
                   </div>
 
                   {!item.isRead && (

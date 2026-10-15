@@ -1,7 +1,7 @@
 import { test as base, expect, Page, APIRequestContext } from '@playwright/test';
 
 export const TEST_CONFIG = {
-  apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1',
+  apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001/api/v1',
   plannerToken: process.env.TEST_PLANNER_TOKEN || 'e2e-planner-token-2026',
   approverToken: process.env.TEST_APPROVER_TOKEN || 'e2e-approver-token-2026',
   adminToken: process.env.TEST_ADMIN_TOKEN || 'admin-token-2026',

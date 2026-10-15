@@ -10,16 +10,20 @@ export interface StatusBarProps {
   workerStatus?: string;
   validatorStatus?: string;
   dbStatus?: string;
+  activePlanVersionId?: string | null;
+  activeScheduleIdentity?: string | null;
 }
 
 export const StatusBar: React.FC<StatusBarProps> = ({
   tasksCount = null,
-  totalTasks = 30,
-  trainsCount = 50,
+  totalTasks = null,
+  trainsCount = null,
   lastSolveDuration = null,
   workerStatus = 'Standby',
   validatorStatus = 'Standby',
   dbStatus = 'Standalone (Demo Data)',
+  activePlanVersionId = null,
+  activeScheduleIdentity = null,
 }) => {
   const [isMobileStatusOpen, setIsMobileStatusOpen] = useState(false);
 
@@ -60,6 +64,16 @@ export const StatusBar: React.FC<StatusBarProps> = ({
               {validatorStatus}
             </span>
           </span>
+
+          {activePlanVersionId && (
+            <>
+              <span className="h-3 w-[1px] bg-[#152238] shrink-0" />
+              <span className="flex items-center gap-1.5 text-[#8EA3BE] shrink-0 font-mono text-[11px]" title={`Persisted Plan Version: ${activePlanVersionId} (Fingerprint: ${activeScheduleIdentity || '—'})`}>
+                <span className="hidden xl:inline text-[#566B85]">Plan:</span>
+                <span className="text-[#38BDF8] font-bold">{activePlanVersionId}</span>
+              </span>
+            </>
+          )}
         </div>
 
         {/* Right Metrics & Environment Notice */}
@@ -67,7 +81,13 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           <span className="inline-flex items-center gap-1 text-[#94A3B8]">
             <span className="text-[#64748B]">Tasks:</span>
             <span className="text-[#F8FAFC] font-semibold">
-              {tasksCount !== null && tasksCount !== undefined ? `${tasksCount}/${totalTasks}` : `—/${totalTasks}`}
+              {tasksCount !== null && tasksCount !== undefined
+                ? totalTasks !== null && totalTasks !== undefined
+                  ? `${tasksCount}/${totalTasks}`
+                  : `${tasksCount}/—`
+                : totalTasks !== null && totalTasks !== undefined
+                ? `—/${totalTasks}`
+                : '—'}
             </span>
           </span>
 
@@ -151,9 +171,17 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                 Scheduled
               </span>
               <div className="font-mono text-xs font-semibold text-[#F8FAFC]">
-                {tasksCount !== null && tasksCount !== undefined ? `${tasksCount} / ${totalTasks} Tasks` : `— / ${totalTasks} Tasks`}
+                {tasksCount !== null && tasksCount !== undefined
+                  ? totalTasks !== null && totalTasks !== undefined
+                    ? `${tasksCount} / ${totalTasks} Tasks`
+                    : `${tasksCount} / — Tasks`
+                  : totalTasks !== null && totalTasks !== undefined
+                  ? `— / ${totalTasks} Tasks`
+                  : '—'}
               </div>
-              <div className="text-[10px] text-[#94A3B8]">{trainsCount} Configured Trains</div>
+              <div className="text-[10px] text-[#94A3B8]">
+                {trainsCount !== null && trainsCount !== undefined ? `${trainsCount} Configured Trains` : '— Trains'}
+              </div>
             </div>
           </div>
 
@@ -167,6 +195,12 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                 {lastSolveDuration !== null && lastSolveDuration !== undefined ? `${lastSolveDuration.toFixed(2)}s (UTC)` : '— (No solve run)'}
               </span>
             </div>
+            {activePlanVersionId && (
+              <div className="flex items-center justify-between text-[#94A3B8] pt-1 border-t border-[#1E2D4A]/60">
+                <span>Plan Version:</span>
+                <span className="text-[#38BDF8] font-bold">{activePlanVersionId}</span>
+              </div>
+            )}
           </div>
 
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-[11px] text-amber-300 flex items-start gap-2">

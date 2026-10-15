@@ -85,24 +85,10 @@ interface ReviewComment {
   role: string;
   time: string;
   text: string;
+  isLocalDraft?: boolean;
 }
 
-const INITIAL_COMMENTS: ReviewComment[] = [
-  {
-    id: 'REV-01',
-    author: 'S. K. Verma',
-    role: 'Traction Power Inspector (OHE)',
-    time: '14:22 UTC',
-    text: 'OHE power block window confirmed for 25kV de-energization on track 2 (UP Main) from 14:00 to 15:30. Tower wagon GZB-TW-02 mobilized.',
-  },
-  {
-    id: 'REV-02',
-    author: 'Amitabh Sen',
-    role: 'Chief Operations Officer',
-    time: '14:28 UTC',
-    text: 'Possession window on SEC-12 intersects Train 02073 by 18 minutes. Reviewing alternative diversion via Down Relief Line before final executive sign-off.',
-  },
-];
+const INITIAL_COMMENTS: ReviewComment[] = [];
 
 function mapApiToSummary(v: PlanVersion): PlanVersionSummary {
   const resultSummary = v.result_summary as Record<string, unknown> | undefined;
@@ -283,6 +269,7 @@ export default function AuditPage() {
         role: 'Planning Officer',
         time: 'Just now',
         text: newCommentText.trim(),
+        isLocalDraft: true,
       },
     ]);
     setNewCommentText('');
@@ -653,23 +640,36 @@ export default function AuditPage() {
             {/* Tab 2: Review Comments Thread */}
             {inspectorTab === 'REVIEW' && (
               <div className="p-4 space-y-4">
-                <div className="space-y-3">
-                  {comments.map((c) => (
-                    <div
-                      key={c.id}
-                      className="bg-[#070D18] border border-[#162238] rounded-lg p-3 space-y-1.5 text-xs"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-[#F8FAFC]">{c.author}</span>
-                          <span className="text-[10px] text-[#64748B] font-mono">({c.role})</span>
+                {comments.length > 0 ? (
+                  <div className="space-y-3">
+                    {comments.map((c) => (
+                      <div
+                        key={c.id}
+                        className="bg-[#070D18] border border-[#162238] rounded-lg p-3 space-y-1.5 text-xs"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-[#F8FAFC]">{c.author}</span>
+                            <span className="text-[10px] text-[#64748B] font-mono">({c.role})</span>
+                            {c.isLocalDraft && (
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 font-medium">
+                                Local Session Draft (Not Persisted to Backend)
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-[#64748B] font-mono">{c.time}</span>
                         </div>
-                        <span className="text-[10px] text-[#64748B] font-mono">{c.time}</span>
+                        <p className="text-[#CBD5E1] text-[11px] leading-relaxed">{c.text}</p>
                       </div>
-                      <p className="text-[#CBD5E1] text-[11px] leading-relaxed">{c.text}</p>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-[#94A3B8] text-xs">
+                    <MessageSquare className="w-6 h-6 mx-auto text-[#64748B] mb-2" />
+                    <p className="font-semibold text-[#F8FAFC]">No Review Comments</p>
+                    <p className="text-[11px] mt-0.5">No comments recorded for this plan version.</p>
+                  </div>
+                )}
 
                 {/* Add Comment Input */}
                 <div className="pt-2 flex items-center gap-2">
@@ -701,29 +701,37 @@ export default function AuditPage() {
             {/* Tab 3: Audit Trail Timeline */}
             {inspectorTab === 'AUDIT' && (
               <div className="p-4 space-y-3">
-                <div className="space-y-3 text-xs">
-                  {auditLogs.map((log, idx) => (
-                    <div key={idx} className="relative pl-6 pb-3 border-l border-[#162238] last:border-0 last:pb-0">
-                      <div className="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full bg-[#2563EB] border-2 border-[#0B1120]" />
-                      <div className="bg-[#070D18] border border-[#162238] rounded-lg p-2.5 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-[#F8FAFC]">
-                            {log.event_type || 'PLAN_VERSION_EVENT'}
-                          </span>
-                          <span className="text-[10px] text-[#64748B] font-mono">
-                            {new Date(log.timestamp).toLocaleTimeString()}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-[#94A3B8]">
-                          {log.comment || 'Event registered in immutable hash-chained audit ledger.'}
-                        </p>
-                        <div className="text-[10px] text-[#64748B] font-mono">
-                          Actor: {log.actor_username || 'System'} ({log.actor_role || 'OPERATOR'})
+                {auditLogs.length > 0 ? (
+                  <div className="space-y-3 text-xs">
+                    {auditLogs.map((log, idx) => (
+                      <div key={idx} className="relative pl-6 pb-3 border-l border-[#162238] last:border-0 last:pb-0">
+                        <div className="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full bg-[#2563EB] border-2 border-[#0B1120]" />
+                        <div className="bg-[#070D18] border border-[#162238] rounded-lg p-2.5 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-[#F8FAFC]">
+                              {log.event_type || 'PLAN_VERSION_EVENT'}
+                            </span>
+                            <span className="text-[10px] text-[#64748B] font-mono">
+                              {new Date(log.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#94A3B8]">
+                            {log.comment || 'Event registered in immutable hash-chained audit ledger.'}
+                          </p>
+                          <div className="text-[10px] text-[#64748B] font-mono">
+                            Actor: {log.actor_username || 'System'} ({log.actor_role || 'OPERATOR'})
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-[#94A3B8] text-xs">
+                    <ShieldCheck className="w-6 h-6 mx-auto text-[#64748B] mb-2" />
+                    <p className="font-semibold text-[#F8FAFC]">No Audit Events</p>
+                    <p className="text-[11px] mt-0.5">No immutable audit events registered yet for this plan version.</p>
+                  </div>
+                )}
               </div>
             )}
 

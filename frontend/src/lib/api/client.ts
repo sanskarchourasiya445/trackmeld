@@ -407,30 +407,39 @@ export async function getScenarioBundle(scenarioId: string): Promise<{
 }> {
   const raw = await fetchJson<{
     scenario: Scenario;
+    corridor?: Corridor;
     sections?: BlockSection[];
     train_movements?: TrainMovement[];
     tasks?: MaintenanceTask[];
     tracks?: Track[];
   }>(`/scenarios/${scenarioId}/bundle`);
 
-  const sections = raw.sections || DEMO_CORRIDOR.sections;
-  const trains = raw.train_movements || [];
-  const tracks = raw.tracks || [];
-  const tasks = (raw.tasks || []).map((t) => ({
+  const sections = raw.sections ?? [];
+  const trains = raw.train_movements ?? [];
+  const tracks = raw.tracks ?? [];
+  const tasks = (raw.tasks ?? []).map((t) => ({
     ...t,
     section_code: t.section_id || t.section_code || '',
-    required_duration_minutes: t.estimated_duration_minutes || t.required_duration_minutes || 120,
+    required_duration_minutes: t.estimated_duration_minutes ?? t.required_duration_minutes ?? 0,
     earliest_start: t.window_start || t.earliest_start || '',
     latest_finish: t.window_end || t.latest_finish || '',
-    work_type: t.task_type || t.work_type || 'TRACK_MAINTENANCE',
+    work_type: t.task_type || t.work_type || 'MAINTENANCE',
   }));
+
+  const corridor: Corridor = raw.corridor || {
+    id: raw.scenario?.corridor_id || 'CORRIDOR',
+    code: raw.scenario?.corridor_id || 'CORR',
+    name: raw.scenario?.name || 'Corridor',
+    zone: 'NORTHERN_RAILWAY',
+    division: 'DLI',
+    total_length_km: 0,
+    stations: [],
+    sections,
+  };
 
   return {
     scenario: raw.scenario,
-    corridor: {
-      ...DEMO_CORRIDOR,
-      sections,
-    },
+    corridor,
     sections,
     trains,
     tasks,

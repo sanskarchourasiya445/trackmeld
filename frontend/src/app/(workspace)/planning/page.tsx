@@ -26,6 +26,8 @@ import {
   validateSchedule,
   diagnoseSchedule,
   getPlanVersions,
+  createPlanningRun,
+  createPlanVersionFromRun,
   approvePlanVersion,
   rejectPlanVersion,
   DEMO_SCENARIO,
@@ -47,6 +49,7 @@ import {
   PlanVersion,
   ScheduleValidationResult,
   DiagnosticsReport,
+  DataProvenance,
 } from '@/types/planning';
 import {
   Play,
@@ -68,6 +71,7 @@ import {
   Maximize2,
   Minimize2,
   LayoutGrid,
+  Database,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ResponsiveDrawer } from '@/components/common/ResponsiveDrawer';
@@ -110,6 +114,8 @@ function PlanningPageContent() {
   const [validationResult, setValidationResult] = useState<ScheduleValidationResult | null>(null);
   const [diagnosticsReport, setDiagnosticsReport] = useState<DiagnosticsReport | null>(null);
   const [planVersion, setPlanVersion] = useState<PlanVersion | null>(null);
+  const [scheduleProvenance, setScheduleProvenance] = useState<DataProvenance>('unavailable');
+  const [scenarioProvenance, setScenarioProvenance] = useState<DataProvenance>('loading');
 
   // Active Primary Workspace Surface Mode (Defaults to master 3-panel split)
   const [activeViewMode, setActiveViewMode] = useState<WorkspaceViewMode>(
@@ -188,6 +194,7 @@ function PlanningPageContent() {
   const [isApprovalOpen, setIsApprovalOpen] = useState(false);
   const [isBenchmarkOpen, setIsBenchmarkOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isPersisting, setIsPersisting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -197,15 +204,53 @@ function PlanningPageContent() {
         if (cancelled) return;
         if (bundle.corridor) setCorridor(bundle.corridor);
         if (bundle.scenario) setScenario(bundle.scenario);
-        if (bundle.trains && bundle.trains.length > 0) setTrains(bundle.trains);
-        if (bundle.tasks && bundle.tasks.length > 0) setTasks(bundle.tasks);
+        if (bundle.trains !== undefined) setTrains(bundle.trains);
+        if (bundle.tasks !== undefined) setTasks(bundle.tasks);
+        setScenarioProvenance('backend');
 
-        const versions = await getPlanVersions('SCN-DEMO-001');
-        if (!cancelled && versions && versions.length > 0) {
-          setPlanVersion(versions[0]);
+        // Check if an authoritative persisted PlanVersion exists for this scenario
+        try {
+          const versions = await getPlanVersions('SCN-DEMO-001');
+          if (!cancelled && versions && versions.length > 0) {
+            const active = versions[0];
+            setPlanVersion(active);
+            const schedResult = (active as unknown as { schedule_result?: ScheduleResult }).schedule_result;
+            if (schedResult) {
+              setScheduleResult(schedResult);
+              setScheduleProvenance('backend');
+              const valData = schedResult.validation || (schedResult as unknown as { validation_summary?: ScheduleValidationResult }).validation_summary;
+              if (valData) {
+                setValidationResult(valData as ScheduleValidationResult);
+              } else if (active.validation_status && active.schedule_identity) {
+                setValidationResult({
+                  status: active.validation_status as 'VALID' | 'INVALID',
+                  valid: active.validation_status === 'VALID',
+                  is_approvable: active.is_approvable ?? (active.validation_status === 'VALID'),
+                  schedule_identity: active.schedule_identity,
+                  findings: [],
+                  error_count: (active.validation_findings_summary?.error_count as number) || 0,
+                  warning_count: 0,
+                  info_count: 0,
+                  checked_task_count: 0,
+                  checked_section_count: 0,
+                  checked_resource_count: 0,
+                  checked_train_movement_count: 0,
+                  checks_executed: [],
+                  approval_gate_message: 'Certified under authoritative backend governance record',
+                });
+              }
+            }
+          } else if (!cancelled) {
+            setPlanVersion(null);
+          }
+        } catch {
+          if (!cancelled) setPlanVersion(null);
         }
       } catch (err) {
         console.warn('Initial data load warning:', err);
+        if (!cancelled) {
+          setScenarioProvenance('synthetic');
+        }
       }
     }
     loadInitialData();
@@ -261,18 +306,21 @@ function PlanningPageContent() {
   const handleTriggerSolve = useCallback(async () => {
     setIsSolving(true);
     setErrorMessage(null);
+    setScheduleProvenance('loading');
     setSolvingMessage('Compiling discrete interval constraints...');
     try {
       let sched: ScheduleResult;
       try {
         sched = await optimizeSchedule(scenario.scenario_id, 5.0);
         setScheduleResult(sched);
+        setScheduleProvenance('backend');
       } catch (optErr: unknown) {
         console.warn('Optimization service error:', optErr);
         const errMsg = optErr instanceof Error ? optErr.message : String(optErr);
         setScheduleResult(null);
         setValidationResult(null);
         setDiagnosticsReport(null);
+        setScheduleProvenance('unavailable');
         setErrorMessage(`OPTIMIZATION UNAVAILABLE: ${errMsg}`);
         return;
       }
@@ -300,31 +348,91 @@ function PlanningPageContent() {
 
       try {
         const versions = await getPlanVersions(scenario.scenario_id);
-        if (versions && versions.length > 0) {
-          setPlanVersion(versions[0]);
+        const matchingVersion = versions?.find((v) => v.schedule_identity === val.schedule_identity);
+        if (matchingVersion) {
+          setPlanVersion(matchingVersion);
+        } else {
+          // Optimization solved an in-memory candidate schedule that has not yet
+          // been promoted/persisted as an authoritative PlanVersion in the database.
+          // Never substitute an unrelated older version (e.g. versions[0]).
+          setPlanVersion(null);
         }
       } catch {
-        // Non-blocking version refresh
+        setPlanVersion(null);
       }
     } catch (err: unknown) {
       console.error('Solve pipeline error:', err);
       const errMsg = err instanceof Error ? err.message : String(err);
       setErrorMessage(`OPTIMIZATION UNAVAILABLE: ${errMsg}`);
+      setScheduleProvenance('unavailable');
     } finally {
       setIsSolving(false);
       setSolvingMessage('');
     }
   }, [scenario.scenario_id]);
 
+  const handlePersistCandidatePlan = async () => {
+    if (!scheduleResult || !validationResult) {
+      setErrorMessage('CANNOT PERSIST: No candidate schedule available.');
+      return;
+    }
+    if (scheduleProvenance !== 'backend') {
+      setErrorMessage('CANNOT PERSIST: Synthetic demo schedules cannot be persisted to backend.');
+      return;
+    }
+    if (!validationResult.is_approvable) {
+      setErrorMessage('CANNOT PERSIST: Only certified valid schedules may be persisted as plan versions.');
+      return;
+    }
+    setIsPersisting(true);
+    setErrorMessage(null);
+    try {
+      // 1. Submit planning run via supported API
+      const run = await createPlanningRun({
+        scenario_id: scenario.scenario_id,
+        scheduler_type: scheduleResult.scheduler_type || 'CP_SAT',
+        time_limit_seconds: 5.0,
+        validate_after_solve: true,
+      });
+
+      // 2. Instantiate PlanVersion candidate from completed run
+      const newPlanVersion = await createPlanVersionFromRun(
+        run.run_id,
+        'Instantiated PlanVersion from optimization workspace.'
+      );
+
+      setPlanVersion(newPlanVersion);
+      setErrorMessage(null);
+    } catch (err: unknown) {
+      console.warn('Candidate persistence notice:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(`PERSISTENCE UNAVAILABLE: ${msg}. Backend database connection is required to issue an authoritative PlanVersion ID.`);
+    } finally {
+      setIsPersisting(false);
+    }
+  };
+
   const handleLoadDemoSchedule = () => {
     setScheduleResult(DEMO_SCHEDULE_RESULT);
     setValidationResult(DEMO_VALIDATION_RESULT);
     setDiagnosticsReport(null);
     setErrorMessage(null);
+    setScheduleProvenance('synthetic');
   };
 
   const handleApprove = async (payload: { reviewer_name: string; reviewer_role: string; approval_notes: string }) => {
-    if (!planVersion) return;
+    if (!planVersion) {
+      setErrorMessage('CANNOT APPROVE: Schedule candidate is not linked to a persisted plan version.');
+      return;
+    }
+    if (!validationResult || planVersion.schedule_identity !== validationResult.schedule_identity) {
+      setErrorMessage('CANNOT APPROVE: Cryptographic identity mismatch between plan version and validation certification.');
+      return;
+    }
+    if (scheduleProvenance !== 'backend') {
+      setErrorMessage('CANNOT APPROVE: Synthetic demo schedules cannot be approved.');
+      return;
+    }
     try {
       const updated = await approvePlanVersion(
         planVersion.plan_version_id,
@@ -342,7 +450,18 @@ function PlanningPageContent() {
   };
 
   const handleReject = async (payload: { reviewer_name: string; reviewer_role: string; rejection_reason: string }) => {
-    if (!planVersion) return;
+    if (!planVersion) {
+      setErrorMessage('CANNOT REJECT: Schedule candidate is not linked to a persisted plan version.');
+      return;
+    }
+    if (!validationResult || planVersion.schedule_identity !== validationResult.schedule_identity) {
+      setErrorMessage('CANNOT REJECT: Cryptographic identity mismatch between plan version and validation certification.');
+      return;
+    }
+    if (scheduleProvenance !== 'backend') {
+      setErrorMessage('CANNOT REJECT: Synthetic demo schedules cannot be rejected.');
+      return;
+    }
     try {
       const updated = await rejectPlanVersion(planVersion.plan_version_id, payload.rejection_reason);
       setPlanVersion(updated);
@@ -373,11 +492,13 @@ function PlanningPageContent() {
       scenarioName: corridor.name || 'Northern Corridor',
       planningHorizon: '24-Hour Planning Horizon',
       tasksCount: scheduleResult ? scheduleResult.scheduled_tasks.length : null,
-      totalTasks: tasks.length || 30,
-      trainsCount: trains.length || 50,
+      totalTasks: tasks.length > 0 ? tasks.length : null,
+      trainsCount: trains.length > 0 ? trains.length : null,
       lastSolveDuration: scheduleResult ? scheduleResult.solver_wall_time_seconds : null,
       workerStatus: isSolving ? 'Optimizing' : scheduleResult ? 'Idle' : 'Standby',
       validatorStatus: validationResult?.status === 'VALID' ? 'Active' : validationResult ? 'Warning' : 'Standby',
+      activePlanVersionId: planVersion?.plan_version_id || null,
+      activeScheduleIdentity: planVersion?.schedule_identity || null,
     });
   }, [
     scenario.scenario_id,
@@ -387,6 +508,7 @@ function PlanningPageContent() {
     trains.length,
     isSolving,
     validationResult,
+    planVersion,
     updateTelemetry,
   ]);
 
@@ -407,7 +529,22 @@ function PlanningPageContent() {
               <span className="text-xs font-mono text-[#64748B] hidden md:inline">•</span>
               <span className="text-xs font-medium text-slate-300">NDLS → CNB (440 km Trunk)</span>
               <span className="text-xs font-mono text-[#64748B] hidden md:inline">•</span>
-              <span className="text-xs font-medium text-slate-400">Scenario A (24h Window)</span>
+              <span className="text-xs font-medium text-slate-400">
+                Scenario A (24h Window)
+                {scenarioProvenance === 'synthetic' && (
+                  <span className="ml-1 text-[10px] font-mono text-amber-400">(Synthetic Fixture)</span>
+                )}
+              </span>
+              {scheduleProvenance === 'synthetic' && (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 font-medium">
+                  DEMO SCHEDULE (SYNTHETIC)
+                </span>
+              )}
+              {scheduleProvenance === 'backend' && (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-medium">
+                  BACKEND SCHEDULE
+                </span>
+              )}
             </div>
 
             <div className="h-3.5 w-[1px] bg-[#1A263D] hidden sm:block" />
@@ -469,11 +606,17 @@ function PlanningPageContent() {
                 className={`px-2 py-0.5 rounded flex items-center gap-1 shrink-0 ${
                   !scheduleResult || !validationResult
                     ? 'text-zinc-600 font-medium'
-                    : planVersion?.status === 'APPROVED'
-                      ? 'text-emerald-400 font-bold bg-emerald-950/50'
-                      : validationResult.is_approvable
+                    : !validationResult.is_approvable
+                      ? 'text-rose-400 font-bold bg-rose-950/40'
+                      : scheduleProvenance === 'synthetic'
                         ? 'text-amber-400 font-bold bg-amber-950/40'
-                        : 'text-rose-400 font-bold'
+                        : !planVersion
+                          ? 'text-amber-400 font-bold bg-amber-950/40'
+                          : planVersion.schedule_identity !== validationResult.schedule_identity
+                            ? 'text-rose-400 font-bold bg-rose-950/40'
+                            : planVersion.status === 'APPROVED'
+                              ? 'text-emerald-400 font-bold bg-emerald-950/50'
+                              : 'text-amber-400 font-bold bg-amber-950/40'
                 }`}
                 title="Stage 3: Four-Eyes Human Governance Sign-Off"
               >
@@ -481,11 +624,17 @@ function PlanningPageContent() {
                 <span>
                   {!scheduleResult || !validationResult
                     ? 'GOVERNANCE: BLOCKED'
-                    : planVersion?.status === 'APPROVED'
-                      ? 'APPROVED'
-                      : validationResult.is_approvable
-                        ? 'PENDING FOUR-EYES'
-                        : 'APPROVAL: BLOCKED'}
+                    : !validationResult.is_approvable
+                      ? 'VALIDATION FAILED'
+                      : scheduleProvenance === 'synthetic'
+                        ? 'DEMO • READ ONLY'
+                        : !planVersion
+                          ? 'UNPERSISTED CANDIDATE'
+                          : planVersion.schedule_identity !== validationResult.schedule_identity
+                            ? 'IDENTITY MISMATCH'
+                            : planVersion.status === 'APPROVED'
+                              ? 'APPROVED'
+                              : 'PENDING FOUR-EYES'}
                 </span>
               </div>
             </div>
@@ -506,14 +655,47 @@ function PlanningPageContent() {
                 <span>{isSolving ? 'Optimizing...' : 'Run Optimization'}</span>
               </Button>
 
+              {/* Persist Candidate as PlanVersion (Supported API Workflow) */}
+              {scheduleResult && !planVersion && scheduleProvenance === 'backend' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isPersisting || !validationResult?.is_approvable}
+                  onClick={handlePersistCandidatePlan}
+                  className="bg-amber-950/40 hover:bg-amber-900/50 border-amber-500/40 text-amber-300 text-xs font-semibold h-8 px-3 cursor-pointer flex items-center gap-1.5 transition-colors rounded-lg"
+                  title={
+                    !validationResult?.is_approvable
+                      ? 'Independent validation must certify plan before persistence'
+                      : 'Persist this candidate schedule via supported backend API to issue an authoritative PlanVersion ID'
+                  }
+                >
+                  <Database className={`w-3.5 h-3.5 text-amber-400 ${isPersisting ? 'animate-spin' : ''}`} />
+                  <span>{isPersisting ? 'Persisting...' : 'Persist Plan Candidate'}</span>
+                </Button>
+              )}
+
               {/* Approve Plan (Distinct Governance Action) */}
               <Button
                 size="sm"
                 variant="outline"
-                disabled={!scheduleResult || !validationResult?.is_approvable}
+                disabled={
+                  !scheduleResult ||
+                  !validationResult?.is_approvable ||
+                  scheduleProvenance !== 'backend' ||
+                  !planVersion ||
+                  planVersion.schedule_identity !== validationResult.schedule_identity ||
+                  planVersion.status === 'APPROVED' ||
+                  planVersion.status === 'REJECTED'
+                }
                 onClick={() => setIsApprovalOpen(true)}
                 className={`text-xs font-semibold h-8 px-3 cursor-pointer flex items-center gap-1.5 transition-colors rounded-lg ${
-                  scheduleResult && validationResult?.is_approvable
+                  scheduleResult &&
+                  validationResult?.is_approvable &&
+                  scheduleProvenance === 'backend' &&
+                  planVersion &&
+                  planVersion.schedule_identity === validationResult.schedule_identity &&
+                  planVersion.status !== 'APPROVED' &&
+                  planVersion.status !== 'REJECTED'
                     ? 'bg-emerald-950/50 hover:bg-emerald-900/60 border-emerald-500/50 text-emerald-300 shadow-xs'
                     : 'border-[#1A263D] text-[#64748B] opacity-50 cursor-not-allowed bg-transparent'
                 }`}
@@ -522,11 +704,31 @@ function PlanningPageContent() {
                     ? 'Run optimization before submitting for governance sign-off'
                     : !validationResult?.is_approvable
                       ? 'Independent validation must certify plan before approval'
-                      : 'Open Four-Eyes Governance Sign-Off'
+                      : scheduleProvenance !== 'backend'
+                        ? 'Synthetic demo plans are read-only and cannot be submitted for governance approval'
+                        : !planVersion
+                          ? 'Schedule candidate has not been persisted as an authoritative plan version'
+                          : planVersion.schedule_identity !== validationResult.schedule_identity
+                            ? 'Cryptographic identity mismatch between plan version and validation certification'
+                            : planVersion.status === 'APPROVED'
+                              ? 'Plan is already approved'
+                              : planVersion.status === 'REJECTED'
+                                ? 'Plan was rejected'
+                                : 'Open Four-Eyes Governance Sign-Off'
                 }
               >
                 <FileCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Approve</span>
+                <span>
+                  {planVersion?.status === 'APPROVED'
+                    ? 'Approved'
+                    : planVersion?.status === 'REJECTED'
+                      ? 'Rejected'
+                      : !planVersion && scheduleResult
+                        ? 'Unpersisted Plan'
+                        : planVersion && validationResult && planVersion.schedule_identity !== validationResult.schedule_identity
+                          ? 'Identity Mismatch'
+                          : 'Approve'}
+                </span>
               </Button>
             </div>
 
@@ -1054,6 +1256,7 @@ function PlanningPageContent() {
             {activeViewMode === 'VALIDATION' && (
               <ValidationWorkspace
                 validationResult={validationResult}
+                planVersion={planVersion}
                 onOpenGovernance={() => setIsApprovalOpen(true)}
               />
             )}
