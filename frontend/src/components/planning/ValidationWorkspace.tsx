@@ -46,6 +46,7 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
         label: 'NOT RUN',
         icon: <Clock className="w-3 h-3 text-zinc-500" />,
         badgeClass: 'bg-zinc-800/80 text-zinc-400 border border-zinc-700/60',
+        findingMessage: undefined,
       };
     }
 
@@ -59,6 +60,7 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
           label: 'FAILED',
           icon: <AlertCircle className="w-3 h-3 text-rose-400" />,
           badgeClass: 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
+          findingMessage: finding.message,
         };
       }
       if (finding.severity === 'WARNING') {
@@ -66,15 +68,17 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
           label: 'WARNING',
           icon: <AlertTriangle className="w-3 h-3 text-amber-400" />,
           badgeClass: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
+          findingMessage: finding.message,
         };
       }
     }
 
-    if (validationResult.status === 'INVALID') {
+    if (validationResult.status === 'INVALID' && (!validationResult.findings || validationResult.findings.length === 0)) {
       return {
         label: 'FAILED',
         icon: <AlertCircle className="w-3 h-3 text-rose-400" />,
         badgeClass: 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
+        findingMessage: 'Validation rejected under unmodeled hard constraint.',
       };
     }
 
@@ -82,6 +86,7 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
       label: 'VERIFIED',
       icon: <CheckCircle className="w-3 h-3 text-emerald-400" />,
       badgeClass: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+      findingMessage: undefined,
     };
   };
 
@@ -226,6 +231,11 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
                   <td className="py-2.5 px-3">
                     <div className="font-semibold text-[#F8FAFC]">{rule.name}</div>
                     <div className="text-[11px] text-[#94A3B8] leading-tight mt-0.5">{rule.desc}</div>
+                    {cert.findingMessage && (
+                      <div className="text-[10px] font-mono text-rose-300 mt-1 bg-rose-950/40 border border-rose-500/30 p-1.5 rounded">
+                        {cert.findingMessage}
+                      </div>
+                    )}
                   </td>
                   <td className="py-2.5 px-3 font-mono text-[#CBD5E1] text-[11px]">
                     {rule.items}
@@ -260,6 +270,11 @@ export const ValidationWorkspace: React.FC<ValidationWorkspaceProps> = ({
                 <p className="text-[11px] text-[#94A3B8] leading-relaxed pt-1 border-t border-[#1A263D]/50">
                   {rule.desc}
                 </p>
+                {cert.findingMessage && (
+                  <div className="text-[10px] font-mono text-rose-300 mt-1 bg-rose-950/40 border border-rose-500/30 p-1.5 rounded">
+                    {cert.findingMessage}
+                  </div>
+                )}
               </div>
             );
           })}

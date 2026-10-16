@@ -25,6 +25,7 @@ from backend.app.repositories.plan_version_repo import (
     LEGAL_PLAN_TRANSITIONS,
 )
 from backend.app.core.auth import KNOWN_CREDENTIALS, AuthUser, UserRole
+from backend.app.domain.enums import DataClass
 from backend.app.db.models.planning_run import PlanningRunModel
 from backend.app.db.models.plan_version import PlanVersionModel
 from backend.app.services.plan_governance_service import PlanGovernanceService
@@ -294,6 +295,11 @@ async def test_approve_plan_persists_declared_reviewer_in_audit_metadata():
     mock_run.snapshot_hash = "SNAPSHOT_HASH_AAA"
     mock_run.input_hash = "INPUT_HASH_AAA"
     service.run_repo.get_by_run_id = AsyncMock(return_value=mock_run)
+
+    mock_scenario = MagicMock()
+    mock_scenario.scenario_id = "SCN-TEST-01"
+    mock_scenario.classification = DataClass.REAL
+    service.scenario_repo.get_by_id = AsyncMock(return_value=mock_scenario)
 
     actor = KNOWN_CREDENTIALS["approver-token-2026"]
     result = await service.approve_plan(

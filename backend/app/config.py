@@ -1,9 +1,12 @@
 from functools import lru_cache
 from pathlib import Path
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Base directory for the repository
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+VALID_ENVIRONMENTS = {"development", "test", "testing", "staging", "production"}
 
 
 class Settings(BaseSettings):
@@ -39,6 +42,23 @@ class Settings(BaseSettings):
     AUTH_PLANNER_TOKEN: str | None = None
     AUTH_VIEWER_TOKEN: str | None = None
 
+    # Demo authentication configuration (opt-in; strictly permitted only in development/testing)
+    ENABLE_DEMO_AUTH: bool = False
+
+    @field_validator("ENVIRONMENT")
+    @classmethod
+    def validate_environment(cls, v: str) -> str:
+        clean = v.strip().lower()
+        if clean == "prod":
+            raise ValueError(
+                "Invalid environment 'prod'. Did you mean 'production'? Environment names must not be abbreviated."
+            )
+        if clean not in VALID_ENVIRONMENTS:
+            raise ValueError(
+                f"Invalid environment '{v}'. Permitted environments are: {', '.join(sorted(VALID_ENVIRONMENTS))}."
+            )
+        return clean
+
     @property
     def cors_allowed_origins(self) -> list[str]:
         """Parsed list of allowed origins for CORS validation."""
@@ -46,7 +66,19 @@ class Settings(BaseSettings):
 
     @property
     def is_production(self) -> bool:
-        return self.ENVIRONMENT.lower() == "production"
+        env = self.ENVIRONMENT.lower().strip()
+        return env in ("production", "prod", "staging")
+
+    @property
+    def is_demo_auth_allowed(self) -> bool:
+        """Demo credentials can only be enabled in explicitly permitted local environments."""
+        env = self.ENVIRONMENT.lower().strip()
+        return env in ("development", "test", "testing") and not self.is_production
+
+    @property
+    def is_demo_auth_active(self) -> bool:
+        """Demo authentication requires explicit opt-in AND an allowed non-production environment."""
+        return bool(self.ENABLE_DEMO_AUTH and self.is_demo_auth_allowed)
 
 
 @lru_cache()

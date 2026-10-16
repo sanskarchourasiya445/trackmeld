@@ -109,8 +109,8 @@ async def _insert_test_run(
 @pytest.mark.asyncio
 async def test_complete_e2e_governance_lifecycle(client: AsyncClient, db_session: AsyncSession):
     """Verify the full 15-step governance lifecycle from completed run to superseded version."""
-    # 1. Insert certified completed run
-    run1 = await _insert_test_run(db_session)
+    # 1. Insert certified completed run with verified REAL provenance (GOV-001)
+    run1 = await _insert_test_run(db_session, scenario_id="SCN-REAL-OPERATIONAL-001")
     run_id_1 = run1.run_id
 
     # 2. Promote run to candidate PlanVersion as planner
@@ -172,7 +172,7 @@ async def test_complete_e2e_governance_lifecycle(client: AsyncClient, db_session
     assert "PLAN_APPROVED" in event_types
 
     # 8. Create v2 from a second run and approve it -> v1 becomes SUPERSEDED
-    run2 = await _insert_test_run(db_session)
+    run2 = await _insert_test_run(db_session, scenario_id="SCN-REAL-OPERATIONAL-001")
     resp_create_v2 = await client.post(
         f"/api/v1/planning-runs/{run2.run_id}/plan-version",
         json={"comment": "Candidate Plan v2 with adjusted headway"},
@@ -268,3 +268,42 @@ async def test_unauthenticated_and_viewer_rbac(unauthenticated_client: AsyncClie
         headers=VIEWER_HEADERS,
     )
     assert resp_viewer.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_synthetic_scenario_operational_approval_blocked_by_gov001(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """GOV-001: Operational approval is blocked for synthetic scenario SCN-DEMO-001."""
+    run = await _insert_test_run(db_session, scenario_id="SCN-DEMO-001")
+    resp_pv = await client.post(
+        f"/api/v1/planning-runs/{run.run_id}/plan-version",
+        json={"comment": "Synthetic candidate plan"},
+        headers=PLANNER_HEADERS,
+    )
+    assert resp_pv.status_code == 201
+    pv_id = resp_pv.json()["plan_version_id"]
+
+    resp_rev = await client.post(
+        f"/api/v1/plan-versions/{pv_id}/review",
+        json={"comment": "Reviewing synthetic plan"},
+        headers=PLANNER_HEADERS,
+    )
+    assert resp_rev.status_code == 200
+
+    # Operational approval must be blocked with HTTP 422 APPROVAL_BLOCKED
+    resp_appr = await client.post(
+        f"/api/v1/plan-versions/{pv_id}/approve",
+        json={"comment": "Attempting approval on synthetic scenario"},
+        headers=APPROVER_HEADERS,
+    )
+    assert resp_appr.status_code == 422
+    err = resp_appr.json()["error"]
+    assert err["code"] == "APPROVAL_BLOCKED"
+    assert "SYNTHETIC" in err["message"]
+
+    # Confirm zero state mutation
+    resp_check = await client.get(f"/api/v1/plan-versions/{pv_id}", headers=APPROVER_HEADERS)
+    assert resp_check.status_code == 200
+    assert resp_check.json()["status"] == "UNDER_REVIEW"
+    assert resp_check.json()["approved_by"] is None

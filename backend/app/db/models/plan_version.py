@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -106,6 +107,13 @@ class PlanVersionModel(Base):
         Index("ix_plan_versions_scenario_status", "scenario_id", "status"),
         Index("ix_plan_versions_created_at", "created_at"),
         Index("ix_plan_versions_approved_at", "approved_at"),
+        Index(
+            "uq_plan_versions_one_approved_per_scenario",
+            "scenario_id",
+            unique=True,
+            postgresql_where=text("status = 'APPROVED'"),
+            sqlite_where=text("status = 'APPROVED'"),
+        ),
     )
 
 

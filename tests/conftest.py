@@ -27,6 +27,20 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
     await engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def configure_test_demo_auth(request, monkeypatch):
+    """Explicitly enable demo authentication in the test environment for integration suites,
+    unless the test is marked with production or no_demo_auth."""
+    s = get_settings()
+    if request.node.get_closest_marker("production") or request.node.get_closest_marker("no_demo_auth"):
+        monkeypatch.setattr(s, "ENABLE_DEMO_AUTH", False)
+        monkeypatch.setattr(s, "ENVIRONMENT", "production")
+        return
+
+    monkeypatch.setattr(s, "ENABLE_DEMO_AUTH", True)
+    monkeypatch.setattr(s, "ENVIRONMENT", "test")
+
+
 class AuthAwareAsyncClient(AsyncClient):
     """AsyncClient that defaults to planner credentials for legacy tests when no
     explicit authentication headers (Authorization or X-API-Key) are provided, while

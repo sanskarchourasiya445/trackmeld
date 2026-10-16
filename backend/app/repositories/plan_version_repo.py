@@ -53,8 +53,18 @@ class PlanFingerprintMismatchError(ValueError):
     pass
 
 
+class PlanSnapshotIntegrityError(PlanFingerprintMismatchError):
+    """Raised when planning snapshot integrity, hash format, or scenario binding fails."""
+    pass
+
+
 class PlanVersionImmutableError(ValueError):
     """Raised when an attempt is made to mutate an approved or terminal plan version."""
+    pass
+
+
+class PlanApprovalConflictError(ValueError):
+    """Raised when concurrent approvals conflict on scenario approval uniqueness constraint."""
     pass
 
 
@@ -132,6 +142,7 @@ class PlanVersionRepository(BaseRepository[PlanVersionModel]):
             select(PlanVersionModel)
             .where(PlanVersionModel.plan_version_id == plan_version_id)
             .with_for_update()
+            .execution_options(populate_existing=True)
             .options(selectinload(PlanVersionModel.review_comments))
         )
         result = await self.session.execute(stmt)
@@ -147,8 +158,8 @@ class PlanVersionRepository(BaseRepository[PlanVersionModel]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_latest_approved(self, scenario_id: str) -> Optional[PlanVersionModel]:
-        """Find the currently active APPROVED plan version for a scenario, if any."""
+    async def get_latest_approved(self, scenario_id: str, for_update: bool = False) -> Optional[PlanVersionModel]:
+        """Find the currently active APPROVED plan version for a scenario, optionally locking it."""
         stmt = (
             select(PlanVersionModel)
             .where(
@@ -159,6 +170,8 @@ class PlanVersionRepository(BaseRepository[PlanVersionModel]):
             )
             .order_by(PlanVersionModel.version_number.desc())
         )
+        if for_update:
+            stmt = stmt.with_for_update().execution_options(populate_existing=True)
         result = await self.session.execute(stmt)
         return result.scalars().first()
 

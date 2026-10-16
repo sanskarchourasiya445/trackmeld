@@ -16,6 +16,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Header, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
 from backend.app.db.session import get_db_session
 from backend.app.core.auth import get_current_user, require_permission, AuthUser
@@ -42,8 +43,12 @@ from backend.app.repositories.plan_version_repo import (
     FourEyesViolationError,
     PlanFingerprintMismatchError,
     PlanVersionImmutableError,
+    PlanApprovalConflictError,
 )
-from backend.app.services.plan_governance_service import PlanGovernanceService
+from backend.app.services.plan_governance_service import (
+    PlanGovernanceService,
+    is_scenario_approval_unique_violation,
+)
 
 router = APIRouter(tags=["Plan Governance & Human Review"])
 
@@ -175,6 +180,11 @@ async def create_plan_version_from_run(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"error": {"code": "APPROVAL_BLOCKED", "message": str(e)}},
         )
+    except PlanFingerprintMismatchError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error": {"code": "INTEGRITY_MISMATCH", "message": str(e)}},
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -215,6 +225,11 @@ async def create_plan_version(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"error": {"code": "APPROVAL_BLOCKED", "message": str(e)}},
+        )
+    except PlanFingerprintMismatchError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error": {"code": "INTEGRITY_MISMATCH", "message": str(e)}},
         )
     except Exception as e:
         raise HTTPException(
@@ -406,6 +421,23 @@ async def approve_plan(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"error": {"code": "INTEGRITY_MISMATCH", "message": str(e)}},
+        )
+    except PlanApprovalConflictError as e:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error": {"code": "APPROVAL_CONFLICT", "message": str(e)}},
+        )
+    except IntegrityError as e:
+        await session.rollback()
+        if is_scenario_approval_unique_violation(e):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"error": {"code": "APPROVAL_CONFLICT", "message": "Concurrent approval conflict: Another plan version for this scenario has already been approved."}},
+            )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error": {"code": "INTEGRITY_CONFLICT", "message": "Database integrity conflict during plan approval."}},
         )
 
 

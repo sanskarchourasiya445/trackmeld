@@ -170,6 +170,7 @@ export interface Scenario {
   description?: string;
   dataset_version?: string;
   is_synthetic?: boolean;
+  classification?: 'REAL' | 'SYNTHETIC' | 'DEMO' | 'ASSUMED' | string;
   total_tasks?: number;
   total_trains?: number;
 }

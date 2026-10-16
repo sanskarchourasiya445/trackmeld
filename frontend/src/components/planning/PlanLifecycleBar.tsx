@@ -84,13 +84,15 @@ export const PlanLifecycleBar: React.FC<PlanLifecycleBarProps> = ({
       label:
         currentStage === 'REJECTED' || planVersionStatus === 'REJECTED'
           ? 'Plan Rejected'
-          : approvedBy
+          : planVersionStatus === 'APPROVED' && approvedBy
           ? `Approved (${approvedBy})`
-          : 'Human Authorized',
+          : planVersionStatus === 'APPROVED'
+          ? 'Human Approved'
+          : 'Pending Sign-Off',
       description:
         currentStage === 'REJECTED' || planVersionStatus === 'REJECTED'
           ? 'Formal rejection recorded'
-          : approvedBy
+          : planVersionStatus === 'APPROVED'
           ? 'Authorized possession issuance'
           : 'Requires DRM / Sr. DOM sign-off',
       icon: currentStage === 'REJECTED' || planVersionStatus === 'REJECTED' ? XCircle : CheckCircle2,

@@ -16,6 +16,7 @@ import { CopilotWorkspace } from '@/components/planning/CopilotWorkspace';
 import { PlanApprovalModal } from '@/components/governance/PlanApprovalModal';
 import { ComparePlansModal } from '@/components/planning/ComparePlansModal';
 import { DigitalTwinInspectionModal } from '@/components/digital-twin/DigitalTwinInspectionModal';
+import { PlanLifecycleBar, LifecycleStage } from '@/components/planning/PlanLifecycleBar';
 import {
   CORRIDOR_STATIONS_GIS,
   CORRIDOR_SECTIONS_GIS,
@@ -30,6 +31,8 @@ import {
   createPlanVersionFromRun,
   approvePlanVersion,
   rejectPlanVersion,
+  ApiError,
+  isApiError,
   DEMO_SCENARIO,
   DEMO_CORRIDOR,
   DEMO_TRAINS,
@@ -192,6 +195,7 @@ function PlanningPageContent() {
   const [isSolving, setIsSolving] = useState(false);
   const [solvingMessage, setSolvingMessage] = useState<string>('');
   const [isApprovalOpen, setIsApprovalOpen] = useState(false);
+  const [isApprovalSubmitting, setIsApprovalSubmitting] = useState(false);
   const [isBenchmarkOpen, setIsBenchmarkOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPersisting, setIsPersisting] = useState(false);
@@ -421,18 +425,23 @@ function PlanningPageContent() {
   };
 
   const handleApprove = async (payload: { reviewer_name: string; reviewer_role: string; approval_notes: string }) => {
-    if (!planVersion) {
-      setErrorMessage('CANNOT APPROVE: Schedule candidate is not linked to a persisted plan version.');
-      return;
+    if (!planVersion || isApprovalSubmitting) {
+      const err = 'CANNOT APPROVE: Schedule candidate is not linked to a persisted plan version.';
+      setErrorMessage(err);
+      throw new Error(err);
     }
     if (!validationResult || planVersion.schedule_identity !== validationResult.schedule_identity) {
-      setErrorMessage('CANNOT APPROVE: Cryptographic identity mismatch between plan version and validation certification.');
-      return;
+      const err = 'CANNOT APPROVE: Cryptographic identity mismatch between plan version and validation certification.';
+      setErrorMessage(err);
+      throw new Error(err);
     }
     if (scheduleProvenance !== 'backend') {
-      setErrorMessage('CANNOT APPROVE: Synthetic demo schedules cannot be approved.');
-      return;
+      const err = 'CANNOT APPROVE: Synthetic demo schedules cannot be approved.';
+      setErrorMessage(err);
+      throw new Error(err);
     }
+    setIsApprovalSubmitting(true);
+    setErrorMessage(null);
     try {
       const updated = await approvePlanVersion(
         planVersion.plan_version_id,
@@ -445,23 +454,46 @@ function PlanningPageContent() {
     } catch (err: unknown) {
       console.error('Plan approval error:', err);
       const msg = err instanceof Error ? err.message : String(err);
-      setErrorMessage(`ACTION NOT COMPLETED: ${msg}`);
+      if (isApiError(err) && err.status === 409) {
+        setErrorMessage(`CONFLICT (409): ${msg}. Refreshing plan version.`);
+        try {
+          const fresh = await getPlanVersions(scenario.scenario_id);
+          const current = fresh?.find((v) => v.plan_version_id === planVersion.plan_version_id);
+          if (current) setPlanVersion(current);
+        } catch {
+          // ignore refresh error
+        }
+      } else if (isApiError(err) && err.status === 401) {
+        setErrorMessage(`UNAUTHORIZED (401): ${msg}`);
+      } else if (isApiError(err) && err.status === 403) {
+        setErrorMessage(`PERMISSION DENIED (403): ${msg}`);
+      } else {
+        setErrorMessage(`ACTION NOT COMPLETED: ${msg}`);
+      }
+      throw err;
+    } finally {
+      setIsApprovalSubmitting(false);
     }
   };
 
   const handleReject = async (payload: { reviewer_name: string; reviewer_role: string; rejection_reason: string }) => {
-    if (!planVersion) {
-      setErrorMessage('CANNOT REJECT: Schedule candidate is not linked to a persisted plan version.');
-      return;
+    if (!planVersion || isApprovalSubmitting) {
+      const err = 'CANNOT REJECT: Schedule candidate is not linked to a persisted plan version.';
+      setErrorMessage(err);
+      throw new Error(err);
     }
     if (!validationResult || planVersion.schedule_identity !== validationResult.schedule_identity) {
-      setErrorMessage('CANNOT REJECT: Cryptographic identity mismatch between plan version and validation certification.');
-      return;
+      const err = 'CANNOT REJECT: Cryptographic identity mismatch between plan version and validation certification.';
+      setErrorMessage(err);
+      throw new Error(err);
     }
     if (scheduleProvenance !== 'backend') {
-      setErrorMessage('CANNOT REJECT: Synthetic demo schedules cannot be rejected.');
-      return;
+      const err = 'CANNOT REJECT: Synthetic demo schedules cannot be rejected.';
+      setErrorMessage(err);
+      throw new Error(err);
     }
+    setIsApprovalSubmitting(true);
+    setErrorMessage(null);
     try {
       const updated = await rejectPlanVersion(planVersion.plan_version_id, payload.rejection_reason);
       setPlanVersion(updated);
@@ -469,7 +501,25 @@ function PlanningPageContent() {
     } catch (err: unknown) {
       console.error('Plan rejection error:', err);
       const msg = err instanceof Error ? err.message : String(err);
-      setErrorMessage(`ACTION NOT COMPLETED: ${msg}`);
+      if (isApiError(err) && err.status === 409) {
+        setErrorMessage(`CONFLICT (409): ${msg}. Refreshing plan version.`);
+        try {
+          const fresh = await getPlanVersions(scenario.scenario_id);
+          const current = fresh?.find((v) => v.plan_version_id === planVersion.plan_version_id);
+          if (current) setPlanVersion(current);
+        } catch {
+          // ignore refresh error
+        }
+      } else if (isApiError(err) && err.status === 401) {
+        setErrorMessage(`UNAUTHORIZED (401): ${msg}`);
+      } else if (isApiError(err) && err.status === 403) {
+        setErrorMessage(`PERMISSION DENIED (403): ${msg}`);
+      } else {
+        setErrorMessage(`ACTION NOT COMPLETED: ${msg}`);
+      }
+      throw err;
+    } finally {
+      setIsApprovalSubmitting(false);
     }
   };
 
@@ -531,7 +581,7 @@ function PlanningPageContent() {
               <span className="text-xs font-mono text-[#64748B] hidden md:inline">•</span>
               <span className="text-xs font-medium text-slate-400">
                 Scenario A (24h Window)
-                {scenarioProvenance === 'synthetic' && (
+                {(scenarioProvenance === 'synthetic' || scenario.is_synthetic || (scenario.classification && scenario.classification !== 'REAL')) && (
                   <span className="ml-1 text-[10px] font-mono text-amber-400">(Synthetic Fixture)</span>
                 )}
               </span>
@@ -542,7 +592,9 @@ function PlanningPageContent() {
               )}
               {scheduleProvenance === 'backend' && (
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-medium">
-                  BACKEND SCHEDULE
+                  {scenario.is_synthetic || (scenario.classification && scenario.classification !== 'REAL')
+                    ? 'BACKEND SCHEDULE (SYNTHETIC SCENARIO)'
+                    : 'BACKEND SCHEDULE'}
                 </span>
               )}
             </div>
@@ -981,6 +1033,27 @@ function PlanningPageContent() {
             </button>
           </div>
         )}
+
+        {/* Authoritative Operational Lifecycle Pipeline Bar */}
+        <PlanLifecycleBar
+          currentStage={
+            isSolving
+              ? 'OPTIMIZING'
+              : planVersion?.status === 'APPROVED'
+              ? 'APPROVED'
+              : planVersion?.status === 'REJECTED'
+              ? 'REJECTED'
+              : validationResult?.status === 'VALID'
+              ? 'AWAITING_REVIEW'
+              : scheduleResult
+              ? 'CANDIDATE'
+              : 'DRAFT'
+          }
+          planVersionStatus={planVersion?.status}
+          isApprovable={validationResult?.is_approvable ?? false}
+          approvedBy={planVersion?.approved_by}
+          onOpenApprovalModal={() => setIsApprovalOpen(true)}
+        />
 
         {/* ============================================================== */}
         {/* MAIN OPERATING SURFACE                                         */}

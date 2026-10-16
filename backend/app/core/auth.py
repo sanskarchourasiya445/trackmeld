@@ -88,8 +88,8 @@ def get_active_credentials() -> dict[str, AuthUser]:
     settings = get_settings()
     creds: dict[str, AuthUser] = {}
 
-    # If in development or testing, populate demo credentials as default fallback
-    if not settings.is_production:
+    # Demo credentials only loaded if explicitly enabled in permitted non-production environment
+    if settings.is_demo_auth_active:
         creds.update(DEMO_CREDENTIALS)
 
     # Apply configuration-driven tokens from environment
@@ -153,22 +153,22 @@ async def get_current_user(
             )
         return user
 
-    # 2. In production, unauthenticated access is strictly forbidden (fail closed)
+    # 2. Check if anonymous demo user is explicitly permitted and active
     settings = get_settings()
-    if settings.is_production:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "error": {
-                    "code": "AUTHENTICATION_REQUIRED",
-                    "message": "Authentication credentials are required in production environment.",
-                }
-            },
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    if settings.is_demo_auth_active:
+        return DEFAULT_DEMO_USER
 
-    # 3. In prototype environment, default to safe read-only demo user
-    return DEFAULT_DEMO_USER
+    # 3. Outside explicitly enabled demo mode, unauthenticated access is strictly forbidden (fail closed)
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail={
+            "error": {
+                "code": "AUTHENTICATION_REQUIRED",
+                "message": "Authentication credentials are required.",
+            }
+        },
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 def require_permission(permission: str) -> Callable:

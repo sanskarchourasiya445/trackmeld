@@ -36,6 +36,7 @@ from backend.app.schemas.plan_version import (
     ApprovePlanRequest,
     RejectPlanRequest,
 )
+from backend.app.domain.enums import DataClass
 from backend.app.repositories.plan_version_repo import (
     PlanVersionRepository,
     InvalidPlanVersionTransitionError,
@@ -133,6 +134,11 @@ async def test_batch9_persisted_lifecycle_complete_happy_path():
     assert under_review_plan.reviewed_by == approver_actor.username
 
     # Step 4: Formal Human Approval by Independent Approver
+    mock_scenario = MagicMock()
+    mock_scenario.scenario_id = "SCN-DEMO-001"
+    mock_scenario.classification = DataClass.REAL
+    service.scenario_repo.get_by_id = AsyncMock(return_value=mock_scenario)
+
     service.plan_repo.get_latest_approved = AsyncMock(return_value=None)
     approved_plan = await service.approve_plan(
         plan_version_id=plan_candidate.plan_version_id,
@@ -412,6 +418,11 @@ async def test_batch9_approval_supersedes_previous_approved_version():
     mock_run.snapshot_hash = "SNAP_V2"
     mock_run.input_hash = "IN_V2"
     service.run_repo.get_by_run_id = AsyncMock(return_value=mock_run)
+
+    mock_scenario = MagicMock()
+    mock_scenario.scenario_id = "SCN-001"
+    mock_scenario.classification = DataClass.REAL
+    service.scenario_repo.get_by_id = AsyncMock(return_value=mock_scenario)
 
     actor = KNOWN_CREDENTIALS["approver-token-2026"]
     await service.approve_plan("PV-v2-002", actor, comment="Approved v2.")

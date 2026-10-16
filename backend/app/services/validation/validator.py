@@ -45,6 +45,7 @@ class IndependentScheduleValidator:
             - pos_end          (ISO)  — possession interval end
             - sections         (list) — sorted affected section codes
             - resources        (list) — sorted assigned resource identifiers
+            - assigned_track_id(str/None) — physical running track ID if assigned (VAL-002)
 
           Per unscheduled task (sorted by task_id):
             - task_id          (str)  — task that could not be feasibly placed
@@ -60,25 +61,34 @@ class IndependentScheduleValidator:
           - sequence_order, scheduling_reason   — explanatory annotations
           - execution_time_ms, solver_diagnostics — performance telemetry
           - decision_trace, rule_evidence_ids   — audit evidence, not placement
-          - crew_id, assigned_track             — these fields do not exist on the
-                                                  ScheduledTaskResult domain model;
-                                                  if added in future, include them here
-                                                  with a VERIFIED_SOURCE provenance record.
+          - crew_id                             — does not exist on ScheduledTaskResult
 
         Classification: ASSUMPTION
         Provenance: Internal TrackMeld design — not derived from a published
         railway standard. Review scope if operational requirements change.
         """
+        def _norm_iso(val: Any) -> str:
+            if val is None:
+                return ""
+            s = val.isoformat() if hasattr(val, "isoformat") else str(val)
+            if s.endswith("Z"):
+                return s[:-1] + "+00:00"
+            return s
+
         canonical_tasks = []
         for st in sorted(schedule.scheduled_tasks, key=lambda t: t.task_id):
+            track_val = getattr(st, "assigned_track_id", None)
+            norm_track = str(track_val).strip() if (track_val is not None and str(track_val).strip()) else None
+
             canonical_tasks.append({
-                "task_id": st.task_id,
-                "start": st.interval.start.isoformat() if st.interval else "",
-                "end": st.interval.end.isoformat() if st.interval else "",
-                "pos_start": st.possession_interval.start.isoformat() if st.possession_interval else "",
-                "pos_end": st.possession_interval.end.isoformat() if st.possession_interval else "",
-                "sections": sorted(st.affected_sections),
+                "assigned_track_id": norm_track,
+                "end": _norm_iso(st.interval.end) if st.interval else "",
+                "pos_end": _norm_iso(st.possession_interval.end) if st.possession_interval else "",
+                "pos_start": _norm_iso(st.possession_interval.start) if st.possession_interval else "",
                 "resources": sorted(st.assigned_resources),
+                "sections": sorted(st.affected_sections),
+                "start": _norm_iso(st.interval.start) if st.interval else "",
+                "task_id": st.task_id,
             })
 
         # Sorted unscheduled task IDs are identity-bearing: a schedule that
@@ -90,6 +100,90 @@ class IndependentScheduleValidator:
             "scenario_id": snapshot.scenario_id,
             "scheduler_type": schedule.scheduler_type.value if hasattr(schedule.scheduler_type, "value") else str(schedule.scheduler_type),
             "solver_status": schedule.status.value if hasattr(schedule.status, "value") else str(schedule.status),
+            "scheduled_tasks": canonical_tasks,
+            "unscheduled_task_ids": unscheduled_ids,
+        }
+        serialized = json.dumps(identity_payload, sort_keys=True)
+        return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def compute_schedule_identity_from_dict(
+        cls,
+        schedule_dict: Dict[str, Any],
+        snapshot_id: str,
+        scenario_id: str,
+    ) -> str:
+        """Compute deterministic SHA-256 schedule identity fingerprint directly from serialized schedule result dict.
+        Allows tamper-detection on persisted plan version schedule_result without requiring object reconstruction.
+        """
+        def _norm_iso(val: Any) -> str:
+            if val is None:
+                return ""
+            s = val.isoformat() if hasattr(val, "isoformat") else str(val)
+            if s.endswith("Z"):
+                return s[:-1] + "+00:00"
+            return s
+
+        raw_tasks = schedule_dict.get("scheduled_tasks", []) or []
+        canonical_tasks = []
+        for st in sorted(raw_tasks, key=lambda t: t.get("task_id", "") if isinstance(t, dict) else getattr(t, "task_id", "")):
+            t_id = st.get("task_id", "") if isinstance(st, dict) else getattr(st, "task_id", "")
+            interval = st.get("interval") if isinstance(st, dict) else getattr(st, "interval", None)
+            pos_interval = st.get("possession_interval") if isinstance(st, dict) else getattr(st, "possession_interval", None)
+
+            start_str = ""
+            end_str = ""
+            if isinstance(interval, dict):
+                start_str = _norm_iso(interval.get("start", ""))
+                end_str = _norm_iso(interval.get("end", ""))
+            elif interval is not None:
+                start_str = _norm_iso(getattr(interval, "start", interval))
+                end_str = _norm_iso(getattr(interval, "end", interval))
+
+            pos_start_str = ""
+            pos_end_str = ""
+            if isinstance(pos_interval, dict):
+                pos_start_str = _norm_iso(pos_interval.get("start", ""))
+                pos_end_str = _norm_iso(pos_interval.get("end", ""))
+            elif pos_interval is not None:
+                pos_start_str = _norm_iso(getattr(pos_interval, "start", pos_interval))
+                pos_end_str = _norm_iso(getattr(pos_interval, "end", pos_interval))
+
+            sections = st.get("affected_sections", []) if isinstance(st, dict) else getattr(st, "affected_sections", [])
+            resources = st.get("assigned_resources", []) if isinstance(st, dict) else getattr(st, "assigned_resources", [])
+
+            track_val = st.get("assigned_track_id") if isinstance(st, dict) else getattr(st, "assigned_track_id", None)
+            norm_track = str(track_val).strip() if (track_val is not None and str(track_val).strip()) else None
+
+            canonical_tasks.append({
+                "assigned_track_id": norm_track,
+                "end": end_str,
+                "pos_end": pos_end_str,
+                "pos_start": pos_start_str,
+                "resources": sorted(resources),
+                "sections": sorted(sections),
+                "start": start_str,
+                "task_id": t_id,
+            })
+
+        raw_unsch = schedule_dict.get("unscheduled_tasks", []) or []
+        unscheduled_ids = sorted(
+            u.get("task_id", "") if isinstance(u, dict) else getattr(u, "task_id", "")
+            for u in raw_unsch
+        )
+
+        sched_type = schedule_dict.get("scheduler_type", "")
+        if hasattr(sched_type, "value"):
+            sched_type = sched_type.value
+        solv_status = schedule_dict.get("status", "")
+        if hasattr(solv_status, "value"):
+            solv_status = solv_status.value
+
+        identity_payload = {
+            "snapshot_id": snapshot_id,
+            "scenario_id": scenario_id,
+            "scheduler_type": str(sched_type),
+            "solver_status": str(solv_status),
             "scheduled_tasks": canonical_tasks,
             "unscheduled_task_ids": unscheduled_ids,
         }
@@ -137,6 +231,13 @@ class IndependentScheduleValidator:
         schedule_identity = cls.compute_schedule_identity(snapshot, schedule)
         runtime_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
+        snap_hash = None
+        if hasattr(snapshot, "compute_snapshot_hash") and callable(snapshot.compute_snapshot_hash):
+            try:
+                snap_hash = snapshot.compute_snapshot_hash()
+            except Exception:
+                snap_hash = None
+
         return ScheduleValidationResult(
             status=status,
             valid=valid,
@@ -151,6 +252,7 @@ class IndependentScheduleValidator:
             checked_train_movement_count=runner.checked_train_movement_count,
             validator_version=cls.VERSION,
             input_snapshot_id=snapshot.snapshot_id,
+            input_snapshot_hash=snap_hash,
             schedule_identity=schedule_identity,
             validation_runtime_ms=runtime_ms,
             checks_executed=runner.checks_executed,

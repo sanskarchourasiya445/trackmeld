@@ -182,7 +182,8 @@ async def test_plan_review_and_comments_workflow(client: AsyncClient, db_session
 @pytest.mark.asyncio
 async def test_rbac_and_plan_approval_and_supersede(client: AsyncClient, db_session: AsyncSession):
     """Approval gating: Only approver role can approve; previous approved plan is superseded."""
-    run1 = await _insert_completed_run(db_session)
+    # Create v1 from verified REAL scenario (GOV-001)
+    run1 = await _insert_completed_run(db_session, scenario_id="SCN-REAL-OPERATIONAL-001")
     run_id_1 = run1.run_id
 
     planner_headers = {"Authorization": "Bearer planner-token-2026"}
@@ -227,8 +228,8 @@ async def test_rbac_and_plan_approval_and_supersede(client: AsyncClient, db_sess
     assert resp_reject_appr.status_code == 409
     assert resp_reject_appr.json()["error"]["code"] == "PLAN_IMMUTABLE"
 
-    # 5. Create v2 from another run
-    run2 = await _insert_completed_run(db_session)
+    # 5. Create v2 from another run under the same REAL scenario
+    run2 = await _insert_completed_run(db_session, scenario_id="SCN-REAL-OPERATIONAL-001")
     run_id_2 = run2.run_id
     resp_pv2 = await client.post(f"/api/v1/planning-runs/{run_id_2}/plan-version", headers=planner_headers)
     plan_id_2 = resp_pv2.json()["plan_version_id"]
@@ -249,6 +250,26 @@ async def test_rbac_and_plan_approval_and_supersede(client: AsyncClient, db_sess
     assert resp_v1_check.status_code == 200
     assert resp_v1_check.json()["status"] == "SUPERSEDED"
     assert resp_v1_check.json()["superseded_by"] == "divisional_operations_manager"
+
+
+@pytest.mark.asyncio
+async def test_synthetic_scenario_approval_blocked_gov001(client: AsyncClient, db_session: AsyncSession):
+    """GOV-001: Operational approval is blocked for synthetic scenario SCN-DEMO-001."""
+    run = await _insert_completed_run(db_session, scenario_id="SCN-DEMO-001")
+    planner_headers = {"Authorization": "Bearer planner-token-2026"}
+    approver_headers = {"Authorization": "Bearer approver-token-2026"}
+
+    resp_pv = await client.post(f"/api/v1/planning-runs/{run.run_id}/plan-version", headers=planner_headers)
+    plan_id = resp_pv.json()["plan_version_id"]
+
+    resp_appr = await client.post(
+        f"/api/v1/plan-versions/{plan_id}/approve",
+        json={"comment": "Attempting approval of synthetic scenario"},
+        headers=approver_headers,
+    )
+    assert resp_appr.status_code == 422
+    assert resp_appr.json()["error"]["code"] == "APPROVAL_BLOCKED"
+    assert "SYNTHETIC" in resp_appr.json()["error"]["message"]
 
 
 @pytest.mark.asyncio

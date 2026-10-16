@@ -255,7 +255,7 @@ export default function OverviewPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-bold text-sm text-[#F8FAFC]">
-                  Live Corridor Digital Twin & Network Topology
+                  Corridor Topology & Network Map (Synthetic Prototype)
                 </h2>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#162238] text-[#38BDF8] border border-[#2563EB]/30">
                   NDLS → CNB (440 km)

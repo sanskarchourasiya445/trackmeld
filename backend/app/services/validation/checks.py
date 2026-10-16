@@ -63,6 +63,7 @@ class ScheduleCheckRunner:
         self._check_mandatory_tasks()
         self._check_domain_rules()
         self._check_solver_output_sanity()
+        self._check_provenance_and_snapshot_integrity()
 
         # Sort findings deterministically
         self.findings.sort(key=lambda f: f.sort_key())
@@ -1221,5 +1222,62 @@ class ScheduleCheckRunner:
                     severity=ValidationSeverity.ERROR,
                     category=ValidationCategory.SOLVER_OUTPUT,
                     message="Scenario rejected during pre-solve checks due to invalid input or circular dependencies.",
+                )
+            )
+
+    # -------------------------------------------------------------------------
+    # 13. Provenance and Snapshot Integrity Checks
+    # -------------------------------------------------------------------------
+    def _check_provenance_and_snapshot_integrity(self) -> None:
+        self.checks_executed.append("PROVENANCE")
+
+        # 13.1 Scenario provenance match
+        sched_scen = getattr(self.schedule, "scenario_id", None)
+        snap_scen = getattr(self.snapshot, "scenario_id", None)
+        if sched_scen and snap_scen and sched_scen != snap_scen:
+            self.findings.append(
+                ValidationFinding(
+                    code="SCENARIO_PROVENANCE_MISMATCH",
+                    severity=ValidationSeverity.ERROR,
+                    category=ValidationCategory.PROVENANCE,
+                    message=f"Schedule scenario '{sched_scen}' does not match snapshot scenario '{snap_scen}'.",
+                    expected=snap_scen,
+                    actual=sched_scen,
+                )
+            )
+
+        # 13.2 Snapshot ID provenance match
+        sched_snap = getattr(self.schedule, "snapshot_id", None)
+        snap_id = getattr(self.snapshot, "snapshot_id", None)
+        if sched_snap and snap_id and sched_snap != snap_id:
+            self.findings.append(
+                ValidationFinding(
+                    code="SNAPSHOT_PROVENANCE_MISMATCH",
+                    severity=ValidationSeverity.ERROR,
+                    category=ValidationCategory.PROVENANCE,
+                    message=f"Schedule snapshot ID '{sched_snap}' does not match evaluated snapshot ID '{snap_id}'.",
+                    expected=snap_id,
+                    actual=sched_snap,
+                )
+            )
+
+        # 13.3 Snapshot mandatory identity presence
+        if not snap_id or not str(snap_id).strip():
+            self.findings.append(
+                ValidationFinding(
+                    code="SNAPSHOT_ID_MISSING",
+                    severity=ValidationSeverity.ERROR,
+                    category=ValidationCategory.PROVENANCE,
+                    message="Evaluated PlanningSnapshot is missing mandatory snapshot_id.",
+                )
+            )
+
+        if not snap_scen or not str(snap_scen).strip():
+            self.findings.append(
+                ValidationFinding(
+                    code="SNAPSHOT_SCENARIO_MISSING",
+                    severity=ValidationSeverity.ERROR,
+                    category=ValidationCategory.PROVENANCE,
+                    message="Evaluated PlanningSnapshot is missing mandatory scenario_id.",
                 )
             )

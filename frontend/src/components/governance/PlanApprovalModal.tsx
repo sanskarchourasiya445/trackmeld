@@ -44,6 +44,7 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
     'Possession schedule verified against Section 4 hard curfew rules and headway buffer requirements. Approved for implementation.'
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [isRejectMode, setIsRejectMode] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
 
@@ -57,8 +58,9 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
   );
 
   const handleSubmit = async () => {
-    if (!reviewerName || !notes || !hasPlanVersion || isIdentityMismatch) return;
+    if (!reviewerName || !notes || !hasPlanVersion || isIdentityMismatch || isSubmitting) return;
     setIsSubmitting(true);
+    setSubmitError(null);
     try {
       if (isRejectMode) {
         await onReject({
@@ -74,6 +76,9 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
         });
       }
       onClose();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setSubmitError(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -176,6 +181,19 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
             </div>
             <p className="text-[11px] leading-relaxed text-rose-300/90 font-sans">
               Independent validation has not certified this plan version as valid and approvable. Approval is strictly blocked until all safety rules and hard constraints pass.
+            </p>
+          </div>
+        )}
+
+        {/* Server / Action Submission Error Callout */}
+        {submitError && (
+          <div className="bg-rose-500/20 border border-rose-500/50 rounded-lg p-3 text-xs text-rose-300 space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-rose-400 text-[11px]">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span>GOVERNANCE ACTION REJECTED / CONFLICT</span>
+            </div>
+            <p className="text-[11px] leading-relaxed text-rose-200 font-sans">
+              {submitError}
             </p>
           </div>
         )}

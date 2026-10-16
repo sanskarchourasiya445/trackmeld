@@ -10,6 +10,8 @@ import {
   getPlanVersionAudit,
   approvePlanVersion,
   rejectPlanVersion,
+  ApiError,
+  isApiError,
 } from '@/lib/api/client';
 import {
   PlanVersion,
@@ -40,6 +42,7 @@ export default function GovernancePage() {
   const [isApprovalOpen, setIsApprovalOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isActionLoading, setIsActionLoading] = useState(false);
 
   const loadVersion = useCallback(async () => {
     setProvenance('loading');
@@ -104,8 +107,20 @@ export default function GovernancePage() {
         setProvenance('backend');
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setFetchError(`BACKEND GOVERNANCE SERVICE UNAVAILABLE: ${msg}`);
+      if (isApiError(err)) {
+        if (err.status === 401) {
+          setFetchError('AUTHENTICATION REQUIRED (401): Valid operator credentials are required to inspect governance records. Please sign in via the top bar.');
+        } else if (err.status === 403) {
+          setFetchError('ACCESS FORBIDDEN (403): You do not have permissions to review governance records for this scenario.');
+        } else if (err.status === 404) {
+          setFetchError('NOT FOUND (404): No governance records found for this scenario.');
+        } else {
+          setFetchError(`GOVERNANCE SERVICE ERROR (${err.code}): ${err.message}`);
+        }
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        setFetchError(`BACKEND GOVERNANCE SERVICE UNAVAILABLE: ${msg}`);
+      }
       setProvenance('unavailable');
       setPlanVersion(null);
       setValidationResult(null);
@@ -114,82 +129,8 @@ export default function GovernancePage() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    getPlanVersions('SCN-DEMO-001')
-      .then(async (versions) => {
-        if (cancelled) return;
-        if (versions && versions.length > 0) {
-          const active = versions[0];
-          setPlanVersion(active);
-          setProvenance('backend');
-          const schedResult = (active as unknown as { schedule_result?: ScheduleResult }).schedule_result;
-          const valData = schedResult?.validation || (schedResult as unknown as { validation_summary?: ScheduleValidationResult })?.validation_summary;
-          if (valData) {
-            setValidationResult(valData as ScheduleValidationResult);
-          } else if (active.validation_status === 'VALID' && active.schedule_identity) {
-            setValidationResult({
-              status: 'VALID',
-              valid: true,
-              is_approvable: active.is_approvable ?? true,
-              schedule_identity: active.schedule_identity,
-              findings: [],
-              error_count: (active.validation_findings_summary?.error_count as number) || 0,
-              warning_count: 0,
-              info_count: 0,
-              checked_task_count: 0,
-              checked_section_count: 0,
-              checked_resource_count: 0,
-              checked_train_movement_count: 0,
-              checks_executed: [],
-              approval_gate_message: 'Certified under authoritative backend governance record',
-            });
-          } else if (active.validation_status === 'INVALID' && active.schedule_identity) {
-            setValidationResult({
-              status: 'INVALID',
-              valid: false,
-              is_approvable: false,
-              schedule_identity: active.schedule_identity,
-              findings: [],
-              error_count: (active.validation_findings_summary?.error_count as number) || 1,
-              warning_count: 0,
-              info_count: 0,
-              checked_task_count: 0,
-              checked_section_count: 0,
-              checked_resource_count: 0,
-              checked_train_movement_count: 0,
-              checks_executed: [],
-              approval_gate_message: 'Validation rejected: Schedule contains constraint violations',
-            });
-          } else {
-            setValidationResult(null);
-          }
-          try {
-            const logs = await getPlanVersionAudit(active.plan_version_id);
-            if (!cancelled) setAuditLogs(logs || []);
-          } catch {
-            if (!cancelled) setAuditLogs([]);
-          }
-        } else {
-          setPlanVersion(null);
-          setValidationResult(null);
-          setAuditLogs([]);
-          setProvenance('backend');
-        }
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        const msg = err instanceof Error ? err.message : String(err);
-        setFetchError(`BACKEND GOVERNANCE SERVICE UNAVAILABLE: ${msg}`);
-        setProvenance('unavailable');
-        setPlanVersion(null);
-        setValidationResult(null);
-        setAuditLogs([]);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    loadVersion();
+  }, [loadVersion]);
 
   const handleLoadDemo = () => {
     setPlanVersion(DEMO_PLAN_VERSION);
@@ -206,16 +147,19 @@ export default function GovernancePage() {
   );
 
   const handleApprove = async (payload: { reviewer_name: string; reviewer_role: string; approval_notes: string }) => {
-    if (!planVersion || provenance !== 'backend') return;
+    if (!planVersion || provenance !== 'backend' || isActionLoading) return;
     if (isIdentityMismatch) {
-      setActionError('Cannot approve plan version: Cryptographic identity mismatch with validation certification.');
-      return;
+      const err = 'Cannot approve plan version: Cryptographic identity mismatch with validation certification.';
+      setActionError(err);
+      throw new Error(err);
     }
     if (!validationResult || !validationResult.is_approvable || planVersion.validation_status === 'INVALID' || planVersion.is_approvable === false) {
-      setActionError('Cannot approve plan version: Validation has not certified this plan as valid and approvable.');
-      return;
+      const err = 'Cannot approve plan version: Validation has not certified this plan as valid and approvable.';
+      setActionError(err);
+      throw new Error(err);
     }
     setActionError(null);
+    setIsActionLoading(true);
     try {
       const updated = await approvePlanVersion(
         planVersion.plan_version_id,
@@ -234,18 +178,36 @@ export default function GovernancePage() {
     } catch (err: unknown) {
       console.error('Plan approval error:', err);
       const msg = err instanceof Error ? err.message : String(err);
-      setActionError(`GOVERNANCE ACTION REJECTED: ${msg}`);
-      setIsApprovalOpen(false);
+      if (isApiError(err) && err.status === 409) {
+        const conflictMsg = `GOVERNANCE ACTION CONFLICT (409): ${msg}`;
+        setActionError(conflictMsg);
+        // Actionable conflict: refresh authoritative state from server
+        await loadVersion();
+        throw new Error(conflictMsg);
+      } else if (isApiError(err) && err.status === 401) {
+        setActionError(`AUTHENTICATION REQUIRED (401): ${msg}`);
+        throw err;
+      } else if (isApiError(err) && err.status === 403) {
+        setActionError(`PERMISSION DENIED (403): ${msg}`);
+        throw err;
+      } else {
+        setActionError(`GOVERNANCE ACTION REJECTED: ${msg}`);
+        throw err;
+      }
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
   const handleReject = async (payload: { reviewer_name: string; reviewer_role: string; rejection_reason: string }) => {
-    if (!planVersion || provenance !== 'backend') return;
+    if (!planVersion || provenance !== 'backend' || isActionLoading) return;
     if (isIdentityMismatch) {
-      setActionError('Cannot reject plan version: Cryptographic identity mismatch with validation certification.');
-      return;
+      const err = 'Cannot reject plan version: Cryptographic identity mismatch with validation certification.';
+      setActionError(err);
+      throw new Error(err);
     }
     setActionError(null);
+    setIsActionLoading(true);
     try {
       const updated = await rejectPlanVersion(planVersion.plan_version_id, payload.rejection_reason);
       setPlanVersion(updated);
@@ -259,8 +221,23 @@ export default function GovernancePage() {
     } catch (err: unknown) {
       console.error('Plan rejection error:', err);
       const msg = err instanceof Error ? err.message : String(err);
-      setActionError(`GOVERNANCE ACTION REJECTED: ${msg}`);
-      setIsApprovalOpen(false);
+      if (isApiError(err) && err.status === 409) {
+        const conflictMsg = `GOVERNANCE ACTION CONFLICT (409): ${msg}`;
+        setActionError(conflictMsg);
+        await loadVersion();
+        throw new Error(conflictMsg);
+      } else if (isApiError(err) && err.status === 401) {
+        setActionError(`AUTHENTICATION REQUIRED (401): ${msg}`);
+        throw err;
+      } else if (isApiError(err) && err.status === 403) {
+        setActionError(`PERMISSION DENIED (403): ${msg}`);
+        throw err;
+      } else {
+        setActionError(`GOVERNANCE ACTION REJECTED: ${msg}`);
+        throw err;
+      }
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
@@ -298,7 +275,11 @@ export default function GovernancePage() {
                   )}
                   {provenance === 'unavailable' && (
                     <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-rose-950/80 text-rose-400 border border-rose-500/40 font-bold">
-                      BACKEND OFFLINE
+                      {fetchError?.includes('AUTHENTICATION REQUIRED')
+                        ? 'AUTH REQUIRED'
+                        : fetchError?.includes('ACCESS FORBIDDEN')
+                        ? 'ACCESS RESTRICTED (403)'
+                        : 'BACKEND OFFLINE'}
                     </span>
                   )}
                 </div>
@@ -344,6 +325,7 @@ export default function GovernancePage() {
               disabled={
                 !planVersion ||
                 provenance !== 'backend' ||
+                isActionLoading ||
                 planVersion.status === 'APPROVED' ||
                 planVersion.status === 'REJECTED' ||
                 isIdentityMismatch ||
@@ -366,7 +348,9 @@ export default function GovernancePage() {
             >
               <FileCheck className="w-3.5 h-3.5 mr-1.5" />
               <span>
-                {provenance === 'synthetic'
+                {isActionLoading
+                  ? 'Recording Action...'
+                  : provenance === 'synthetic'
                   ? 'Demo Plan — Read Only'
                   : !planVersion
                     ? 'No Plan Version'
@@ -419,15 +403,31 @@ export default function GovernancePage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-rose-400 font-bold">
                 <AlertCircle className="w-4 h-4" />
-                <span>Backend Governance Service Unreachable</span>
+                <span>
+                  {fetchError.includes('AUTHENTICATION REQUIRED')
+                    ? 'Authentication Required'
+                    : fetchError.includes('ACCESS FORBIDDEN')
+                    ? 'Access Forbidden'
+                    : 'Backend Governance Service Unreachable'}
+                </span>
               </div>
               <span className="text-[10px] font-mono text-rose-400 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-500/30">
-                OFFLINE
+                {fetchError.includes('AUTHENTICATION REQUIRED')
+                  ? '401 UNAUTHORIZED'
+                  : fetchError.includes('ACCESS FORBIDDEN')
+                  ? '403 FORBIDDEN'
+                  : 'OFFLINE'}
               </span>
             </div>
             <p className="text-[#94A3B8] leading-relaxed">
-              TrackMeld was unable to retrieve authoritative plan versions or validation evidence from the backend server.
-              Offline state prevents live governance decisions.
+              {fetchError.includes('AUTHENTICATION REQUIRED') || fetchError.includes('ACCESS FORBIDDEN')
+                ? fetchError
+                : (
+                  <>
+                    TrackMeld was unable to retrieve authoritative plan versions or validation evidence from the backend server.
+                    Offline state prevents live governance decisions.
+                  </>
+                )}
             </p>
             <div className="flex items-center gap-2 pt-1">
               <Button size="sm" onClick={loadVersion} className="bg-rose-600 hover:bg-rose-500 text-white text-xs h-7 px-3">

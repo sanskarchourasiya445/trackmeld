@@ -772,4 +772,263 @@ test.describe('Phase 15E: Truthful UI & Error Resilience E2E', () => {
     const approverContainer = page.locator('div', { hasText: 'APPROVED BY:' }).last();
     await expect(approverContainer).toContainText('—');
   });
+
+  test('UI-001: 401 Unauthorized displays explicit authentication requirement without claiming backend offline', async ({ page }) => {
+    await page.route('**/api/v1/plan-versions?scenario_id=*', (route) => {
+      route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Valid operator credentials are required to inspect governance records.',
+          },
+        }),
+      });
+    });
+
+    await page.goto('/governance');
+
+    // Header badge shows AUTH REQUIRED, NOT BACKEND OFFLINE
+    await expect(page.getByText('AUTH REQUIRED')).toBeVisible();
+    await expect(page.getByText('BACKEND OFFLINE')).not.toBeVisible();
+
+    // Banner displays Authentication Required and 401 UNAUTHORIZED badge
+    await expect(page.getByText('Authentication Required', { exact: true })).toBeVisible();
+    await expect(page.getByText('401 UNAUTHORIZED')).toBeVisible();
+    await expect(page.getByText('AUTHENTICATION REQUIRED (401)')).toBeVisible();
+
+    // Must NOT claim service is unreachable or offline
+    await expect(page.getByText('Backend Governance Service Unreachable')).not.toBeVisible();
+  });
+
+  test('UI-001: 403 Forbidden displays permission restricted state without generic network failure masking', async ({ page }) => {
+    await page.route('**/api/v1/plan-versions?scenario_id=*', (route) => {
+      route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: {
+            code: 'FORBIDDEN',
+            message: 'You do not have permissions to review governance records for this scenario.',
+          },
+        }),
+      });
+    });
+
+    await page.goto('/governance');
+
+    // Header badge shows ACCESS RESTRICTED (403), NOT BACKEND OFFLINE
+    await expect(page.getByText('ACCESS RESTRICTED (403)')).toBeVisible();
+    await expect(page.getByText('BACKEND OFFLINE')).not.toBeVisible();
+
+    // Banner displays Access Forbidden and 403 FORBIDDEN badge
+    await expect(page.getByText('Access Forbidden', { exact: true })).toBeVisible();
+    await expect(page.getByText('403 FORBIDDEN')).toBeVisible();
+    await expect(page.getByText('ACCESS FORBIDDEN (403)')).toBeVisible();
+
+    // Must NOT claim service is unreachable
+    await expect(page.getByText('Backend Governance Service Unreachable')).not.toBeVisible();
+  });
+
+  test('UI-001: 409 Conflict on approval displays actionable conflict error and refreshes server state', async ({ page }) => {
+    let callCount = 0;
+    await page.route('**/api/v1/plan-versions?scenario_id=*', (route) => {
+      if (callCount === 0) {
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            {
+              plan_version_id: 'PV-CONFLICT-001',
+              scenario_id: 'SCN-DEMO-001',
+              planning_run_id: 'RUN-001',
+              version_number: 1,
+              status: 'PENDING_REVIEW',
+              created_at: new Date().toISOString(),
+              created_by: 'chief_controller',
+              total_scheduled: 29,
+              total_unscheduled: 0,
+              schedule_identity: 'sha256-conflict-test',
+              validation_status: 'VALID',
+              is_approvable: true,
+            },
+          ]),
+        });
+      } else {
+        // Refreshed version after conflict detection
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            {
+              plan_version_id: 'PV-CONFLICT-001',
+              scenario_id: 'SCN-DEMO-001',
+              planning_run_id: 'RUN-001',
+              version_number: 1,
+              status: 'APPROVED',
+              created_at: new Date().toISOString(),
+              created_by: 'chief_controller',
+              approved_by: 'concurrent_manager',
+              total_scheduled: 29,
+              total_unscheduled: 0,
+              schedule_identity: 'sha256-conflict-test',
+              validation_status: 'VALID',
+              is_approvable: true,
+            },
+          ]),
+        });
+      }
+    });
+
+    await page.route('**/api/v1/plan-versions/PV-CONFLICT-001/audit', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
+    // Approval call returns 409 Conflict
+    await page.route('**/api/v1/plan-versions/PV-CONFLICT-001/approve', (route) => {
+      callCount++;
+      route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: {
+            code: 'CONFLICT',
+            message: 'Plan version PV-CONFLICT-001 was already approved concurrently by concurrent_manager.',
+          },
+        }),
+      });
+    });
+
+    await page.goto('/governance');
+    await expect(page.getByText('AUTHORITATIVE BACKEND LEDGER')).toBeVisible();
+
+    const reviewBtn = page.getByRole('button', { name: 'Perform Four-Eyes Review' });
+    await expect(reviewBtn).toBeVisible();
+    await reviewBtn.click();
+
+    // Check modal acknowledgement
+    const checkbox = page.getByRole('checkbox');
+    if (await checkbox.isVisible()) {
+      await checkbox.check();
+    }
+
+    const modalApproveBtn = page.getByRole('button', { name: 'Grant Human Approval' });
+    await expect(modalApproveBtn).toBeVisible();
+    await modalApproveBtn.click();
+
+    // Conflict error MUST be surfaced to user
+    await expect(page.locator('text=GOVERNANCE ACTION CONFLICT (409)')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('UI-001: Duplicate approval click prevention while request is in-flight', async ({ page }) => {
+    await page.route('**/api/v1/plan-versions?scenario_id=*', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            plan_version_id: 'PV-INFLIGHT-001',
+            scenario_id: 'SCN-DEMO-001',
+            planning_run_id: 'RUN-001',
+            version_number: 1,
+            status: 'PENDING_REVIEW',
+            created_at: new Date().toISOString(),
+            created_by: 'chief_controller',
+            total_scheduled: 29,
+            total_unscheduled: 0,
+            schedule_identity: 'sha256-inflight-test',
+            validation_status: 'VALID',
+            is_approvable: true,
+          },
+        ]),
+      });
+    });
+
+    await page.route('**/api/v1/plan-versions/PV-INFLIGHT-001/audit', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
+    let approveCalls = 0;
+    await page.route('**/api/v1/plan-versions/PV-INFLIGHT-001/approve', async (route) => {
+      approveCalls++;
+      // Add delay to observe in-flight disabled state
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          plan_version_id: 'PV-INFLIGHT-001',
+          scenario_id: 'SCN-DEMO-001',
+          status: 'APPROVED',
+          version_number: 1,
+          schedule_identity: 'sha256-inflight-test',
+        }),
+      });
+    });
+
+    await page.goto('/governance');
+    const reviewBtn = page.getByRole('button', { name: 'Perform Four-Eyes Review' });
+    await expect(reviewBtn).toBeVisible();
+    await reviewBtn.click();
+
+    const checkbox = page.getByRole('checkbox');
+    if (await checkbox.isVisible()) {
+      await checkbox.check();
+    }
+
+    const modalApproveBtn = page.getByRole('button', { name: 'Grant Human Approval' });
+    await expect(modalApproveBtn).toBeVisible();
+    await modalApproveBtn.click();
+
+    // Immediately during in-flight submission, button should display recording or be disabled
+    await expect(page.getByRole('button', { name: 'Recording Immutable Audit...' })).toBeDisabled();
+
+    // Verify only 1 API call was dispatched
+    await page.waitForTimeout(800);
+    expect(approveCalls).toBe(1);
+  });
+
+  test('UI-001: Lifecycle bar preserves COMPLETED != APPROVED invariant with Pending Sign-Off', async ({ page }) => {
+    await authenticateViaUi(page, TEST_CONFIG.plannerToken);
+
+    // Mock scenario
+    await page.route('**/api/v1/operational-scenarios*', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            scenario_id: 'SCN-DEMO-001',
+            name: 'Northern Corridor - Delhi to Kanpur',
+            start_date: '2026-10-10T00:00:00Z',
+            end_date: '2026-10-11T00:00:00Z',
+            is_synthetic: true,
+            classification: 'SYNTHETIC',
+          },
+        ]),
+      });
+    });
+
+    await page.goto('/planning');
+
+    // Click Load Demo Schedule to get a computed/validated candidate
+    const loadDemoBtn = page.getByRole('button', { name: 'Load Demo' });
+    await loadDemoBtn.click();
+
+    // PlanLifecycleBar must display Stage 5 "Awaiting Human Review" and "COMPLETED ≠ APPROVED"
+    await expect(page.getByText('COMPLETED ≠ APPROVED').first()).toBeVisible();
+
+    // Stage 6 must show "Pending Sign-Off", NOT "Human Authorized"
+    await expect(page.getByText('Pending Sign-Off')).toBeVisible();
+    await expect(page.getByText('Human Authorized')).not.toBeVisible();
+  });
 });

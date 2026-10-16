@@ -55,14 +55,28 @@ async def test_401_unauthorized_on_invalid_credentials(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_401_production_fails_closed_without_credentials(client: AsyncClient, monkeypatch):
+async def test_401_production_fails_closed_without_credentials(unauthenticated_client: AsyncClient, monkeypatch):
     """In production mode, anonymous requests are strictly rejected with 401."""
     monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    monkeypatch.setattr(settings, "ENABLE_DEMO_AUTH", True)
 
-    resp = await client.get("/api/v1/plan-versions")
+    resp = await unauthenticated_client.get("/api/v1/plan-versions")
     assert resp.status_code == 401
     data = resp.json()
     assert data["error"]["code"] == "AUTHENTICATION_REQUIRED"
+
+
+@pytest.mark.asyncio
+async def test_401_production_rejects_demo_credentials(unauthenticated_client: AsyncClient, monkeypatch):
+    """In production mode, demo tokens (e.g. planner-token-2026) are strictly rejected with 401."""
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    monkeypatch.setattr(settings, "ENABLE_DEMO_AUTH", True)
+
+    headers = {"Authorization": "Bearer planner-token-2026"}
+    resp = await unauthenticated_client.get("/api/v1/plan-versions", headers=headers)
+    assert resp.status_code == 401
+    data = resp.json()
+    assert data["error"]["code"] == "UNAUTHORIZED"
 
 
 @pytest.mark.asyncio

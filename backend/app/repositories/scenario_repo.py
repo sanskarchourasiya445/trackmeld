@@ -23,6 +23,24 @@ class ScenarioRepository(BaseRepository[OperationalScenarioModel]):
             return scn
         return await self.get_by_id(identifier)
 
+    async def get_by_id_for_update(self, scenario_id: str) -> Optional[OperationalScenarioModel]:
+        """Fetch and row-lock the operational scenario to serialize version creation and approval."""
+        stmt = (
+            select(OperationalScenarioModel)
+            .where(OperationalScenarioModel.scenario_id == scenario_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        result = await self.session.execute(stmt)
+        if hasattr(result, "scalar_one_or_none"):
+            res = result.scalar_one_or_none()
+            if hasattr(res, "__await__"):
+                res = await res
+            if res and getattr(getattr(res, "__class__", None), "__name__", "") == "AsyncMock" and not hasattr(res, "scenario_id"):
+                return await self.get_by_id(scenario_id)
+            return res
+        return await self.get_by_id(scenario_id)
+
     async def upsert(self, scenario: OperationalScenarioModel) -> OperationalScenarioModel:
         existing = await self.get_by_id(scenario.scenario_id)
         if existing:

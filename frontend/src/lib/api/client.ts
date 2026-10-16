@@ -30,7 +30,16 @@ export class ApiError extends Error {
     this.status = status;
     this.code = code;
     this.requestId = requestId;
+    Object.setPrototypeOf(this, ApiError.prototype);
   }
+}
+
+export function isApiError(err: unknown): err is ApiError {
+  return (
+    err instanceof ApiError ||
+    (typeof err === 'object' && err !== null && 'name' in err && (err as { name: string }).name === 'ApiError') ||
+    (typeof err === 'object' && err !== null && 'code' in err && 'status' in err)
+  );
 }
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
@@ -116,6 +125,8 @@ async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T>
       errCode = 'FORBIDDEN';
     } else if (res.status === 404) {
       errCode = 'NOT_FOUND';
+    } else if (res.status === 409) {
+      errCode = errCode === `HTTP_409` ? 'CONFLICT' : errCode;
     } else if (res.status === 422) {
       errCode = 'VALIDATION_ERROR';
     }

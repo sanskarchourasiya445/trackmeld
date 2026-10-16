@@ -71,7 +71,7 @@ async def test_e2e_lifecycle_and_completed_not_approved_invariant(
     approver_headers = {"Authorization": "Bearer approver-token-2026"}
 
     req_payload = {
-        "scenario_id": "SCN-DEMO-001",
+        "scenario_id": "SCN-REAL-OPERATIONAL-001",
         "scheduler_type": "CP_SAT",
         "time_limit_seconds": 10.0,
         "num_search_workers": 1,
@@ -192,3 +192,73 @@ async def test_e2e_lifecycle_and_completed_not_approved_invariant(
     assert approved_event.actor_username == "divisional_operations_manager"
     assert approved_event.event_metadata["declared_reviewer"]["name"] == "Shri V. K. Malhotra"
     assert approved_event.event_metadata["declared_reviewer"]["role"] == "Chief Operations Manager (Coaching)"
+
+
+@pytest.mark.asyncio
+async def test_synthetic_scenario_completed_cannot_be_approved_gov001(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    test_session_factory,
+):
+    """GOV-001: Completed run on synthetic scenario SCN-DEMO-001 can create candidate but CANNOT receive operational approval."""
+    planner_headers = {"Authorization": "Bearer planner-token-2026"}
+    approver_headers = {"Authorization": "Bearer approver-token-2026"}
+
+    # 1. Submit planning run requisition for synthetic scenario
+    req_payload = {
+        "scenario_id": "SCN-DEMO-001",
+        "scheduler_type": "CP_SAT",
+        "time_limit_seconds": 10.0,
+        "num_search_workers": 1,
+        "random_seed": 42,
+        "validate_after_solve": True,
+    }
+    resp_create = await client.post("/api/v1/planning-runs", json=req_payload, headers=planner_headers)
+    assert resp_create.status_code == 201
+    run_id = resp_create.json()["run_id"]
+
+    # 2. Worker executes optimization & validation
+    worker = PlanningRunWorker(worker_id="INTEGRATION-WORKER-02", session_factory=test_session_factory)
+    claimed = await worker.run_once()
+    assert claimed is True
+
+    # 3. Promote completed synthetic run to PlanVersion candidate
+    resp_pv = await client.post(
+        f"/api/v1/planning-runs/{run_id}/plan-version",
+        json={"comment": "Synthetic candidate block proposal"},
+        headers=planner_headers,
+    )
+    assert resp_pv.status_code == 201
+    pv_id = resp_pv.json()["plan_version_id"]
+
+    # 4. Review synthetic plan version
+    resp_review = await client.post(
+        f"/api/v1/plan-versions/{pv_id}/review",
+        json={"comment": "Reviewing synthetic corridor proposal"},
+        headers=approver_headers,
+    )
+    assert resp_review.status_code == 200
+
+    # 5. Formal operational approval MUST be blocked by GOV-001 Precondition 8
+    approve_payload = {
+        "approval_notes": "Attempting operational approval on synthetic scenario.",
+        "declared_reviewer_name": "Shri V. K. Malhotra",
+        "declared_reviewer_role": "Chief Operations Manager (Coaching)",
+    }
+    resp_appr = await client.post(
+        f"/api/v1/plan-versions/{pv_id}/approve",
+        json=approve_payload,
+        headers=approver_headers,
+    )
+    assert resp_appr.status_code == 422
+    err = resp_appr.json()["error"]
+    assert err["code"] == "APPROVAL_BLOCKED"
+    assert "SYNTHETIC" in err["message"]
+    assert "Synthetic, demonstration, or assumed scenarios cannot be approved" in err["message"]
+
+    # 6. Verify zero state mutation in database
+    stmt_pv = select(PlanVersionModel).where(PlanVersionModel.plan_version_id == pv_id)
+    pv_db = (await db_session.execute(stmt_pv)).scalar_one()
+    assert pv_db.status == PlanVersionStatus.UNDER_REVIEW
+    assert pv_db.approved_by is None
+    assert pv_db.approved_at is None

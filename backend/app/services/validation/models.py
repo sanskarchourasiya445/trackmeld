@@ -81,6 +81,7 @@ class ScheduleValidationResult(BaseModel):
     checked_train_movement_count: int = Field(default=0, description="Total corridor train movements checked for collision")
     validator_version: str = Field(default="1.0.0", description="Independent validator engine version")
     input_snapshot_id: str = Field(..., description="Snapshot ID against which schedule was verified")
+    input_snapshot_hash: Optional[str] = Field(default=None, description="Authoritative 64-character SHA-256 snapshot hash")
     schedule_identity: str = Field(..., description="Deterministic SHA-256 fingerprint of the evaluated schedule")
     validation_runtime_ms: float = Field(default=0.0, description="Validation elapsed execution latency in milliseconds")
     checks_executed: List[str] = Field(default_factory=list, description="Names of all independent checks performed")

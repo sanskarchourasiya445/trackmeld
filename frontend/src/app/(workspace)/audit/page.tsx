@@ -6,6 +6,8 @@ import {
   getPlanVersionAudit,
   approvePlanVersion,
   rejectPlanVersion,
+  ApiError,
+  isApiError,
 } from '@/lib/api/client';
 import { PlanVersion, AuditLogEntry } from '@/types/planning';
 import { PlanApprovalModal } from '@/components/governance/PlanApprovalModal';
@@ -60,7 +62,7 @@ const INITIAL_VERSIONS: PlanVersionSummary[] = [
   {
     id: 'PV-20260930-1840DF21',
     version: 'v1.0',
-    status: 'APPROVED',
+    status: 'SUPERSEDED',
     created: '2 days ago',
     creator: 'operations_director',
     scheduledCount: 64,
@@ -137,6 +139,7 @@ export default function AuditPage() {
   const [inspectorTab, setInspectorTab] = useState<'DETAILS' | 'REVIEW' | 'AUDIT'>('DETAILS');
   const [isApprovalOpen, setIsApprovalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isActionLoading, setIsActionLoading] = useState(false);
   const [isAuthoritative, setIsAuthoritative] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
@@ -158,6 +161,14 @@ export default function AuditPage() {
         }
       })
       .catch((err) => {
+        if (cancelled) return;
+        if (isApiError(err)) {
+          if (err.status === 401) {
+            setErrorMessage('UNAUTHORIZED (401): Valid operator credentials are required to inspect the authoritative audit ledger.');
+          } else if (err.status === 403) {
+            setErrorMessage('ACCESS FORBIDDEN (403): You do not have permissions to review audit records for this scenario.');
+          }
+        }
         console.warn('Failed to load authoritative audit trail, displaying synthetic reference:', err);
       });
 
@@ -193,6 +204,8 @@ export default function AuditPage() {
     reviewer_role?: string;
     approval_notes?: string;
   }) => {
+    if (isActionLoading) return;
+    setIsActionLoading(true);
     try {
       await approvePlanVersion(
         selectedVersion.id,
@@ -217,9 +230,18 @@ export default function AuditPage() {
       console.warn('Approval error:', err);
       // STRICT SAFETY: Do NOT mutate governance state to APPROVED on error!
       const msg = err instanceof Error ? err.message : String(err);
-      setErrorMessage(
-        `ACTION NOT COMPLETED: The backend did not confirm this approval (${msg}). No local state transition has been applied.`
-      );
+      if (isApiError(err) && err.status === 409) {
+        setErrorMessage(
+          `ACTION NOT COMPLETED: The backend did not confirm this approval (Conflict 409: ${msg}). Refreshing authoritative state.`
+        );
+        await handleManualRefresh();
+      } else {
+        setErrorMessage(
+          `ACTION NOT COMPLETED: The backend did not confirm this approval (${msg}). No local state transition has been applied.`
+        );
+      }
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
@@ -228,6 +250,8 @@ export default function AuditPage() {
     reviewer_role?: string;
     rejection_reason?: string;
   }) => {
+    if (isActionLoading) return;
+    setIsActionLoading(true);
     try {
       await rejectPlanVersion(
         selectedVersion.id,
@@ -250,9 +274,18 @@ export default function AuditPage() {
       console.warn('Rejection error:', err);
       // STRICT SAFETY: Do NOT mutate governance state to REJECTED on error!
       const msg = err instanceof Error ? err.message : String(err);
-      setErrorMessage(
-        `ACTION NOT COMPLETED: The backend did not confirm this rejection (${msg}). No local state transition has been applied.`
-      );
+      if (isApiError(err) && err.status === 409) {
+        setErrorMessage(
+          `ACTION NOT COMPLETED: The backend did not confirm this rejection (Conflict 409: ${msg}). Refreshing authoritative state.`
+        );
+        await handleManualRefresh();
+      } else {
+        setErrorMessage(
+          `ACTION NOT COMPLETED: The backend did not confirm this rejection (${msg}). No local state transition has been applied.`
+        );
+      }
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
@@ -756,20 +789,22 @@ export default function AuditPage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={isActionLoading || loading}
                   onClick={handleDirectReject}
-                  className="border-rose-500/40 text-xs text-rose-400 hover:bg-rose-950/40 h-8"
+                  className="border-rose-500/40 text-xs text-rose-400 hover:bg-rose-950/40 h-8 disabled:opacity-50"
                 >
                   <XCircle className="w-3 h-3 mr-1" />
-                  Reject Plan
+                  {isActionLoading ? 'Processing...' : 'Reject Plan'}
                 </Button>
 
                 <Button
                   size="sm"
+                  disabled={isActionLoading || loading}
                   onClick={handleDirectApprove}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold h-8 shadow-xs"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold h-8 shadow-xs disabled:opacity-50"
                 >
                   <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                  Approve Plan
+                  {isActionLoading ? 'Processing...' : 'Approve Plan'}
                 </Button>
               </div>
             </div>
