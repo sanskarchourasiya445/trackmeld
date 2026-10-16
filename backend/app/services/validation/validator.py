@@ -16,9 +16,16 @@ from backend.app.domain.planning_snapshot import PlanningSnapshot
 from backend.app.services.validation.models import (
     ValidationStatus,
     ValidationSeverity,
+    ValidationCategory,
+    ValidationFinding,
     ScheduleValidationResult,
 )
-from backend.app.services.validation.checks import ScheduleCheckRunner
+from backend.app.services.validation.checks import (
+    ScheduleCheckRunner,
+    _is_missing_hash,
+    _is_malformed_hash,
+    _is_valid_sha256,
+)
 from backend.app.services.validation.exceptions import ScheduleApprovalBlockedError
 
 
@@ -231,12 +238,25 @@ class IndependentScheduleValidator:
         schedule_identity = cls.compute_schedule_identity(snapshot, schedule)
         runtime_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
-        snap_hash = None
-        if hasattr(snapshot, "compute_snapshot_hash") and callable(snapshot.compute_snapshot_hash):
-            try:
-                snap_hash = snapshot.compute_snapshot_hash()
-            except Exception:
-                snap_hash = None
+        snap_hash = getattr(runner, "computed_snapshot_hash", None)
+
+        # Defense-in-depth: A valid schedule MUST possess a certified valid 64-char SHA-256 snapshot hash.
+        # If snap_hash is missing, malformed, or failed computation, validation MUST fail closed.
+        if _is_missing_hash(snap_hash) or _is_malformed_hash(snap_hash):
+            if valid or is_approvable or status == ValidationStatus.VALID:
+                status = ValidationStatus.INVALID
+                valid = False
+                is_approvable = False
+                error_count += 1
+                gate_msg = "Approval BLOCKED: Planning snapshot hash is missing, malformed, or failed computation."
+                findings.append(
+                    ValidationFinding(
+                        code="SNAPSHOT_HASH_MISSING" if _is_missing_hash(snap_hash) else "SNAPSHOT_HASH_MALFORMED",
+                        severity=ValidationSeverity.ERROR,
+                        category=ValidationCategory.PROVENANCE,
+                        message="Valid schedule must possess an authoritative 64-character SHA-256 snapshot hash.",
+                    )
+                )
 
         return ScheduleValidationResult(
             status=status,

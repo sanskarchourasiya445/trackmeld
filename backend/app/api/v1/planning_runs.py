@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.db.session import get_db_session
@@ -308,29 +308,28 @@ async def get_planning_run_schedule_result(
     response_model=List[PlanningRunSummary],
 )
 async def list_planning_runs(
+    response: Response,
     scenario_id: Optional[str] = None,
     status: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0,
-    response: Response = None,
+    limit: int = Query(50, ge=1, le=100, description="Maximum number of items to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_db_session),
     current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> List[PlanningRunSummary]:
     """List planning runs with optional scenario/status filtering and bounded pagination."""
-    clamped_limit = max(1, min(limit, 100))
     run_repo = PlanningRunRepository(session)
 
     runs = await run_repo.list_runs(
         scenario_id=scenario_id,
         status=status,
-        limit=clamped_limit,
+        limit=limit,
         offset=offset,
     )
     total_count = await run_repo.count_runs(scenario_id=scenario_id, status=status)
 
     if response:
         response.headers["X-Total-Count"] = str(total_count)
-        response.headers["X-Limit"] = str(clamped_limit)
+        response.headers["X-Limit"] = str(limit)
         response.headers["X-Offset"] = str(offset)
 
     summaries = []

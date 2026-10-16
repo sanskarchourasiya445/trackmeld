@@ -264,3 +264,116 @@ async def test_rbac_permission_enforcement_preserved():
         await write_guard(viewer)
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail["error"]["code"] == "FORBIDDEN"
+
+
+# =============================================================================
+# 8. F2: PRODUCTION STARTUP VALIDATION REJECTS WEAK, DEFAULT, OR EXAMPLE SECRETS
+# =============================================================================
+
+@pytest.mark.parametrize(
+    "prohibited_token",
+    [
+        "demo-admin-token",
+        "demo-approver-token",
+        "demo-planner-token",
+        "demo-viewer-token",
+        "admin-token-2026",
+        "approver-token-2026",
+        "planner-token-2026",
+        "viewer-token-2026",
+        "restricted-token-2026",
+        "password",
+        "secret",
+        "admin",
+        "123456",
+        "changeme",
+    ],
+)
+def test_f2_production_startup_rejects_example_and_trivial_tokens(prohibited_token):
+    """F2: Startup validation strictly rejects known example, demo, or default tokens in production."""
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(ENVIRONMENT="production", AUTH_ADMIN_TOKEN=prohibited_token)
+    err = str(exc_info.value)
+    assert "cannot use default, demo, or example token" in err or "too weak" in err
+
+
+def test_f2_production_startup_rejects_short_weak_token():
+    """F2: Startup validation strictly rejects tokens shorter than 16 characters in production."""
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(
+            ENVIRONMENT="production",
+            AUTH_ADMIN_TOKEN="strong-unique-admin-token-2026",
+            AUTH_PLANNER_TOKEN="weak-token-123",
+        )
+    err = str(exc_info.value)
+    assert "too weak (14 characters)" in err
+    assert "Minimum required length is 16 characters" in err
+
+
+def test_f2_production_startup_rejects_empty_or_whitespace_token():
+    """F2: Startup validation strictly rejects blank or whitespace-only tokens in production."""
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(
+            ENVIRONMENT="production",
+            AUTH_ADMIN_TOKEN="strong-unique-admin-token-2026",
+            AUTH_APPROVER_TOKEN="   ",
+        )
+    err = str(exc_info.value)
+    assert "must not be empty or whitespace-only" in err
+
+
+def test_f2_production_startup_rejects_duplicate_role_tokens():
+    """F2: Startup validation rejects identical tokens across roles in production to enforce Four-Eyes separation."""
+    shared_token = "production-secure-token-shared-xyz-987"
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(
+            ENVIRONMENT="production",
+            AUTH_ADMIN_TOKEN="strong-unique-admin-token-2026",
+            AUTH_PLANNER_TOKEN=shared_token,
+            AUTH_APPROVER_TOKEN=shared_token,
+        )
+    err = str(exc_info.value)
+    assert "must be unique across roles" in err
+
+
+def test_f2_development_mode_permits_example_tokens():
+    """F2: In development and test environments, example and demo tokens remain permitted without startup errors."""
+    s = Settings(
+        ENVIRONMENT="development",
+        AUTH_ADMIN_TOKEN="demo-admin-token",
+        AUTH_PLANNER_TOKEN="demo-planner-token",
+    )
+    assert s.AUTH_ADMIN_TOKEN == "demo-admin-token"
+    assert s.AUTH_PLANNER_TOKEN == "demo-planner-token"
+
+
+@pytest.mark.asyncio
+async def test_f2_runtime_defense_in_depth_drops_prohibited_tokens_in_production(monkeypatch):
+    """F2: Runtime defense-in-depth: get_active_credentials drops weak or prohibited tokens if bypassed."""
+    s = get_settings()
+    monkeypatch.setattr(s, "ENVIRONMENT", "production")
+    monkeypatch.setattr(s, "ENABLE_DEMO_AUTH", False)
+    monkeypatch.setattr(s, "AUTH_ADMIN_TOKEN", "demo-admin-token")  # Prohibited
+    monkeypatch.setattr(s, "AUTH_PLANNER_TOKEN", "short")           # Weak (< 16 chars)
+    monkeypatch.setattr(s, "AUTH_APPROVER_TOKEN", "strong-unique-approver-secret-key-2026")
+
+    creds = get_active_credentials()
+    assert "demo-admin-token" not in creds
+    assert "short" not in creds
+    assert "strong-unique-approver-secret-key-2026" in creds
+
+    # Prohibited token cannot authenticate
+    bad_creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="demo-admin-token")
+    with pytest.raises(HTTPException) as exc_info:
+        await get_current_user(request=_make_request(), auth_creds=bad_creds)
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail["error"]["code"] == "UNAUTHORIZED"
+
+    # Strong configured token authenticates properly
+    good_creds = HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials="strong-unique-approver-secret-key-2026"
+    )
+    user = await get_current_user(request=_make_request(), auth_creds=good_creds)
+    assert user.role == UserRole.OPERATOR
+    assert user.username == "production_approver"
+    assert user.user_id == "USR-APPR-PROD"

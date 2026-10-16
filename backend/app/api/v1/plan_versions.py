@@ -12,11 +12,14 @@ Exposes:
 - GET  /api/v1/plan-versions/{plan_version_id}/audit: Immutable chronological governance audit trail
 """
 
+import logging
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Header, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+
+logger = logging.getLogger("trackmeld.plan_versions")
 
 from backend.app.db.session import get_db_session
 from backend.app.core.auth import get_current_user, require_permission, AuthUser
@@ -186,9 +189,15 @@ async def create_plan_version_from_run(
             detail={"error": {"code": "INTEGRITY_MISMATCH", "message": str(e)}},
         )
     except Exception as e:
+        logger.exception("Unexpected error creating plan version candidate from run '%s': %s", run_id, e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": str(e)}},
+            detail={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "An internal error occurred while processing the plan version candidate.",
+                }
+            },
         )
 
 
@@ -232,9 +241,15 @@ async def create_plan_version(
             detail={"error": {"code": "INTEGRITY_MISMATCH", "message": str(e)}},
         )
     except Exception as e:
+        logger.exception("Unexpected error creating plan version candidate from payload run '%s': %s", payload.planning_run_id, e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": str(e)}},
+            detail={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "An internal error occurred while processing the plan version candidate.",
+                }
+            },
         )
 
 
@@ -254,8 +269,8 @@ async def list_plan_versions(
     status: Optional[PlanVersionStatus] = None,
     planning_run_id: Optional[str] = None,
     created_by: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=100, description="Maximum number of plan versions to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_db_session),
     current_user: AuthUser = Depends(require_permission("read:operational")),
 ):
@@ -274,7 +289,10 @@ async def list_plan_versions(
         limit=limit,
         offset=offset,
     )
-    response.headers["X-Total-Count"] = str(total)
+    if response:
+        response.headers["X-Total-Count"] = str(total)
+        response.headers["X-Limit"] = str(limit)
+        response.headers["X-Offset"] = str(offset)
     return [_map_to_summary(p) for p in plans]
 
 
@@ -329,6 +347,11 @@ async def start_plan_review(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"error": {"code": "ILLEGAL_TRANSITION", "message": str(e)}},
+        )
+    except FourEyesViolationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error": {"code": "FOUR_EYES_VIOLATION", "message": str(e)}},
         )
 
 
@@ -491,8 +514,9 @@ async def reject_plan(
 )
 async def get_plan_audit_trail(
     plan_version_id: str,
-    limit: int = 100,
-    offset: int = 0,
+    response: Response,
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of audit events to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_db_session),
     current_user: AuthUser = Depends(require_permission("read:operational")),
 ):
@@ -510,6 +534,11 @@ async def get_plan_audit_trail(
         limit=limit,
         offset=offset,
     )
+    total = await repo.count_audit_events(entity_id=plan_version_id, entity_type="PLAN_VERSION")
+    if response:
+        response.headers["X-Total-Count"] = str(total)
+        response.headers["X-Limit"] = str(limit)
+        response.headers["X-Offset"] = str(offset)
     return [
         AuditEventResponse(
             event_id=e.event_id,

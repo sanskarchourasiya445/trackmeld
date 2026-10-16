@@ -4,7 +4,6 @@ import uuid
 import logging
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
-from unittest.mock import Mock, MagicMock
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
@@ -87,29 +86,6 @@ def _is_missing_hash(h: Any) -> bool:
     return len(h.strip()) == 0
 
 
-def _is_malformed_hash(h: Any) -> bool:
-    if not isinstance(h, str):
-        return True
-    s = h.strip()
-    if len(s) == 0:
-        return True
-    # If 64 chars (standard SHA-256), ensure it's valid hex
-    if len(s) == 64:
-        try:
-            int(s, 16)
-            return False
-        except ValueError:
-            return True
-    # For test mocks that might use non-64-char strings, reject obvious corruption/spaces/symbols
-    if any(c in s for c in " \t\n\r!@#$%^&*+=[]{}|;:'\",<>?/~`"):
-        return True
-    if s.upper().startswith("MALFORMED") or s.upper().startswith("CORRUPT"):
-        return True
-    if len(s) < 4:
-        return True
-    return False
-
-
 def _is_valid_sha256(h: Any) -> bool:
     if not isinstance(h, str) or len(h) != 64:
         return False
@@ -118,6 +94,10 @@ def _is_valid_sha256(h: Any) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _is_malformed_hash(h: Any) -> bool:
+    return not _is_valid_sha256(h)
 
 
 class PlanGovernanceService:
@@ -286,12 +266,59 @@ class PlanGovernanceService:
         comment: Optional[str] = None,
     ) -> PlanVersionModel:
         """Advance plan version to UNDER_REVIEW state."""
+        try:
+            return await self._start_review_internal(
+                plan_version_id=plan_version_id,
+                actor=actor,
+                comment=comment,
+            )
+        except Exception:
+            await self.session.rollback()
+            raise
+
+    async def _start_review_internal(
+        self,
+        plan_version_id: str,
+        actor: AuthUser,
+        comment: Optional[str] = None,
+    ) -> PlanVersionModel:
         plan = await self.plan_repo.get_by_id_for_update(plan_version_id)
         if not plan:
             raise PlanVersionNotFoundError(f"PlanVersion '{plan_version_id}' not found.")
 
         # Validate legal transition
         self.plan_repo.validate_transition(plan.status, PlanVersionStatus.UNDER_REVIEW)
+
+        # Precondition: Separation of duties (Four-Eyes Principle)
+        # Verify creator provenance exists and is valid (fail closed)
+        if not getattr(plan, "created_by", None) or not isinstance(plan.created_by, str) or not plan.created_by.strip():
+            raise FourEyesViolationError(
+                f"Cannot review PlanVersion '{plan_version_id}': Target plan row has missing, blank, or invalid creator provenance (created_by). "
+                f"Missing creator identity fails closed under Four-Eyes governance."
+            )
+        # Verify reviewer actor identity exists and is valid (fail closed)
+        if not actor or not getattr(actor, "username", None) or not isinstance(actor.username, str) or not actor.username.strip():
+            raise FourEyesViolationError(
+                f"Cannot review PlanVersion '{plan_version_id}': Authenticated reviewer has missing, blank, or invalid actor identity. "
+                f"Missing reviewer identity fails closed under Four-Eyes governance."
+            )
+
+        # Verify role authorization: Actor must possess 'plan:review' permission
+        if hasattr(actor, "has_permission") and callable(actor.has_permission):
+            if not actor.has_permission("plan:review"):
+                raise PlanVersionApprovalBlockedError(
+                    f"Actor '{actor.username}' with role '{getattr(actor.role, 'value', actor.role)}' "
+                    f"lacks required permission 'plan:review' to review plan version '{plan_version_id}'."
+                )
+
+        creator_clean = plan.created_by.strip().lower()
+        actor_user_clean = actor.username.strip().lower()
+        actor_id_clean = str(getattr(actor, "user_id", "")).strip().lower() if getattr(actor, "user_id", None) else ""
+        if creator_clean == actor_user_clean or (actor_id_clean and creator_clean == actor_id_clean):
+            raise FourEyesViolationError(
+                f"Separation of duties violation: Author '{plan.created_by}' cannot review their own "
+                f"plan version '{plan_version_id}'. Formal operational review requires an independent reviewer."
+            )
 
         now = datetime.now(timezone.utc)
         prev_status = plan.status
@@ -411,15 +438,7 @@ class PlanGovernanceService:
     ) -> PlanVersionModel:
         # Step 1: Pre-read target plan version to discover scenario identity
         # Uses lightweight read without row lock to establish target scenario for canonical locking order
-        target_pre = None
-        if (
-            getattr(getattr(self.plan_repo, "get_by_id_for_update", None), "__class__", None).__name__ == "AsyncMock"
-            and getattr(getattr(self.plan_repo, "get_by_plan_version_id", None), "__class__", None).__name__ != "AsyncMock"
-        ):
-            target_pre = await self.plan_repo.get_by_id_for_update(plan_version_id)
-        elif hasattr(self.plan_repo, "get_by_plan_version_id"):
-            target_pre = await self.plan_repo.get_by_plan_version_id(plan_version_id)
-
+        target_pre = await self.plan_repo.get_by_plan_version_id(plan_version_id)
         if not target_pre and hasattr(self.plan_repo, "get_by_id_for_update"):
             target_pre = await self.plan_repo.get_by_id_for_update(plan_version_id)
 
@@ -434,15 +453,7 @@ class PlanGovernanceService:
 
         # Step 2: Acquire row lock on parent scenario FIRST (canonical lock ordering: Scenario -> Plan)
         # to serialize all approval requests across different plan versions for the same scenario.
-        scenario = None
-        if (
-            getattr(getattr(self.scenario_repo, "get_by_id", None), "__class__", None).__name__ == "AsyncMock"
-            and getattr(getattr(self.scenario_repo, "get_by_id_for_update", None), "__class__", None).__name__ != "AsyncMock"
-        ):
-            scenario = await self.scenario_repo.get_by_id(target_scenario_id)
-        elif hasattr(self.scenario_repo, "get_by_id_for_update"):
-            scenario = await self.scenario_repo.get_by_id_for_update(target_scenario_id)
-
+        scenario = await self.scenario_repo.get_by_id_for_update(target_scenario_id)
         if not scenario and hasattr(self.scenario_repo, "get_by_id"):
             scenario = await self.scenario_repo.get_by_id(target_scenario_id)
 
@@ -475,15 +486,6 @@ class PlanGovernanceService:
         # Step 4: Validate scenario binding under lock (fail-closed)
         plan_scen_id = getattr(plan, "scenario_id", None)
         locked_scen_id = getattr(scenario, "scenario_id", None)
-
-        # Allow unconfigured MagicMock attributes in unit test suites to bind consistently
-        if isinstance(plan_scen_id, (Mock, MagicMock)) and isinstance(locked_scen_id, (Mock, MagicMock)):
-            plan_scen_id = "SCN-TEST-MOCK"
-            locked_scen_id = "SCN-TEST-MOCK"
-        elif isinstance(locked_scen_id, (Mock, MagicMock)) and isinstance(plan_scen_id, str) and plan_scen_id.strip():
-            locked_scen_id = plan_scen_id
-        elif isinstance(plan_scen_id, (Mock, MagicMock)) and isinstance(locked_scen_id, str) and locked_scen_id.strip():
-            plan_scen_id = locked_scen_id
 
         if not isinstance(plan_scen_id, str) or not plan_scen_id.strip():
             raise PlanFingerprintMismatchError(
@@ -631,14 +633,47 @@ class PlanGovernanceService:
                         )
 
         # Precondition 7: Separation of duties (Four-Eyes Principle)
-        # Author of the plan cannot approve their own candidate.
-        if isinstance(plan.created_by, str) and (
-            plan.created_by == actor.username or plan.created_by == actor.user_id
-        ):
+        # 7.1 Verify creator provenance exists and is valid (fail closed)
+        if not getattr(plan, "created_by", None) or not isinstance(plan.created_by, str) or not plan.created_by.strip():
+            raise FourEyesViolationError(
+                f"Cannot approve PlanVersion '{plan_version_id}': Target plan row has missing, blank, or invalid creator provenance (created_by). "
+                f"Missing creator identity fails closed under Four-Eyes governance."
+            )
+        # 7.2 Verify approver actor identity exists and is valid (fail closed)
+        if not actor or not getattr(actor, "username", None) or not isinstance(actor.username, str) or not actor.username.strip():
+            raise FourEyesViolationError(
+                f"Cannot approve PlanVersion '{plan_version_id}': Authenticated approver has missing, blank, or invalid actor identity. "
+                f"Missing approver identity fails closed under Four-Eyes governance."
+            )
+
+        creator_clean = plan.created_by.strip().lower()
+        actor_user_clean = actor.username.strip().lower()
+        actor_id_clean = str(getattr(actor, "user_id", "")).strip().lower() if getattr(actor, "user_id", None) else ""
+
+        # 7.3 Author of the plan cannot approve their own candidate
+        if creator_clean == actor_user_clean or (actor_id_clean and creator_clean == actor_id_clean):
             raise FourEyesViolationError(
                 f"Separation of duties violation: Author '{plan.created_by}' cannot approve their own "
                 f"plan version '{plan_version_id}'. Formal operational approval requires independent review."
             )
+
+        # 7.4 Reviewer independence: If plan was put under review, author cannot have been the reviewer
+        reviewed_by = getattr(plan, "reviewed_by", None)
+        if isinstance(reviewed_by, str) and reviewed_by.strip():
+            reviewer_clean = reviewed_by.strip().lower()
+            if reviewer_clean == creator_clean:
+                raise FourEyesViolationError(
+                    f"Separation of duties violation: PlanVersion '{plan_version_id}' was reviewed by its author "
+                    f"'{plan.created_by}'. Independent review required."
+                )
+
+        # 7.5 Role authorization: Actor must possess 'plan:approve' permission
+        if hasattr(actor, "has_permission") and callable(actor.has_permission):
+            if not actor.has_permission("plan:approve"):
+                raise PlanVersionApprovalBlockedError(
+                    f"Actor '{actor.username}' with role '{getattr(actor.role, 'value', actor.role)}' "
+                    f"lacks required permission 'plan:approve' to authorize plan version '{plan_version_id}'."
+                )
 
         # Precondition 8: Scenario Provenance Integrity & Dataset Version (GOV-001 / GOV-002)
         if not scenario:
@@ -673,6 +708,86 @@ class PlanGovernanceService:
                 f"Cannot approve PlanVersion '{plan_version_id}': Operational scenario '{plan.scenario_id}' "
                 f"has classification '{class_str}'. Synthetic, demonstration, or assumed scenarios "
                 f"cannot be approved as real operational plans."
+            )
+
+        # Precondition 9 (F3 / GOV-002): Approval-time scenario snapshot & input hash recomputation
+        # Verify that current persisted scenario data has not changed since the plan's snapshot hashes
+        # were created, even if dataset_version is unchanged.
+        current_snapshot = await self.scenario_repo.get_snapshot(plan.scenario_id)
+        if current_snapshot is None:
+            raise PlanSnapshotIntegrityError(
+                f"Cannot approve PlanVersion '{plan_version_id}': Failed to load current planning "
+                f"snapshot for scenario '{plan.scenario_id}'. Missing scenario data fails closed."
+            )
+
+        if not hasattr(current_snapshot, "compute_snapshot_hash") or not callable(current_snapshot.compute_snapshot_hash):
+            raise PlanSnapshotIntegrityError(
+                f"Cannot approve PlanVersion '{plan_version_id}': Current planning snapshot for "
+                f"scenario '{plan.scenario_id}' is malformed. Missing hash computation fails closed."
+            )
+
+        try:
+            recomputed_snapshot_hash = current_snapshot.compute_snapshot_hash()
+        except Exception as exc:
+            raise PlanSnapshotIntegrityError(
+                f"Cannot approve PlanVersion '{plan_version_id}': Failed to compute snapshot hash "
+                f"from current scenario data: {exc}. Malformed scenario data fails closed."
+            )
+
+        if _is_missing_hash(recomputed_snapshot_hash) or _is_malformed_hash(recomputed_snapshot_hash):
+            raise PlanSnapshotIntegrityError(
+                f"Cannot approve PlanVersion '{plan_version_id}': Recomputed current snapshot hash is malformed "
+                f"({repr(recomputed_snapshot_hash)}). Malformed scenario data fails closed."
+            )
+
+        if recomputed_snapshot_hash != plan.snapshot_hash:
+            raise PlanFingerprintMismatchError(
+                f"Cannot approve PlanVersion '{plan_version_id}': Current scenario snapshot hash "
+                f"'{recomputed_snapshot_hash}' does not match stored snapshot hash '{plan.snapshot_hash}'. "
+                f"Underlying scenario data has changed since plan generation."
+            )
+
+        # Canonical input hash recomputation from current snapshot
+        if not hasattr(current_snapshot, "compute_input_hash") or not callable(current_snapshot.compute_input_hash):
+            raise PlanSnapshotIntegrityError(
+                f"Cannot approve PlanVersion '{plan_version_id}': Current planning snapshot for "
+                f"scenario '{plan.scenario_id}' lacks input hash capability."
+            )
+
+        config_snapshot = getattr(run, "configuration_snapshot", None) or getattr(plan, "configuration_snapshot", {}) or {}
+        random_seed = getattr(run, "random_seed", 0) or 0
+        try:
+            recomputed_input_hash = current_snapshot.compute_input_hash(config_snapshot, seed=random_seed)
+        except Exception as exc:
+            raise PlanSnapshotIntegrityError(
+                f"Cannot approve PlanVersion '{plan_version_id}': Failed to compute input hash "
+                f"from current scenario data: {exc}."
+            )
+
+        if _is_missing_hash(recomputed_input_hash) or _is_malformed_hash(recomputed_input_hash):
+            raise PlanSnapshotIntegrityError(
+                f"Cannot approve PlanVersion '{plan_version_id}': Recomputed current input hash is malformed "
+                f"({repr(recomputed_input_hash)})."
+            )
+
+        if recomputed_input_hash != plan.input_hash:
+            raise PlanFingerprintMismatchError(
+                f"Cannot approve PlanVersion '{plan_version_id}': Recomputed input hash '{recomputed_input_hash}' "
+                f"does not match stored input hash '{plan.input_hash}'. "
+                f"Underlying scenario inputs have changed since plan generation."
+            )
+
+        # Verify current snapshot ID against source run
+        current_snap_id = getattr(current_snapshot, "snapshot_id", None)
+        if _is_missing_hash(current_snap_id):
+            raise PlanSnapshotIntegrityError(
+                f"Cannot approve PlanVersion '{plan_version_id}': Current planning snapshot lacks snapshot_id."
+            )
+        run_snap_id = getattr(run, "snapshot_id", None)
+        if isinstance(run_snap_id, str) and run_snap_id.strip() and current_snap_id != run_snap_id:
+            raise PlanFingerprintMismatchError(
+                f"Cannot approve PlanVersion '{plan_version_id}': Current snapshot identifier '{current_snap_id}' "
+                f"does not match source run snapshot identifier '{run_snap_id}'."
             )
 
         now = datetime.now(timezone.utc)
@@ -756,8 +871,9 @@ class PlanGovernanceService:
                 "scheduler_type": plan.scheduler_type,
                 "previous_plan_version_id": plan.previous_plan_version_id,
                 "declared_reviewer": {
-                    "name": declared_reviewer_name,
-                    "role": declared_reviewer_role,
+                    "name": (declared_reviewer_name.strip() if isinstance(declared_reviewer_name, str) and declared_reviewer_name.strip() else None),
+                    "role": (declared_reviewer_role.strip() if isinstance(declared_reviewer_role, str) and declared_reviewer_role.strip() else None),
+                    "is_authoritative": False,
                 } if (declared_reviewer_name or declared_reviewer_role) else None,
             },
         )
@@ -784,6 +900,22 @@ class PlanGovernanceService:
         reason: str,
     ) -> PlanVersionModel:
         """Explicitly reject a plan candidate with mandatory operational justification."""
+        try:
+            return await self._reject_plan_internal(
+                plan_version_id=plan_version_id,
+                actor=actor,
+                reason=reason,
+            )
+        except Exception:
+            await self.session.rollback()
+            raise
+
+    async def _reject_plan_internal(
+        self,
+        plan_version_id: str,
+        actor: AuthUser,
+        reason: str,
+    ) -> PlanVersionModel:
         if not reason or len(reason.strip()) < 5:
             raise ValueError("A clear, substantive rejection reason is required (minimum 5 characters).")
 

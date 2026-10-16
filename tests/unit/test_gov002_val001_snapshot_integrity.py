@@ -256,6 +256,47 @@ def _build_approver(username: str = "independent_approver") -> AuthUser:
     )
 
 
+def _build_test_snapshot(
+    scenario_id: str = "SCN-REAL-OPERATIONAL-001",
+    snapshot_id: str = "SNAP-TEST-001",
+    snapshot_hash: str = VALID_SNAPSHOT_HASH,
+    input_hash: str = VALID_INPUT_HASH,
+) -> PlanningSnapshot:
+    snap = MagicMock(spec=PlanningSnapshot)
+    snap.scenario_id = scenario_id
+    snap.snapshot_id = snapshot_id
+    snap.compute_snapshot_hash = MagicMock(return_value=snapshot_hash)
+    snap.compute_input_hash = MagicMock(return_value=input_hash)
+    return snap
+
+
+def _configure_service_mocks(
+    service: PlanGovernanceService,
+    plan: PlanVersionModel = None,
+    run: PlanningRunModel = None,
+    scenario: OperationalScenarioModel = None,
+    snapshot: PlanningSnapshot = None,
+) -> None:
+    if plan is not None:
+        service.plan_repo.get_by_plan_version_id = AsyncMock(return_value=plan)
+        service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
+    if scenario is not None:
+        service.scenario_repo.get_by_id_for_update = AsyncMock(return_value=scenario)
+        service.scenario_repo.get_by_id = AsyncMock(return_value=scenario)
+    if run is not None:
+        service.run_repo.get_by_run_id = AsyncMock(return_value=run)
+    if snapshot is not None:
+        service.scenario_repo.get_snapshot = AsyncMock(return_value=snapshot)
+    elif plan is not None:
+        snap = _build_test_snapshot(
+            scenario_id=plan.scenario_id,
+            snapshot_id=getattr(run, "snapshot_id", "SNAP-TEST-001") if run else "SNAP-TEST-001",
+            snapshot_hash=plan.snapshot_hash,
+            input_hash=plan.input_hash,
+        )
+        service.scenario_repo.get_snapshot = AsyncMock(return_value=snap)
+
+
 # =============================================================================
 # 1. Valid Snapshot Approval Flow
 # =============================================================================
@@ -271,13 +312,10 @@ async def test_valid_unchanged_snapshot_approval_succeeds():
     scen = _build_test_scenario()
     actor = _build_approver()
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen)
     service.plan_repo.get_latest_approved = AsyncMock(return_value=None)
     service.plan_repo.add_review_comment = AsyncMock()
     service.plan_repo.add_audit_event = AsyncMock()
-    service.plan_repo.get_by_plan_version_id = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
-    service.scenario_repo.get_by_id = AsyncMock(return_value=scen)
 
     approved = await service.approve_plan(
         plan.plan_version_id,
@@ -306,9 +344,10 @@ async def test_missing_snapshot_hash_fails_closed(missing_val):
     service = PlanGovernanceService(session)
 
     plan = _build_test_plan(snapshot_hash=missing_val)
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
     actor = _build_approver()
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
+    _configure_service_mocks(service, plan=plan, scenario=scen)
 
     with pytest.raises(PlanSnapshotIntegrityError) as exc_info:
         await service.approve_plan(plan.plan_version_id, actor=actor)
@@ -337,9 +376,10 @@ async def test_corrupted_or_malformed_snapshot_hash_fails_closed(corrupt_val):
     service = PlanGovernanceService(session)
 
     plan = _build_test_plan(snapshot_hash=corrupt_val)
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
     actor = _build_approver()
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
+    _configure_service_mocks(service, plan=plan, scenario=scen)
 
     with pytest.raises(PlanSnapshotIntegrityError) as exc_info:
         await service.approve_plan(plan.plan_version_id, actor=actor)
@@ -359,7 +399,8 @@ async def test_missing_input_hash_fails_closed():
     service = PlanGovernanceService(session)
 
     plan = _build_test_plan(input_hash="")
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
+    _configure_service_mocks(service, plan=plan, scenario=scen)
 
     with pytest.raises(PlanSnapshotIntegrityError, match="input configuration hash is missing"):
         await service.approve_plan(plan.plan_version_id, actor=_build_approver())
@@ -372,7 +413,8 @@ async def test_missing_schedule_identity_fails_closed():
     service = PlanGovernanceService(session)
 
     plan = _build_test_plan(schedule_identity="")
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
+    _configure_service_mocks(service, plan=plan, scenario=scen)
 
     with pytest.raises(PlanSnapshotIntegrityError, match="(?i)schedule identity fingerprint is missing"):
         await service.approve_plan(plan.plan_version_id, actor=_build_approver())
@@ -391,9 +433,9 @@ async def test_source_run_scenario_mismatch_fails_closed():
     plan = _build_test_plan(scenario_id="SCN-REAL-OPERATIONAL-001")
     # Run has mismatched scenario
     run = _build_test_run(plan, scenario_id="SCN-OTHER-002")
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen)
 
     with pytest.raises(PlanFingerprintMismatchError) as exc_info:
         await service.approve_plan(plan.plan_version_id, actor=_build_approver())
@@ -410,9 +452,9 @@ async def test_schedule_result_scenario_mismatch_fails_closed():
     sched_res = _build_test_schedule_result(scenario_id="SCN-TAMPERED-999")
     plan = _build_test_plan(scenario_id="SCN-REAL-OPERATIONAL-001", schedule_result=sched_res)
     run = _build_test_run(plan)
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen)
 
     with pytest.raises(PlanFingerprintMismatchError) as exc_info:
         await service.approve_plan(plan.plan_version_id, actor=_build_approver())
@@ -431,9 +473,7 @@ async def test_scenario_dataset_version_mismatch_fails_closed():
     # Scenario has progressed to v2.0
     scen = _build_test_scenario(dataset_version="v2.0")
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
-    service.scenario_repo.get_by_id = AsyncMock(return_value=scen)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen)
 
     with pytest.raises(PlanFingerprintMismatchError) as exc_info:
         await service.approve_plan(plan.plan_version_id, actor=_build_approver())
@@ -455,9 +495,9 @@ async def test_snapshot_hash_tampering_against_run_fails_closed():
     plan = _build_test_plan(snapshot_hash="a" * 64)
     run = _build_test_run(plan)
     run.snapshot_hash = "f" * 64  # Mismatch
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen)
 
     with pytest.raises(PlanFingerprintMismatchError, match="snapshot hash does not match source run"):
         await service.approve_plan(plan.plan_version_id, actor=_build_approver())
@@ -482,9 +522,9 @@ async def test_embedded_validation_identity_mismatch_fails_closed():
     )
     run = _build_test_run(plan)
     run.validation_fingerprint = "d" * 64
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen)
 
     with pytest.raises(PlanFingerprintMismatchError) as exc_info:
         await service.approve_plan(plan.plan_version_id, actor=_build_approver())
@@ -510,12 +550,12 @@ async def test_recomputed_schedule_identity_tamper_detection():
 
     plan = _build_test_plan(schedule_identity=real_identity, schedule_result=sched_res)
     run = _build_test_run(plan, snapshot_id="SNAP-TEST-001")
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
 
     # 2. Maliciously tamper with task start time after validation
     plan.schedule_result["scheduled_tasks"][0]["interval"]["start"] = "2026-10-01T05:00:00+00:00"
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen)
 
     with pytest.raises(PlanFingerprintMismatchError) as exc_info:
         await service.approve_plan(plan.plan_version_id, actor=_build_approver())
@@ -536,8 +576,9 @@ async def test_stale_validation_status_blocks_approval():
     plan = _build_test_plan()
     plan.validation_status = "INVALID"
     plan.is_approvable = False
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
+    _configure_service_mocks(service, plan=plan, scenario=scen)
 
     with pytest.raises(PlanVersionApprovalBlockedError) as exc_info:
         await service.approve_plan(plan.plan_version_id, actor=_build_approver())
@@ -554,9 +595,9 @@ async def test_embedded_invalid_validation_evidence_blocks_approval():
     sched_res = _build_test_schedule_result(val_status="INVALID", val_approvable=False)
     plan = _build_test_plan(schedule_result=sched_res)
     run = _build_test_run(plan)
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen)
 
     with pytest.raises(PlanVersionApprovalBlockedError) as exc_info:
         await service.approve_plan(plan.plan_version_id, actor=_build_approver())
@@ -715,9 +756,7 @@ async def test_synthetic_scenario_still_blocked_by_gov001():
     run = _build_test_run(plan)
     scen = _build_test_scenario(scenario_id="SCN-DEMO-001", classification=DataClass.SYNTHETIC)
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
-    service.scenario_repo.get_by_id = AsyncMock(return_value=scen)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen)
 
     with pytest.raises(PlanVersionApprovalBlockedError) as exc_info:
         await service.approve_plan(plan.plan_version_id, actor=_build_approver())
@@ -900,9 +939,7 @@ async def test_val002_track_assignment_tamper_after_validation_blocks_approval()
     run = _build_test_run(plan, snapshot_id="SNAP-TEST-001")
     scen = _build_test_scenario()
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
-    service.scenario_repo.get_by_id = AsyncMock(return_value=scen)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen)
 
     # Maliciously tamper with assigned track after validation certification
     plan.schedule_result["scheduled_tasks"][0]["assigned_track_id"] = "TRK-SEC-01-DN"
@@ -940,3 +977,396 @@ def test_val002_existing_schedules_without_track_assignment_handled_cleanly():
     h_empty = IndependentScheduleValidator.compute_schedule_identity_from_dict(_sched_with(task_empty), "SNAP-01", "SCN-01")
 
     assert h_omitted == h_none == h_empty, "Omitted, None, and whitespace track assignments must normalize identically"
+
+
+# =============================================================================
+# F1 Regression Tests: Approval-Path Integrity & Mock Bypass Elimination
+# =============================================================================
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("dummy_hash", [
+    "SNAP_01",              # Historical dummy string (len 7) previously bypassed
+    "fp123",                # Historical dummy string (len 5) previously bypassed
+    "TEST_HASH",            # Historical dummy mock hash
+    "a" * 63,               # Truncated hash (63 chars)
+    "a" * 65,               # Overflow hash (65 chars)
+    "0123456789abcdef" * 3 + "g" * 16,  # Non-hex character 'g'
+])
+async def test_f1_approval_path_rejects_dummy_mock_hashes(dummy_hash):
+    """F1 hardening: dummy hashes previously allowed by len >= 4 mock exceptions
+    must strictly fail closed through the actual approval path."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    # 1. Test malformed snapshot_hash
+    plan = _build_test_plan(snapshot_hash=dummy_hash)
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
+    _configure_service_mocks(service, plan=plan, scenario=scen)
+
+    with pytest.raises(PlanSnapshotIntegrityError) as exc_info:
+        await service.approve_plan(plan.plan_version_id, actor=_build_approver())
+    assert "malformed" in str(exc_info.value).lower()
+    assert plan.status != PlanVersionStatus.APPROVED.value
+
+    # 2. Test malformed input_hash
+    plan_bad_input = _build_test_plan(input_hash=dummy_hash)
+    _configure_service_mocks(service, plan=plan_bad_input, scenario=scen)
+
+    with pytest.raises(PlanSnapshotIntegrityError) as exc_info:
+        await service.approve_plan(plan_bad_input.plan_version_id, actor=_build_approver())
+    assert "malformed" in str(exc_info.value).lower()
+    assert plan_bad_input.status != PlanVersionStatus.APPROVED.value
+
+    # 3. Test malformed schedule_identity
+    plan_bad_identity = _build_test_plan(schedule_identity=dummy_hash)
+    _configure_service_mocks(service, plan=plan_bad_identity, scenario=scen)
+
+    with pytest.raises(PlanSnapshotIntegrityError) as exc_info:
+        await service.approve_plan(plan_bad_identity.plan_version_id, actor=_build_approver())
+    assert "malformed" in str(exc_info.value).lower()
+    assert plan_bad_identity.status != PlanVersionStatus.APPROVED.value
+
+
+@pytest.mark.asyncio
+async def test_f1_approval_path_rejects_plan_missing_scenario_id():
+    """F1 hardening: PlanVersion with missing or blank scenario_id is rejected at pre-read."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    plan = _build_test_plan(scenario_id="")
+    _configure_service_mocks(service, plan=plan)
+
+    with pytest.raises(PlanVersionApprovalBlockedError) as exc_info:
+        await service.approve_plan(plan.plan_version_id, actor=_build_approver())
+    assert "has no associated scenario_id" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_f1_approval_path_rejects_unresolvable_scenario_binding():
+    """F1 hardening: Referenced scenario that cannot be found fails closed under canonical lock."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    plan = _build_test_plan(scenario_id="SCN-NONEXISTENT-999")
+    service.plan_repo.get_by_plan_version_id = AsyncMock(return_value=plan)
+    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
+    service.scenario_repo.get_by_id_for_update = AsyncMock(return_value=None)
+    service.scenario_repo.get_by_id = AsyncMock(return_value=None)
+
+    with pytest.raises(PlanVersionApprovalBlockedError) as exc_info:
+        await service.approve_plan(plan.plan_version_id, actor=_build_approver())
+    assert "Missing scenario provenance fails closed" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_f1_approval_path_rejects_scenario_binding_mismatch_under_lock():
+    """F1 hardening: Mismatch between plan scenario_id and locked scenario object fails closed."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    plan = _build_test_plan(scenario_id="SCN-REAL-OPERATIONAL-001")
+    scen = _build_test_scenario(scenario_id="SCN-OTHER-SCENARIO-002")
+    _configure_service_mocks(service, plan=plan, scenario=scen)
+
+    with pytest.raises(PlanFingerprintMismatchError) as exc_info:
+        await service.approve_plan(plan.plan_version_id, actor=_build_approver())
+    assert "Scenario mismatch under lock" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_f1_approval_path_rejects_mock_scenario_without_explicit_real_classification():
+    """F1 hardening: MagicMock scenario without classification attribute cannot bypass
+    via mock detection and must fail closed."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    plan = _build_test_plan()
+    run = _build_test_run(plan)
+
+    scen = MagicMock()
+    scen.scenario_id = plan.scenario_id
+    scen.classification = None
+    scen.dataset_version = "v1.0"
+
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen)
+
+    with pytest.raises(PlanVersionApprovalBlockedError) as exc_info:
+        await service.approve_plan(plan.plan_version_id, actor=_build_approver())
+    assert "has unknown or missing data classification" in str(exc_info.value)
+
+
+# =============================================================================
+# F3 Regression Tests: Approval-Time Scenario Snapshot & Input Hash Integrity
+# =============================================================================
+
+@pytest.mark.asyncio
+async def test_f3_scenario_data_changed_without_dataset_version_change_blocks_approval():
+    """F3: When underlying scenario data has mutated without a dataset_version bump,
+    approval strictly fails closed with PlanFingerprintMismatchError."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    # Plan was created for v1.0 with VALID_SNAPSHOT_HASH
+    plan = _build_test_plan(dataset_version="v1.0")
+    run = _build_test_run(plan, dataset_version="v1.0")
+    # Scenario dataset_version is STILL v1.0 (no version bump)
+    scen = _build_test_scenario(scenario_id=plan.scenario_id, dataset_version="v1.0")
+
+    # Underlying scenario data was modified -> recomputed hash is different
+    mutated_hash = "f" * 64
+    mutated_snapshot = _build_test_snapshot(
+        scenario_id=plan.scenario_id,
+        snapshot_id=run.snapshot_id,
+        snapshot_hash=mutated_hash,
+        input_hash=plan.input_hash,
+    )
+
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen, snapshot=mutated_snapshot)
+
+    with pytest.raises(PlanFingerprintMismatchError) as exc_info:
+        await service.approve_plan(plan.plan_version_id, actor=_build_approver())
+
+    assert "Current scenario snapshot hash" in str(exc_info.value)
+    assert "Underlying scenario data has changed since plan generation" in str(exc_info.value)
+    assert plan.status != PlanVersionStatus.APPROVED.value
+    session.commit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_f3_recomputed_input_hash_mismatch_blocks_approval():
+    """F3: When recomputed input hash mismatches stored input hash, approval is rejected."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    plan = _build_test_plan()
+    run = _build_test_run(plan)
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
+
+    # Snapshot with mismatched input hash
+    mutated_input_hash = "e" * 64
+    snapshot = _build_test_snapshot(
+        scenario_id=plan.scenario_id,
+        snapshot_id=run.snapshot_id,
+        snapshot_hash=plan.snapshot_hash,
+        input_hash=mutated_input_hash,
+    )
+
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen, snapshot=snapshot)
+
+    with pytest.raises(PlanFingerprintMismatchError) as exc_info:
+        await service.approve_plan(plan.plan_version_id, actor=_build_approver())
+
+    assert "Recomputed input hash" in str(exc_info.value)
+    assert "Underlying scenario inputs have changed" in str(exc_info.value)
+    assert plan.status != PlanVersionStatus.APPROVED.value
+
+
+@pytest.mark.asyncio
+async def test_f3_current_snapshot_id_mismatch_against_run_blocks_approval():
+    """F3: When current snapshot_id mismatches source run snapshot_id, approval is rejected."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    sched_res = _build_test_schedule_result(snapshot_id="SNAP-ORIGINAL-01")
+    plan = _build_test_plan(schedule_result=sched_res)
+    run = _build_test_run(plan, snapshot_id="SNAP-ORIGINAL-01")
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
+
+    # Current scenario has a newly derived snapshot_id because tasks were added/removed
+    snapshot = _build_test_snapshot(
+        scenario_id=plan.scenario_id,
+        snapshot_id="SNAP-MUTATED-02",
+        snapshot_hash=plan.snapshot_hash,
+        input_hash=plan.input_hash,
+    )
+
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen, snapshot=snapshot)
+
+    with pytest.raises(PlanFingerprintMismatchError) as exc_info:
+        await service.approve_plan(plan.plan_version_id, actor=_build_approver())
+
+    assert "Current snapshot identifier 'SNAP-MUTATED-02' does not match source run snapshot identifier 'SNAP-ORIGINAL-01'" in str(exc_info.value)
+    assert plan.status != PlanVersionStatus.APPROVED.value
+
+
+@pytest.mark.asyncio
+async def test_f3_missing_current_scenario_data_fails_closed():
+    """F3: When scenario data cannot be loaded at approval time (get_snapshot returns None),
+    approval fails closed with PlanSnapshotIntegrityError."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    plan = _build_test_plan()
+    run = _build_test_run(plan)
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
+
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen)
+    # Scenario data missing
+    service.scenario_repo.get_snapshot = AsyncMock(return_value=None)
+
+    with pytest.raises(PlanSnapshotIntegrityError) as exc_info:
+        await service.approve_plan(plan.plan_version_id, actor=_build_approver())
+
+    assert "Failed to load current planning snapshot for scenario" in str(exc_info.value)
+    assert "Missing scenario data fails closed" in str(exc_info.value)
+    assert plan.status != PlanVersionStatus.APPROVED.value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("malformed_hash", [
+    "NOT_A_HASH",
+    "a" * 63,
+    "a" * 65,
+    "g" * 64,
+    "",
+])
+async def test_f3_malformed_current_snapshot_hash_fails_closed(malformed_hash):
+    """F3: When current scenario data produces a malformed hash, approval fails closed."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    plan = _build_test_plan()
+    run = _build_test_run(plan)
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
+
+    snapshot = _build_test_snapshot(
+        scenario_id=plan.scenario_id,
+        snapshot_id=run.snapshot_id,
+        snapshot_hash=malformed_hash,
+        input_hash=plan.input_hash,
+    )
+
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen, snapshot=snapshot)
+
+    with pytest.raises(PlanSnapshotIntegrityError) as exc_info:
+        await service.approve_plan(plan.plan_version_id, actor=_build_approver())
+
+    assert "malformed" in str(exc_info.value).lower()
+    assert plan.status != PlanVersionStatus.APPROVED.value
+
+
+@pytest.mark.asyncio
+async def test_f3_snapshot_hash_computation_exception_fails_closed():
+    """F3: If computing the snapshot hash throws an unexpected exception, approval fails closed."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    plan = _build_test_plan()
+    run = _build_test_run(plan)
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
+
+    snapshot = _build_test_snapshot(scenario_id=plan.scenario_id)
+    snapshot.compute_snapshot_hash = MagicMock(side_effect=RuntimeError("Corrupt task dates"))
+
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen, snapshot=snapshot)
+
+    with pytest.raises(PlanSnapshotIntegrityError) as exc_info:
+        await service.approve_plan(plan.plan_version_id, actor=_build_approver())
+
+    assert "Failed to compute snapshot hash from current scenario data" in str(exc_info.value)
+    assert plan.status != PlanVersionStatus.APPROVED.value
+
+
+@pytest.mark.asyncio
+async def test_f3_unchanged_scenario_approves_successfully():
+    """F3: An unchanged scenario matching all snapshot and input hashes approves cleanly."""
+    session = AsyncMock()
+    service = PlanGovernanceService(session)
+
+    plan = _build_test_plan()
+    run = _build_test_run(plan)
+    scen = _build_test_scenario(scenario_id=plan.scenario_id)
+    snapshot = _build_test_snapshot(
+        scenario_id=plan.scenario_id,
+        snapshot_id=run.snapshot_id,
+        snapshot_hash=plan.snapshot_hash,
+        input_hash=plan.input_hash,
+    )
+
+    _configure_service_mocks(service, plan=plan, run=run, scenario=scen, snapshot=snapshot)
+    service.plan_repo.get_latest_approved = AsyncMock(return_value=None)
+    service.plan_repo.add_review_comment = AsyncMock()
+    service.plan_repo.add_audit_event = AsyncMock()
+
+    actor = _build_approver()
+    approved = await service.approve_plan(
+        plan.plan_version_id,
+        actor=actor,
+        comment="Certified unchanged scenario approval.",
+    )
+
+    assert plan.status == PlanVersionStatus.APPROVED.value
+    assert plan.approved_by == actor.username
+    assert plan.approved_at is not None
+    service.plan_repo.add_audit_event.assert_called_once()
+    session.commit.assert_called_once()
+
+
+def test_f3_real_planning_snapshot_hash_divergence_on_data_mutation():
+    """F3: Direct proof that canonical PlanningSnapshot.compute_snapshot_hash changes
+    when task duration is modified without changing scenario metadata or dataset_version."""
+    from backend.app.domain.temporal import PlanningHorizon
+    from datetime import datetime, timezone
+
+    horizon = PlanningHorizon(
+        start=datetime(2026, 10, 1, 0, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 10, 2, 0, 0, tzinfo=timezone.utc),
+    )
+
+    task_original = {
+        "task_id": "TSK-001",
+        "window_start": "2026-10-01T02:00:00+00:00",
+        "window_end": "2026-10-01T06:00:00+00:00",
+        "estimated_duration_minutes": 240,
+        "section_id": "SEC-01",
+    }
+    task_modified = {
+        "task_id": "TSK-001",
+        "window_start": "2026-10-01T02:00:00+00:00",
+        "window_end": "2026-10-01T06:00:00+00:00",
+        "estimated_duration_minutes": 300,
+        "section_id": "SEC-01",
+    }
+
+    snap_orig = PlanningSnapshot(
+        scenario_id="SCN-REAL-001",
+        snapshot_id="SNAP-001",
+        horizon=horizon,
+        tasks=[task_original],
+        tasks_map={"TSK-001": task_original},
+        work_orders_map={},
+        resources=[],
+        resources_map={},
+        resource_availabilities=[],
+        dependencies=[],
+        dependencies_by_successor={},
+        dependencies_by_predecessor={},
+        sections_map={},
+        rules_map={},
+        train_passes=[],
+    )
+
+    snap_mod = PlanningSnapshot(
+        scenario_id="SCN-REAL-001",
+        snapshot_id="SNAP-001",
+        horizon=horizon,
+        tasks=[task_modified],
+        tasks_map={"TSK-001": task_modified},
+        work_orders_map={},
+        resources=[],
+        resources_map={},
+        resource_availabilities=[],
+        dependencies=[],
+        dependencies_by_successor={},
+        dependencies_by_predecessor={},
+        sections_map={},
+        rules_map={},
+        train_passes=[],
+    )
+
+    h_orig = snap_orig.compute_snapshot_hash()
+    h_mod = snap_mod.compute_snapshot_hash()
+
+    assert len(h_orig) == 64
+    assert len(h_mod) == 64
+    assert h_orig != h_mod, "Changing task duration MUST alter the canonical snapshot hash"

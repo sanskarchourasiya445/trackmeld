@@ -61,6 +61,7 @@ class CPSATModelBuilder:
         self.task_durations: Dict[str, int] = {}
         self.task_affected_sections: Dict[str, List[str]] = {}
         self.task_resources: Dict[str, List[str]] = {}
+        self.task_resource_demands: Dict[Tuple[str, str], int] = {}
 
     def dt_to_min(self, dt: datetime) -> int:
         """Convert UTC datetime to integer minute offset from planning horizon start."""
@@ -124,16 +125,29 @@ class CPSATModelBuilder:
             all_secs = [primary_sec] + [s for s in additional_sec_ids if s and s != primary_sec]
             self.task_affected_sections[task_id] = all_secs
 
-            # Required resources
+            # Required resources & demands
             res_ids = []
-            if isinstance(task, dict) and "required_resource_ids" in task:
-                res_ids.extend(task["required_resource_ids"])
+            res_demands: Dict[str, int] = {}
+            if isinstance(task, dict) and "required_resource_ids" in task and task["required_resource_ids"]:
+                for rid in task["required_resource_ids"]:
+                    if rid:
+                        res_ids.append(rid)
+                        res_demands[rid] = 1
+
             reqs = task.get("resource_requirements", []) if isinstance(task, dict) else getattr(task, "resource_requirements", [])
             for r in reqs:
                 rid = r.get("resource_id") if isinstance(r, dict) else getattr(r, "resource_id", None)
-                if rid and rid not in res_ids:
-                    res_ids.append(rid)
+                if rid:
+                    q = r.get("quantity", 1) if isinstance(r, dict) else getattr(r, "quantity", 1)
+                    if q is None or q < 1:
+                        q = 1
+                    if rid not in res_ids:
+                        res_ids.append(rid)
+                    res_demands[rid] = max(res_demands.get(rid, 1), q)
+
             self.task_resources[task_id] = res_ids
+            for rid, q in res_demands.items():
+                self.task_resource_demands[(task_id, rid)] = q
 
             # Presence variable
             presence = self.model.NewBoolVar(f"presence_{task_id}")
@@ -142,6 +156,19 @@ class CPSATModelBuilder:
             # Mandatory constraint
             if is_mandatory:
                 self.model.Add(presence == 1)
+
+            # Resource catalog and capacity validation
+            if len(self.snapshot.resources_map) > 0:
+                for rid in res_ids:
+                    if rid not in self.snapshot.resources_map:
+                        # Infeasible: Task references unknown resource
+                        self.model.Add(presence == 0)
+                    else:
+                        res_obj = self.snapshot.resources_map[rid]
+                        cap = res_obj.get("capacity", 1) if isinstance(res_obj, dict) else getattr(res_obj, "capacity", 1)
+                        if res_demands.get(rid, 1) > cap:
+                            # Infeasible: Task demand exceeds resource capacity
+                            self.model.Add(presence == 0)
 
             # Phase 19: Physical track validation
             raw_trk_id = task.get("track_id") if isinstance(task, dict) else getattr(task, "track_id", None)
@@ -489,7 +516,7 @@ class CPSATModelBuilder:
         return True
 
     def _add_resource_constraints(self) -> None:
-        """Enforce resource exclusivity and active availability window enclosure."""
+        """Enforce resource exclusivity/capacity and active availability window enclosure."""
         # 1. Group tasks by required resource
         tasks_by_res = defaultdict(list)
         for task_id, res_ids in self.task_resources.items():
@@ -498,8 +525,12 @@ class CPSATModelBuilder:
 
         # 2. Parse resource availability intervals
         avail_by_res = defaultdict(list)
+        res_with_records = set()
         for a in self.snapshot.resource_availabilities:
             r_id = a.get("resource_id") if isinstance(a, dict) else getattr(a, "resource_id", None)
+            if not r_id:
+                continue
+            res_with_records.add(r_id)
             status = a.get("availability_status", "AVAILABLE") if isinstance(a, dict) else getattr(a, "availability_status", "AVAILABLE")
             if hasattr(status, "value"):
                 status = status.value
@@ -521,14 +552,22 @@ class CPSATModelBuilder:
                 if end_min > start_min:
                     avail_by_res[r_id].append((start_min, end_min))
 
-        # 3. For each resource, add exclusivity and availability constraints
+        # 3. For each resource, add exclusivity/capacity and availability constraints
         for r_id in sorted(tasks_by_res.keys()):
             task_ids = sorted(tasks_by_res[r_id])
+            res_obj = self.snapshot.resources_map.get(r_id) if hasattr(self.snapshot, "resources_map") else None
+            capacity = 1
+            if res_obj:
+                capacity = res_obj.get("capacity", 1) if isinstance(res_obj, dict) else getattr(res_obj, "capacity", 1)
+            if capacity < 1:
+                capacity = 1
+
             res_intervals: List[cp_model.IntervalVar] = [self.task_intervals[tid] for tid in task_ids]
+            res_demands: List[int] = [self.task_resource_demands.get((tid, r_id), 1) for tid in task_ids]
 
             # Compute complementary unavailable intervals only if availability records are defined
-            if r_id in avail_by_res:
-                windows = sorted(avail_by_res[r_id])
+            if r_id in res_with_records:
+                windows = sorted(avail_by_res.get(r_id, []))
                 unavail_intervals: List[Tuple[int, int]] = []
 
                 curr = 0
@@ -546,9 +585,15 @@ class CPSATModelBuilder:
                             u_start, u_dur, f"unavail_{r_id}_{u_start}"
                         )
                         res_intervals.append(unavail_var)
+                        res_demands.append(capacity)
 
-            if len(res_intervals) > 1:
-                self.model.AddNoOverlap(res_intervals)
+            if len(res_intervals) > 0:
+                is_unary = (capacity == 1) and all(d == 1 for d in res_demands)
+                if is_unary:
+                    if len(res_intervals) > 1:
+                        self.model.AddNoOverlap(res_intervals)
+                else:
+                    self.model.AddCumulative(res_intervals, res_demands, capacity)
 
     def _add_dependency_constraints(self) -> None:
         """Enforce Finish-to-Start precedence relationships between tasks."""
@@ -563,15 +608,21 @@ class CPSATModelBuilder:
             pred_id = dep.get("predecessor_task_id") if isinstance(dep, dict) else getattr(dep, "predecessor_task_id")
             succ_id = dep.get("successor_task_id") if isinstance(dep, dict) else getattr(dep, "successor_task_id")
             min_interval = dep.get("min_interval_minutes", 0) if isinstance(dep, dict) else getattr(dep, "min_interval_minutes", 0)
+            if min_interval is None or min_interval < 0:
+                min_interval = 0
 
-            if pred_id in self.presence_vars and succ_id in self.presence_vars:
-                # Predecessor presence condition: succ can only be present if pred is present
-                self.model.Add(self.presence_vars[succ_id] <= self.presence_vars[pred_id])
+            if succ_id in self.presence_vars:
+                if pred_id in self.presence_vars:
+                    # Predecessor presence condition: succ can only be present if pred is present
+                    self.model.Add(self.presence_vars[succ_id] <= self.presence_vars[pred_id])
 
-                # Finish-to-Start: succ_start >= pred_end + min_interval
-                self.model.Add(
-                    self.start_vars[succ_id] >= self.end_vars[pred_id] + min_interval
-                ).OnlyEnforceIf([self.presence_vars[succ_id], self.presence_vars[pred_id]])
+                    # Finish-to-Start: succ_start >= pred_end + min_interval
+                    self.model.Add(
+                        self.start_vars[succ_id] >= self.end_vars[pred_id] + min_interval
+                    ).OnlyEnforceIf([self.presence_vars[succ_id], self.presence_vars[pred_id]])
+                else:
+                    # Missing predecessor: successor cannot be scheduled (fail closed)
+                    self.model.Add(self.presence_vars[succ_id] == 0)
 
     def _add_objective(self) -> None:
         """Formulate transparent objective: maximize total scaled priority score with duration tie-breaker."""

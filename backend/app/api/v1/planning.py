@@ -5,8 +5,11 @@ Exposes:
 - POST /api/v1/planning/benchmark: Compare both baselines side-by-side on the exact same snapshot
 """
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger("trackmeld.planning")
 
 from backend.app.db.session import get_db_session
 from backend.app.core.auth import get_current_user, require_permission, AuthUser
@@ -234,9 +237,15 @@ async def validate_schedule_endpoint(
     try:
         schedule = ScheduleResult.model_validate(request.schedule)
     except Exception as e:
+        logger.warning("Malformed schedule payload received for validation: %s", e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": {"code": "MALFORMED_SCHEDULE_PAYLOAD", "message": str(e)}},
+            detail={
+                "error": {
+                    "code": "MALFORMED_SCHEDULE_PAYLOAD",
+                    "message": "The provided schedule payload does not conform to the expected ScheduleResult structure.",
+                }
+            },
         )
 
     return validate_schedule(snapshot, schedule)
@@ -278,9 +287,15 @@ async def schedule_diagnostics_endpoint(
     try:
         schedule = ScheduleResult.model_validate(request.schedule)
     except Exception as e:
+        logger.warning("Malformed schedule payload received for diagnostics: %s", e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": {"code": "MALFORMED_SCHEDULE_PAYLOAD", "message": str(e)}},
+            detail={
+                "error": {
+                    "code": "MALFORMED_SCHEDULE_PAYLOAD",
+                    "message": "The provided schedule payload does not conform to the expected ScheduleResult structure.",
+                }
+            },
         )
 
     diag_service = UnscheduledTaskDiagnosticsService(snapshot, schedule)

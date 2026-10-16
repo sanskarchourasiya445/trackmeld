@@ -87,9 +87,12 @@ class CandidateGenerator:
         preds = snapshot.dependencies_by_successor.get(task_id, [])
         for dep in preds:
             pred_id = getattr(dep, "predecessor_task_id", None) or dep.get("predecessor_task_id")
+            min_int = getattr(dep, "min_interval_minutes", 0) if hasattr(dep, "min_interval_minutes") else (dep.get("min_interval_minutes", 0) if isinstance(dep, dict) else 0)
+            if min_int is None or min_int < 0:
+                min_int = 0
             for p in existing_placements:
                 if p.task_id == pred_id:
-                    t_cand = p.interval.end
+                    t_cand = p.interval.end + timedelta(minutes=min_int)
                     if earliest_start <= t_cand <= latest_start:
                         candidate_set.add(t_cand)
 

@@ -45,30 +45,40 @@ export function isApiError(err: unknown): err is ApiError {
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
 
 /**
- * Retrieve authenticated operator token from browser session/local storage.
+ * Retrieve authenticated operator token from browser session storage.
+ * Reads exclusively from sessionStorage (per-tab session boundary); does NOT fall back to localStorage.
  * Default is null; does NOT ship or bake an admin token secret in the bundle.
  */
 export function getAuthToken(): string | null {
   if (typeof window !== 'undefined') {
-    return (
-      sessionStorage.getItem('trackmeld_auth_token') ||
-      localStorage.getItem('trackmeld_auth_token') ||
-      null
-    );
+    try {
+      return sessionStorage.getItem('trackmeld_auth_token') || null;
+    } catch {
+      // Storage access blocked or sandboxed
+      return null;
+    }
   }
   return null;
 }
 
 /**
  * Configure operator token for formal governance and review actions.
+ * Persists strictly to sessionStorage, while actively removing any obsolete legacy
+ * copies in localStorage so stale credentials cannot linger across sessions.
  */
 export function setAuthToken(token: string | null): void {
   if (typeof window !== 'undefined') {
-    if (token) {
-      sessionStorage.setItem('trackmeld_auth_token', token);
-    } else {
-      sessionStorage.removeItem('trackmeld_auth_token');
-      localStorage.removeItem('trackmeld_auth_token');
+    try {
+      if (token) {
+        sessionStorage.setItem('trackmeld_auth_token', token);
+        // Actively purge any legacy token in localStorage
+        localStorage.removeItem('trackmeld_auth_token');
+      } else {
+        sessionStorage.removeItem('trackmeld_auth_token');
+        localStorage.removeItem('trackmeld_auth_token');
+      }
+    } catch {
+      // Storage access blocked or sandboxed
     }
   }
 }

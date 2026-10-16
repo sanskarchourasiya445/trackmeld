@@ -34,6 +34,7 @@ from backend.app.repositories.plan_version_repo import (
 )
 from backend.app.core.auth import AuthUser
 from backend.app.db.models.planning_run import PlanningRunModel
+from backend.app.db.models.scenario import OperationalScenarioModel
 from backend.app.db.models.task import MaintenanceTaskModel
 from backend.app.db.models.movement import TrainMovementModel
 
@@ -254,6 +255,10 @@ async def test_governance_four_eyes_inviolability():
     mock_session = AsyncMock()
     service = PlanGovernanceService(mock_session)
 
+    valid_identity = "a" * 64
+    valid_snapshot = "b" * 64
+    valid_input = "c" * 64
+
     mock_plan = MagicMock()
     mock_plan.plan_version_id = "PV-TEST-001"
     mock_plan.status = "UNDER_REVIEW"
@@ -261,18 +266,42 @@ async def test_governance_four_eyes_inviolability():
     mock_plan.is_approvable = True
     mock_plan.validation_findings_summary = {"error_count": 0}
     mock_plan.planning_run_id = "RUN-123"
-    mock_plan.schedule_identity = "fp123"
-    mock_plan.snapshot_hash = "snap123"
-    mock_plan.input_hash = "in123"
+    mock_plan.schedule_identity = valid_identity
+    mock_plan.snapshot_hash = valid_snapshot
+    mock_plan.input_hash = valid_input
     mock_plan.created_by = "usr_author_123"
     mock_plan.scenario_id = "SCN-DEMO-001"
+    mock_plan.dataset_version = "v1.0"
+    mock_plan.schedule_result = {
+        "schedule_id": "SCH-123",
+        "scenario_id": "SCN-DEMO-001",
+        "snapshot_id": "SNAP-123",
+        "status": "OPTIMAL",
+        "validation": {
+            "status": "VALID",
+            "is_approvable": True,
+            "schedule_identity": valid_identity,
+        },
+    }
+
+    mock_scenario = MagicMock(spec=OperationalScenarioModel)
+    mock_scenario.scenario_id = "SCN-DEMO-001"
+    mock_scenario.classification = DataClass.REAL
+    mock_scenario.dataset_version = "v1.0"
 
     mock_run = MagicMock()
-    mock_run.validation_fingerprint = "fp123"
-    mock_run.snapshot_hash = "snap123"
-    mock_run.input_hash = "in123"
+    mock_run.run_id = "RUN-123"
+    mock_run.scenario_id = "SCN-DEMO-001"
+    mock_run.snapshot_id = "SNAP-123"
+    mock_run.validation_fingerprint = valid_identity
+    mock_run.snapshot_hash = valid_snapshot
+    mock_run.input_hash = valid_input
+    mock_run.dataset_version = "v1.0"
 
+    service.plan_repo.get_by_plan_version_id = AsyncMock(return_value=mock_plan)
     service.plan_repo.get_by_id_for_update = AsyncMock(return_value=mock_plan)
+    service.scenario_repo.get_by_id_for_update = AsyncMock(return_value=mock_scenario)
+    service.scenario_repo.get_by_id = AsyncMock(return_value=mock_scenario)
     service.run_repo.get_by_run_id = AsyncMock(return_value=mock_run)
 
     approver_same_as_creator = AuthUser(

@@ -204,7 +204,12 @@ class PlanVersionRepository(BaseRepository[PlanVersionModel]):
         if created_by:
             stmt = stmt.where(PlanVersionModel.created_by == created_by)
 
-        stmt = stmt.order_by(PlanVersionModel.created_at.desc()).offset(offset).limit(limit)
+        safe_limit = max(1, min(limit, 100))
+        safe_offset = max(0, offset)
+        stmt = stmt.order_by(
+            PlanVersionModel.created_at.desc(),
+            PlanVersionModel.plan_version_id.desc(),
+        ).offset(safe_offset).limit(safe_limit)
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
@@ -262,7 +267,9 @@ class PlanVersionRepository(BaseRepository[PlanVersionModel]):
         limit: int = 100,
         offset: int = 0,
     ) -> Sequence[GovernanceAuditEventModel]:
-        """Retrieve chronological governance audit events for an entity."""
+        """Retrieve chronological governance audit events for an entity with deterministic ordering."""
+        safe_limit = max(1, min(limit, 500))
+        safe_offset = max(0, offset)
         stmt = (
             select(GovernanceAuditEventModel)
             .where(
@@ -271,9 +278,31 @@ class PlanVersionRepository(BaseRepository[PlanVersionModel]):
                     GovernanceAuditEventModel.entity_id == entity_id,
                 )
             )
-            .order_by(GovernanceAuditEventModel.timestamp.asc())
-            .offset(offset)
-            .limit(limit)
+            .order_by(
+                GovernanceAuditEventModel.timestamp.asc(),
+                GovernanceAuditEventModel.event_id.asc(),
+            )
+            .offset(safe_offset)
+            .limit(safe_limit)
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def count_audit_events(
+        self,
+        entity_id: str,
+        entity_type: str = "PLAN_VERSION",
+    ) -> int:
+        """Count governance audit events for an entity."""
+        stmt = (
+            select(func.count())
+            .select_from(GovernanceAuditEventModel)
+            .where(
+                and_(
+                    GovernanceAuditEventModel.entity_type == entity_type,
+                    GovernanceAuditEventModel.entity_id == entity_id,
+                )
+            )
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0

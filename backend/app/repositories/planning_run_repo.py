@@ -342,7 +342,12 @@ class PlanningRunRepository(BaseRepository[PlanningRunModel]):
         if status:
             stmt = stmt.where(PlanningRunModel.status == status)
 
-        stmt = stmt.order_by(PlanningRunModel.created_at.desc()).offset(offset).limit(limit)
+        safe_limit = max(1, min(limit, 100))
+        safe_offset = max(0, offset)
+        stmt = stmt.order_by(
+            PlanningRunModel.created_at.desc(),
+            PlanningRunModel.run_id.desc(),
+        ).offset(safe_offset).limit(safe_limit)
         result = await self.session.execute(stmt)
         return result.scalars().all()
 

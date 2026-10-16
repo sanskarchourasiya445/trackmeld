@@ -14,7 +14,11 @@ from pydantic import BaseModel, Field
 from fastapi import Request, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from backend.app.config import get_settings
+from backend.app.config import (
+    get_settings,
+    PROHIBITED_PRODUCTION_TOKENS,
+    MIN_PRODUCTION_TOKEN_LENGTH,
+)
 
 security = HTTPBearer(auto_error=False)
 
@@ -26,6 +30,14 @@ class UserRole(str, Enum):
     VIEWER = "VIEWER"
 
 
+ROLE_DEFAULT_PERMISSIONS: dict[UserRole, set[str]] = {
+    UserRole.ADMIN: {"*"},
+    UserRole.OPERATOR: {"read:reference", "read:operational", "plan:review", "plan:approve", "plan:reject"},
+    UserRole.MAINTENANCE_PLANNER: {"read:reference", "read:operational", "write:operational", "plan:review"},
+    UserRole.VIEWER: {"read:reference", "read:operational"},
+}
+
+
 class AuthUser(BaseModel):
     user_id: str
     username: str
@@ -35,7 +47,23 @@ class AuthUser(BaseModel):
     def has_permission(self, permission: str) -> bool:
         if self.role == UserRole.ADMIN or "*" in self.permissions:
             return True
-        return permission in self.permissions
+        if permission in self.permissions:
+            return True
+        if ":" in permission:
+            action, res = permission.split(":", 1)
+            flipped = f"{res}:{action}"
+            if flipped in self.permissions:
+                return True
+        # Only fallback to role default permissions if no explicit permissions were specified
+        if not self.permissions:
+            try:
+                role_enum = UserRole(self.role) if not isinstance(self.role, UserRole) else self.role
+                role_perms = ROLE_DEFAULT_PERMISSIONS.get(role_enum, set())
+                if "*" in role_perms or permission in role_perms:
+                    return True
+            except (ValueError, KeyError):
+                pass
+        return False
 
 
 # Pre-configured test/demo tokens and API keys (strictly active only in non-production)
@@ -93,34 +121,25 @@ def get_active_credentials() -> dict[str, AuthUser]:
         creds.update(DEMO_CREDENTIALS)
 
     # Apply configuration-driven tokens from environment
-    if settings.AUTH_ADMIN_TOKEN:
-        creds[settings.AUTH_ADMIN_TOKEN] = AuthUser(
-            user_id="USR-ADMIN-PROD",
-            username="production_admin",
-            role=UserRole.ADMIN,
-            permissions=["*"],
-        )
-    if settings.AUTH_APPROVER_TOKEN:
-        creds[settings.AUTH_APPROVER_TOKEN] = AuthUser(
-            user_id="USR-APPR-PROD",
-            username="production_approver",
-            role=UserRole.OPERATOR,
-            permissions=["read:reference", "read:operational", "plan:review", "plan:approve", "plan:reject"],
-        )
-    if settings.AUTH_PLANNER_TOKEN:
-        creds[settings.AUTH_PLANNER_TOKEN] = AuthUser(
-            user_id="USR-PLAN-PROD",
-            username="production_planner",
-            role=UserRole.MAINTENANCE_PLANNER,
-            permissions=["read:reference", "read:operational", "write:operational", "plan:review"],
-        )
-    if settings.AUTH_VIEWER_TOKEN:
-        creds[settings.AUTH_VIEWER_TOKEN] = AuthUser(
-            user_id="USR-VIEW-PROD",
-            username="production_viewer",
-            role=UserRole.VIEWER,
-            permissions=["read:reference", "read:operational"],
-        )
+    role_tokens = [
+        (settings.AUTH_ADMIN_TOKEN, "USR-ADMIN-PROD", "production_admin", UserRole.ADMIN, ["*"]),
+        (settings.AUTH_APPROVER_TOKEN, "USR-APPR-PROD", "production_approver", UserRole.OPERATOR, ["read:reference", "read:operational", "plan:review", "plan:approve", "plan:reject"]),
+        (settings.AUTH_PLANNER_TOKEN, "USR-PLAN-PROD", "production_planner", UserRole.MAINTENANCE_PLANNER, ["read:reference", "read:operational", "write:operational", "plan:review"]),
+        (settings.AUTH_VIEWER_TOKEN, "USR-VIEW-PROD", "production_viewer", UserRole.VIEWER, ["read:reference", "read:operational"]),
+    ]
+
+    for token, uid, uname, role, perms in role_tokens:
+        if token:
+            if settings.is_production:
+                clean = token.strip()
+                if clean.lower() in PROHIBITED_PRODUCTION_TOKENS or len(clean) < MIN_PRODUCTION_TOKEN_LENGTH:
+                    continue
+            creds[token] = AuthUser(
+                user_id=uid,
+                username=uname,
+                role=role,
+                permissions=perms,
+            )
 
     return creds
 

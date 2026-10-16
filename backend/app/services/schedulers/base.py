@@ -74,15 +74,19 @@ class BaseScheduler(ABC):
         cycles = detect_dependency_cycles(snapshot.dependencies, set(snapshot.tasks_map.keys()))
         if cycles:
             cycle_desc = " -> ".join(cycles[0])
+            mandatory_count = sum(
+                1 for t in (snapshot.tasks_map.values() if snapshot.tasks_map else snapshot.tasks)
+                if (getattr(t, "mandatory", False) if hasattr(t, "mandatory") else (t.get("mandatory", False) if isinstance(t, dict) else False))
+            )
             empty_metrics = ScheduleMetrics(
                 total_tasks=len(snapshot.tasks),
                 scheduled_tasks=0,
                 unscheduled_tasks=len(snapshot.tasks),
                 completion_rate=0.0,
-                mandatory_tasks=0,
+                mandatory_tasks=mandatory_count,
                 mandatory_scheduled=0,
-                mandatory_unscheduled=0,
-                mandatory_completion_rate=1.0,
+                mandatory_unscheduled=mandatory_count,
+                mandatory_completion_rate=0.0,
                 total_scheduled_duration_minutes=0,
                 total_possession_duration_minutes=0,
                 total_priority_score_available=0.0,
@@ -168,7 +172,15 @@ class BaseScheduler(ABC):
                     if (getattr(d, "predecessor_task_id", None) or d.get("predecessor_task_id")) in failed_task_ids
                 ]
 
-                if failed_preds:
+                # Predecessors not present in scenario tasks_map at all
+                missing_preds = [
+                    (getattr(d, "predecessor_task_id", None) or d.get("predecessor_task_id"))
+                    for d in preds
+                    if (getattr(d, "predecessor_task_id", None) or d.get("predecessor_task_id")) not in snapshot.tasks_map
+                ]
+
+                if failed_preds or missing_preds:
+                    all_bad_preds = failed_preds + missing_preds
                     unscheduled_results.append(
                         UnscheduledTaskResult(
                             task_id=task_id,
@@ -178,7 +190,7 @@ class BaseScheduler(ABC):
                             reason_codes=[ReasonCode.DEPENDENCY_NOT_SATISFIED],
                             conflicts=[],
                             attempted_candidates_count=0,
-                            diagnostic_message=f"Predecessor task(s) {failed_preds} could not be scheduled.",
+                            diagnostic_message=f"Predecessor task(s) {all_bad_preds} could not be scheduled or do not exist in scenario.",
                         )
                     )
                     decision_traces.append(
@@ -248,6 +260,7 @@ class BaseScheduler(ABC):
                         dependencies=snapshot.dependencies,
                         sections_map=snapshot.sections_map,
                         rules_map=snapshot.rules_map,
+                        resources_map=snapshot.resources_map,
                     )
 
                     if comp_res.compatible:

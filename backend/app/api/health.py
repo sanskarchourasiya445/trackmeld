@@ -1,7 +1,10 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from backend.app.db.session import get_db_session
+
+logger = logging.getLogger("trackmeld.health")
 
 router = APIRouter(tags=["Health"])
 
@@ -30,12 +33,13 @@ async def health_db_check(
             }
         raise Exception("Unexpected query result")
     except Exception as exc:
+        logger.warning("Database health check probe failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={
                 "error": {
                     "code": "DATABASE_UNREACHABLE",
-                    "message": f"Database health check failed: {str(exc)}",
+                    "message": "Database service is unavailable or not reachable.",
                 }
             },
         )

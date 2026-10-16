@@ -53,7 +53,38 @@ from backend.app.db.models.plan_version import (
     PlanReviewCommentModel,
     GovernanceAuditEventModel,
 )
+from backend.app.db.models.scenario import OperationalScenarioModel
 from backend.app.services.plan_governance_service import PlanGovernanceService
+from backend.app.domain.planning_snapshot import PlanningSnapshot
+
+
+VALID_SCHEDULE_IDENTITY = "a" * 64
+VALID_SNAPSHOT_HASH = "b" * 64
+VALID_INPUT_HASH = "c" * 64
+
+
+def _configure_batch9_mocks(
+    service: PlanGovernanceService,
+    plan: PlanVersionModel = None,
+    run: PlanningRunModel = None,
+    scenario: OperationalScenarioModel = None,
+) -> None:
+    if plan is not None:
+        service.plan_repo.get_by_plan_version_id = AsyncMock(return_value=plan)
+        service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
+    if scenario is not None:
+        service.scenario_repo.get_by_id_for_update = AsyncMock(return_value=scenario)
+        service.scenario_repo.get_by_id = AsyncMock(return_value=scenario)
+    if run is not None:
+        service.run_repo.get_by_run_id = AsyncMock(return_value=run)
+    if plan is not None:
+        snap = MagicMock(spec=PlanningSnapshot)
+        snap.scenario_id = plan.scenario_id
+        run_sid = getattr(run, "snapshot_id", None)
+        snap.snapshot_id = run_sid if isinstance(run_sid, str) and run_sid.strip() else "SNAP-01"
+        snap.compute_snapshot_hash = MagicMock(return_value=plan.snapshot_hash)
+        snap.compute_input_hash = MagicMock(return_value=plan.input_hash)
+        service.scenario_repo.get_snapshot = AsyncMock(return_value=snap)
 
 
 # =============================================================================
@@ -81,11 +112,21 @@ async def test_batch9_persisted_lifecycle_complete_happy_path():
     mock_run.solver_version = "9.8"
     mock_run.dataset_version = "2026.1"
     mock_run.validation_status = "VALID"
-    mock_run.validation_fingerprint = "FP_SHA256_CERTIFIED_001"
-    mock_run.snapshot_hash = "SNAP_HASH_001"
-    mock_run.input_hash = "IN_HASH_001"
+    mock_run.validation_fingerprint = VALID_SCHEDULE_IDENTITY
+    mock_run.snapshot_hash = VALID_SNAPSHOT_HASH
+    mock_run.input_hash = VALID_INPUT_HASH
     mock_run.is_approvable = True
-    mock_run.schedule_result = {"status": "OPTIMAL", "scheduled_tasks": [{"task_id": "TSK-01"}]}
+    mock_run.schedule_result = {
+        "schedule_id": "SCH-01",
+        "scenario_id": "SCN-DEMO-001",
+        "snapshot_id": "SNAP-01",
+        "status": "OPTIMAL",
+        "validation": {
+            "status": "VALID",
+            "is_approvable": True,
+            "schedule_identity": VALID_SCHEDULE_IDENTITY,
+        },
+    }
     mock_run.result_summary = {"total_tasks": 1, "scheduled_tasks": 1}
     mock_run.validation_findings_summary = {"error_count": 0, "warning_count": 0}
     mock_run.diagnostics_summary = None
@@ -118,7 +159,7 @@ async def test_batch9_persisted_lifecycle_complete_happy_path():
     assert plan_candidate is not None
     assert plan_candidate.version_number == 1
     assert plan_candidate.status == PlanVersionStatus.PENDING_REVIEW.value
-    assert plan_candidate.schedule_identity == "FP_SHA256_CERTIFIED_001"
+    assert plan_candidate.schedule_identity == VALID_SCHEDULE_IDENTITY
     assert plan_candidate.created_by == planner_actor.username
     assert plan_candidate.is_approvable is True
     assert plan_candidate.validation_status == "VALID"
@@ -134,11 +175,12 @@ async def test_batch9_persisted_lifecycle_complete_happy_path():
     assert under_review_plan.reviewed_by == approver_actor.username
 
     # Step 4: Formal Human Approval by Independent Approver
-    mock_scenario = MagicMock()
+    mock_scenario = MagicMock(spec=OperationalScenarioModel)
     mock_scenario.scenario_id = "SCN-DEMO-001"
     mock_scenario.classification = DataClass.REAL
-    service.scenario_repo.get_by_id = AsyncMock(return_value=mock_scenario)
+    mock_scenario.dataset_version = "2026.1"
 
+    _configure_batch9_mocks(service, plan=plan_candidate, run=mock_run, scenario=mock_scenario)
     service.plan_repo.get_latest_approved = AsyncMock(return_value=None)
     approved_plan = await service.approve_plan(
         plan_version_id=plan_candidate.plan_version_id,
@@ -251,8 +293,16 @@ async def test_batch9_approval_rejected_if_already_approved():
 
     mock_plan = MagicMock(spec=PlanVersionModel)
     mock_plan.plan_version_id = "PV-APP-01"
+    mock_plan.scenario_id = "SCN-001"
     mock_plan.status = PlanVersionStatus.APPROVED.value
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=mock_plan)
+    mock_plan.approved_by = "prior_approver"
+    mock_plan.approved_at = datetime.now(timezone.utc)
+
+    mock_scenario = MagicMock(spec=OperationalScenarioModel)
+    mock_scenario.scenario_id = "SCN-001"
+    mock_scenario.classification = DataClass.REAL
+
+    _configure_batch9_mocks(service, plan=mock_plan, scenario=mock_scenario)
 
     actor = KNOWN_CREDENTIALS["approver-token-2026"]
     with pytest.raises(PlanVersionImmutableError, match="is already APPROVED"):
@@ -267,8 +317,14 @@ async def test_batch9_approval_rejected_if_rejected_status():
 
     mock_plan = MagicMock(spec=PlanVersionModel)
     mock_plan.plan_version_id = "PV-REJ-01"
+    mock_plan.scenario_id = "SCN-001"
     mock_plan.status = PlanVersionStatus.REJECTED.value
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=mock_plan)
+
+    mock_scenario = MagicMock(spec=OperationalScenarioModel)
+    mock_scenario.scenario_id = "SCN-001"
+    mock_scenario.classification = DataClass.REAL
+
+    _configure_batch9_mocks(service, plan=mock_plan, scenario=mock_scenario)
 
     actor = KNOWN_CREDENTIALS["approver-token-2026"]
     with pytest.raises(InvalidPlanVersionTransitionError):
@@ -284,10 +340,16 @@ async def test_batch9_approval_rejected_if_validation_status_not_valid(invalid_v
 
     mock_plan = MagicMock(spec=PlanVersionModel)
     mock_plan.plan_version_id = "PV-TEST-VAL"
+    mock_plan.scenario_id = "SCN-001"
     mock_plan.status = PlanVersionStatus.UNDER_REVIEW.value
     mock_plan.validation_status = invalid_val_status
     mock_plan.is_approvable = True
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=mock_plan)
+
+    mock_scenario = MagicMock(spec=OperationalScenarioModel)
+    mock_scenario.scenario_id = "SCN-001"
+    mock_scenario.classification = DataClass.REAL
+
+    _configure_batch9_mocks(service, plan=mock_plan, scenario=mock_scenario)
 
     actor = KNOWN_CREDENTIALS["approver-token-2026"]
     with pytest.raises(PlanVersionApprovalBlockedError, match="Only certified valid schedules may be approved"):
@@ -302,11 +364,17 @@ async def test_batch9_approval_rejected_if_validation_findings_contain_errors():
 
     mock_plan = MagicMock(spec=PlanVersionModel)
     mock_plan.plan_version_id = "PV-TEST-ERR"
+    mock_plan.scenario_id = "SCN-001"
     mock_plan.status = PlanVersionStatus.UNDER_REVIEW.value
     mock_plan.validation_status = "VALID"
     mock_plan.is_approvable = True
     mock_plan.validation_findings_summary = {"error_count": 1, "errors": ["HEADWAY_CONFLICT"]}
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=mock_plan)
+
+    mock_scenario = MagicMock(spec=OperationalScenarioModel)
+    mock_scenario.scenario_id = "SCN-001"
+    mock_scenario.classification = DataClass.REAL
+
+    _configure_batch9_mocks(service, plan=mock_plan, scenario=mock_scenario)
 
     actor = KNOWN_CREDENTIALS["approver-token-2026"]
     with pytest.raises(PlanVersionApprovalBlockedError, match="Contains 1 unresolved hard validation errors"):
@@ -321,21 +389,43 @@ async def test_batch9_approval_rejected_on_schedule_identity_mismatch():
 
     mock_plan = MagicMock(spec=PlanVersionModel)
     mock_plan.plan_version_id = "PV-TEST-FP"
+    mock_plan.scenario_id = "SCN-001"
     mock_plan.planning_run_id = "RUN-FP-01"
     mock_plan.status = PlanVersionStatus.UNDER_REVIEW.value
     mock_plan.validation_status = "VALID"
     mock_plan.is_approvable = True
     mock_plan.validation_findings_summary = {"error_count": 0}
-    mock_plan.schedule_identity = "FP_A_TAMPERED"
-    mock_plan.snapshot_hash = "SNAP_01"
-    mock_plan.input_hash = "IN_01"
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=mock_plan)
+    mock_plan.schedule_identity = VALID_SCHEDULE_IDENTITY
+    mock_plan.snapshot_hash = VALID_SNAPSHOT_HASH
+    mock_plan.input_hash = VALID_INPUT_HASH
+    mock_plan.dataset_version = "v1.0"
+    mock_plan.schedule_result = {
+        "schedule_id": "SCH-01",
+        "scenario_id": "SCN-001",
+        "snapshot_id": "SNAP-01",
+        "status": "OPTIMAL",
+        "validation": {
+            "status": "VALID",
+            "is_approvable": True,
+            "schedule_identity": VALID_SCHEDULE_IDENTITY,
+        },
+    }
 
     mock_run = MagicMock(spec=PlanningRunModel)
-    mock_run.validation_fingerprint = "FP_B_AUTHENTIC"
-    mock_run.snapshot_hash = "SNAP_01"
-    mock_run.input_hash = "IN_01"
-    service.run_repo.get_by_run_id = AsyncMock(return_value=mock_run)
+    mock_run.run_id = "RUN-FP-01"
+    mock_run.scenario_id = "SCN-001"
+    mock_run.snapshot_id = "SNAP-01"
+    mock_run.validation_fingerprint = "d" * 64  # Different fingerprint
+    mock_run.snapshot_hash = VALID_SNAPSHOT_HASH
+    mock_run.input_hash = VALID_INPUT_HASH
+    mock_run.dataset_version = "v1.0"
+
+    mock_scenario = MagicMock(spec=OperationalScenarioModel)
+    mock_scenario.scenario_id = "SCN-001"
+    mock_scenario.classification = DataClass.REAL
+    mock_scenario.dataset_version = "v1.0"
+
+    _configure_batch9_mocks(service, plan=mock_plan, run=mock_run, scenario=mock_scenario)
 
     actor = KNOWN_CREDENTIALS["approver-token-2026"]
     with pytest.raises(PlanFingerprintMismatchError, match="Cryptographic fingerprint mismatch"):
@@ -350,23 +440,44 @@ async def test_batch9_approval_rejected_on_four_eyes_creator_conflict():
 
     mock_plan = MagicMock(spec=PlanVersionModel)
     mock_plan.plan_version_id = "PV-TEST-4EYES"
+    mock_plan.scenario_id = "SCN-001"
     mock_plan.planning_run_id = "RUN-4EYES"
     mock_plan.status = PlanVersionStatus.UNDER_REVIEW.value
     mock_plan.validation_status = "VALID"
     mock_plan.is_approvable = True
     mock_plan.validation_findings_summary = {"error_count": 0}
-    mock_plan.schedule_identity = "FP_SAME"
-    mock_plan.snapshot_hash = "SNAP_SAME"
-    mock_plan.input_hash = "IN_SAME"
+    mock_plan.schedule_identity = VALID_SCHEDULE_IDENTITY
+    mock_plan.snapshot_hash = VALID_SNAPSHOT_HASH
+    mock_plan.input_hash = VALID_INPUT_HASH
     mock_plan.created_by = "divisional_operations_manager"  # Same as approver username!
-
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=mock_plan)
+    mock_plan.dataset_version = "v1.0"
+    mock_plan.schedule_result = {
+        "schedule_id": "SCH-01",
+        "scenario_id": "SCN-001",
+        "snapshot_id": "SNAP-01",
+        "status": "OPTIMAL",
+        "validation": {
+            "status": "VALID",
+            "is_approvable": True,
+            "schedule_identity": VALID_SCHEDULE_IDENTITY,
+        },
+    }
 
     mock_run = MagicMock(spec=PlanningRunModel)
-    mock_run.validation_fingerprint = "FP_SAME"
-    mock_run.snapshot_hash = "SNAP_SAME"
-    mock_run.input_hash = "IN_SAME"
-    service.run_repo.get_by_run_id = AsyncMock(return_value=mock_run)
+    mock_run.run_id = "RUN-4EYES"
+    mock_run.scenario_id = "SCN-001"
+    mock_run.snapshot_id = "SNAP-01"
+    mock_run.validation_fingerprint = VALID_SCHEDULE_IDENTITY
+    mock_run.snapshot_hash = VALID_SNAPSHOT_HASH
+    mock_run.input_hash = VALID_INPUT_HASH
+    mock_run.dataset_version = "v1.0"
+
+    mock_scenario = MagicMock(spec=OperationalScenarioModel)
+    mock_scenario.scenario_id = "SCN-001"
+    mock_scenario.classification = DataClass.REAL
+    mock_scenario.dataset_version = "v1.0"
+
+    _configure_batch9_mocks(service, plan=mock_plan, run=mock_run, scenario=mock_scenario)
 
     # Actor has same username as creator
     actor = KNOWN_CREDENTIALS["approver-token-2026"]
@@ -392,37 +503,51 @@ async def test_batch9_approval_supersedes_previous_approved_version():
     mock_new_plan.validation_status = "VALID"
     mock_new_plan.is_approvable = True
     mock_new_plan.validation_findings_summary = {"error_count": 0}
-    mock_new_plan.schedule_identity = "FP_V2"
-    mock_new_plan.snapshot_hash = "SNAP_V2"
-    mock_new_plan.input_hash = "IN_V2"
+    mock_new_plan.schedule_identity = VALID_SCHEDULE_IDENTITY
+    mock_new_plan.snapshot_hash = VALID_SNAPSHOT_HASH
+    mock_new_plan.input_hash = VALID_INPUT_HASH
     mock_new_plan.created_by = "different_user"
     mock_new_plan.previous_plan_version_id = None
+    mock_new_plan.dataset_version = "v1.0"
+    mock_new_plan.schedule_result = {
+        "schedule_id": "SCH-02",
+        "scenario_id": "SCN-001",
+        "snapshot_id": "SNAP-02",
+        "status": "OPTIMAL",
+        "validation": {
+            "status": "VALID",
+            "is_approvable": True,
+            "schedule_identity": VALID_SCHEDULE_IDENTITY,
+        },
+    }
 
     # Previously approved plan (v1)
     mock_prev_approved = MagicMock(spec=PlanVersionModel)
     mock_prev_approved.plan_version_id = "PV-v1-001"
     mock_prev_approved.version_number = 1
     mock_prev_approved.status = PlanVersionStatus.APPROVED.value
-    mock_prev_approved.schedule_identity = "FP_V1"
-    mock_prev_approved.snapshot_hash = "SNAP_V1"
-    mock_prev_approved.input_hash = "IN_V1"
+    mock_prev_approved.schedule_identity = "e" * 64
+    mock_prev_approved.snapshot_hash = "f" * 64
+    mock_prev_approved.input_hash = "1" * 64
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=mock_new_plan)
+    mock_run = MagicMock(spec=PlanningRunModel)
+    mock_run.run_id = "RUN-v2"
+    mock_run.scenario_id = "SCN-001"
+    mock_run.snapshot_id = "SNAP-02"
+    mock_run.validation_fingerprint = VALID_SCHEDULE_IDENTITY
+    mock_run.snapshot_hash = VALID_SNAPSHOT_HASH
+    mock_run.input_hash = VALID_INPUT_HASH
+    mock_run.dataset_version = "v1.0"
+
+    mock_scenario = MagicMock(spec=OperationalScenarioModel)
+    mock_scenario.scenario_id = "SCN-001"
+    mock_scenario.classification = DataClass.REAL
+    mock_scenario.dataset_version = "v1.0"
+
+    _configure_batch9_mocks(service, plan=mock_new_plan, run=mock_run, scenario=mock_scenario)
     service.plan_repo.get_latest_approved = AsyncMock(return_value=mock_prev_approved)
     service.plan_repo.add_review_comment = AsyncMock()
     service.plan_repo.add_audit_event = AsyncMock()
-    service.plan_repo.get_by_plan_version_id = AsyncMock(return_value=mock_new_plan)
-
-    mock_run = MagicMock(spec=PlanningRunModel)
-    mock_run.validation_fingerprint = "FP_V2"
-    mock_run.snapshot_hash = "SNAP_V2"
-    mock_run.input_hash = "IN_V2"
-    service.run_repo.get_by_run_id = AsyncMock(return_value=mock_run)
-
-    mock_scenario = MagicMock()
-    mock_scenario.scenario_id = "SCN-001"
-    mock_scenario.classification = DataClass.REAL
-    service.scenario_repo.get_by_id = AsyncMock(return_value=mock_scenario)
 
     actor = KNOWN_CREDENTIALS["approver-token-2026"]
     await service.approve_plan("PV-v2-002", actor, comment="Approved v2.")

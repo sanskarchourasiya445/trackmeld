@@ -53,11 +53,21 @@ class MetricsCalculator:
                     mandatory_scheduled_count += 1
 
         mandatory_unscheduled_count = mandatory_tasks_count - mandatory_scheduled_count
-        mandatory_completion_rate = (
-            (mandatory_scheduled_count / mandatory_tasks_count)
-            if mandatory_tasks_count > 0
-            else 1.0
-        )
+
+        # Denominator and edge-case semantics:
+        # 1. If mandatory_tasks_count > 0:
+        #    mandatory_completion_rate = mandatory_scheduled_count / mandatory_tasks_count
+        # 2. If mandatory_tasks_count == 0 (scenario contains 0 mandatory tasks):
+        #    - If num_scheduled == 0: zero work was scheduled. A result with zero scheduled
+        #      tasks must never report a mandatory completion rate of 100%. Returns 0.0.
+        #    - If num_scheduled > 0: tasks were scheduled and 0 mandatory constraints were
+        #      violated. Vacuously satisfied -> 1.0 (100%).
+        if mandatory_tasks_count > 0:
+            mandatory_completion_rate = mandatory_scheduled_count / mandatory_tasks_count
+        elif num_scheduled > 0:
+            mandatory_completion_rate = 1.0
+        else:
+            mandatory_completion_rate = 0.0
 
         # Duration metrics
         total_scheduled_duration = sum(s.duration_minutes for s in scheduled_tasks)

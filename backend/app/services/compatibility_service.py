@@ -453,6 +453,7 @@ class CompatibilityEngine:
         dependencies: List[Any],
         sections_map: Dict[str, Any],
         rules_map: Dict[str, Any],
+        resources_map: Optional[Dict[str, Any]] = None,
     ) -> CompatibilityResult:
         """Deterministically assess candidate task placement feasibility against all modeled constraints."""
         conflicts: List[ConflictDetail] = []
@@ -714,15 +715,56 @@ class CompatibilityEngine:
         for req in requirements:
             res_id = getattr(req, "resource_id", None) or req.get("resource_id")
             mandatory_req = getattr(req, "mandatory", True) if hasattr(req, "mandatory") else req.get("mandatory", True)
+            req_qty = getattr(req, "quantity", 1) if hasattr(req, "quantity") else (req.get("quantity", 1) if isinstance(req, dict) else 1)
+            if req_qty is None or req_qty < 1:
+                req_qty = 1
 
             if res_id:
                 affected_resources.add(res_id)
 
-                # Check active availability window in scenario
+                # Check resource catalog presence if resources_map is provided and non-empty
+                if resources_map is not None and len(resources_map) > 0 and res_id not in resources_map:
+                    conflicts.append(
+                        ConflictDetail(
+                            conflict_type=ConflictType.RESOURCE_SHORTAGE,
+                            severity=ConstraintSeverity.HARD,
+                            reason_code=ReasonCode.RESOURCE_UNAVAILABLE,
+                            message=f"Required resource {res_id} does not exist in scenario resource catalog.",
+                            conflicting_entity_type="RESOURCE",
+                            conflicting_entity_id=res_id,
+                        )
+                    )
+                    reason_codes_set.add(ReasonCode.RESOURCE_UNAVAILABLE)
+                    continue
+
+                res_obj = resources_map.get(res_id) if resources_map else None
+                capacity = 1
+                if res_obj:
+                    capacity = res_obj.get("capacity", 1) if isinstance(res_obj, dict) else getattr(res_obj, "capacity", 1)
+                if capacity < 1:
+                    capacity = 1
+
+                # Check if requested quantity exceeds capacity
+                if req_qty > capacity:
+                    conflicts.append(
+                        ConflictDetail(
+                            conflict_type=ConflictType.RESOURCE_SHORTAGE,
+                            severity=ConstraintSeverity.HARD,
+                            reason_code=ReasonCode.RESOURCE_UNAVAILABLE,
+                            message=f"Required quantity ({req_qty}) for resource {res_id} exceeds available capacity ({capacity}).",
+                            conflicting_entity_type="RESOURCE",
+                            conflicting_entity_id=res_id,
+                        )
+                    )
+                    reason_codes_set.add(ReasonCode.RESOURCE_UNAVAILABLE)
+
+                # Check active availability window in scenario only if records are defined for this resource
                 matching_avail = False
+                res_has_records = False
                 for a in resource_availabilities:
                     a_res_id = getattr(a, "resource_id", None) or a.get("resource_id")
                     if a_res_id == res_id:
+                        res_has_records = True
                         a_from = getattr(a, "available_from", None) or a.get("available_from")
                         a_until = getattr(a, "available_until", None) or a.get("available_until")
                         if isinstance(a_from, str):
@@ -736,7 +778,7 @@ class CompatibilityEngine:
 
                         avail_int = TimeInterval(start=a_from, end=a_until)
                         # Check status
-                        a_status = getattr(a, "availability_status", "AVAILABLE")
+                        a_status = a.get("availability_status", "AVAILABLE") if isinstance(a, dict) else getattr(a, "availability_status", "AVAILABLE")
                         if hasattr(a_status, "value"):
                             a_status = a_status.value
                         elif isinstance(a_status, dict):
@@ -746,7 +788,7 @@ class CompatibilityEngine:
                             matching_avail = True
                             break
 
-                if not matching_avail:
+                if res_has_records and not matching_avail:
                     severity = ConstraintSeverity.HARD if mandatory_req else ConstraintSeverity.SOFT
                     conflicts.append(
                         ConflictDetail(
@@ -760,25 +802,32 @@ class CompatibilityEngine:
                     )
                     reason_codes_set.add(ReasonCode.RESOURCE_UNAVAILABLE)
 
-                # Check concurrent assignment to other placed tasks
+                # Check concurrent assignment to other placed tasks respecting capacity
+                concurrent_demand = 0
+                overlapping_task_codes = []
+                last_overlap = None
                 for existing in existing_placements:
                     if existing.task_id == task_id:
                         continue
                     if res_id in existing.assigned_resource_ids:
                         if candidate_interval.overlaps(existing.interval):
-                            overlap = candidate_interval.intersection(existing.interval)
-                            conflicts.append(
-                                ConflictDetail(
-                                    conflict_type=ConflictType.RESOURCE_BUSY,
-                                    severity=ConstraintSeverity.HARD,
-                                    reason_code=ReasonCode.RESOURCE_OVERLAP,
-                                    message=f"Resource {res_id} is concurrently assigned to task {existing.task_code}.",
-                                    conflicting_entity_type="RESOURCE",
-                                    conflicting_entity_id=res_id,
-                                    conflict_interval=overlap,
-                                )
-                            )
-                            reason_codes_set.add(ReasonCode.RESOURCE_OVERLAP)
+                            concurrent_demand += 1
+                            overlapping_task_codes.append(existing.task_code)
+                            last_overlap = candidate_interval.intersection(existing.interval)
+
+                if concurrent_demand + req_qty > capacity:
+                    conflicts.append(
+                        ConflictDetail(
+                            conflict_type=ConflictType.RESOURCE_BUSY,
+                            severity=ConstraintSeverity.HARD,
+                            reason_code=ReasonCode.RESOURCE_OVERLAP,
+                            message=f"Resource {res_id} capacity ({capacity}) exceeded by concurrent tasks {overlapping_task_codes} plus demand ({req_qty}).",
+                            conflicting_entity_type="RESOURCE",
+                            conflicting_entity_id=res_id,
+                            conflict_interval=last_overlap,
+                        )
+                    )
+                    reason_codes_set.add(ReasonCode.RESOURCE_OVERLAP)
 
         # ---------------------------------------------------------------------
         # 9. TASK DEPENDENCY CHECKS (FINISH_TO_START)
@@ -786,6 +835,9 @@ class CompatibilityEngine:
         for dep in dependencies:
             succ_id = getattr(dep, "successor_task_id", None) or dep.get("successor_task_id")
             pred_id = getattr(dep, "predecessor_task_id", None) or dep.get("predecessor_task_id")
+            min_int = getattr(dep, "min_interval_minutes", 0) if hasattr(dep, "min_interval_minutes") else (dep.get("min_interval_minutes", 0) if isinstance(dep, dict) else 0)
+            if min_int is None or min_int < 0:
+                min_int = 0
 
             if succ_id == task_id:
                 pred_placement = next((p for p in existing_placements if p.task_id == pred_id), None)
@@ -801,18 +853,20 @@ class CompatibilityEngine:
                         )
                     )
                     reason_codes_set.add(ReasonCode.DEPENDENCY_NOT_SATISFIED)
-                elif pred_placement.interval.end > candidate_start:
-                    conflicts.append(
-                        ConflictDetail(
-                            conflict_type=ConflictType.PRECEDENCE_VIOLATION,
-                            severity=ConstraintSeverity.HARD,
-                            reason_code=ReasonCode.DEPENDENCY_NOT_SATISFIED,
-                            message=f"Predecessor task {pred_placement.task_code} finishes at {pred_placement.interval.end.isoformat()}, after candidate start {candidate_start.isoformat()} (violates FINISH_TO_START).",
-                            conflicting_entity_type="MAINTENANCE_TASK",
-                            conflicting_entity_id=pred_id,
+                else:
+                    req_start = pred_placement.interval.end + timedelta(minutes=min_int)
+                    if candidate_start < req_start:
+                        conflicts.append(
+                            ConflictDetail(
+                                conflict_type=ConflictType.PRECEDENCE_VIOLATION,
+                                severity=ConstraintSeverity.HARD,
+                                reason_code=ReasonCode.DEPENDENCY_NOT_SATISFIED,
+                                message=f"Predecessor task {pred_placement.task_code} finishes at {pred_placement.interval.end.isoformat()}, requires min gap {min_int}m until {req_start.isoformat()} (violates FINISH_TO_START with candidate start {candidate_start.isoformat()}).",
+                                conflicting_entity_type="MAINTENANCE_TASK",
+                                conflicting_entity_id=pred_id,
+                            )
                         )
-                    )
-                    reason_codes_set.add(ReasonCode.DEPENDENCY_NOT_SATISFIED)
+                        reason_codes_set.add(ReasonCode.DEPENDENCY_NOT_SATISFIED)
 
         # ---------------------------------------------------------------------
         # 10. RULE EVIDENCE & UNVERIFIED CONSTRAINT HANDLING

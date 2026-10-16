@@ -90,13 +90,26 @@ async def add_security_headers_middleware(request: Request, call_next):
 @app.exception_handler(StarletteHTTPException)
 async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException):
     """Normalize HTTP exceptions into consistent TrackMeld error payload."""
+    if exc.status_code >= 500:
+        logger.error(
+            "Server error HTTP %s on %s %s: %s",
+            exc.status_code,
+            request.method,
+            request.url.path,
+            exc.detail,
+        )
+
     if isinstance(exc.detail, dict) and "error" in exc.detail:
         payload = exc.detail
     else:
+        if exc.status_code >= 500 and (settings.is_production or settings.ENVIRONMENT != "development"):
+            message = "An unexpected internal server error occurred."
+        else:
+            message = str(exc.detail)
         payload = {
             "error": {
                 "code": f"HTTP_{exc.status_code}",
-                "message": str(exc.detail),
+                "message": message,
             }
         }
     headers = dict(SECURITY_HEADERS)
@@ -128,7 +141,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     """Catch unhandled exceptions, log the stack trace, and return a clean JSON payload."""
-    logger.exception("Unhandled server exception: %s", exc)
+    logger.exception("Unhandled server exception on %s %s: %s", request.method, request.url.path, exc)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={

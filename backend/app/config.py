@@ -1,12 +1,41 @@
 from functools import lru_cache
 from pathlib import Path
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Base directory for the repository
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 VALID_ENVIRONMENTS = {"development", "test", "testing", "staging", "production"}
+
+PROHIBITED_PRODUCTION_TOKENS = {
+    # Default and example tokens from .env.example, README, and configuration templates
+    "demo-admin-token",
+    "demo-approver-token",
+    "demo-planner-token",
+    "demo-viewer-token",
+    # Demo credentials from DEMO_CREDENTIALS
+    "admin-token-2026",
+    "approver-token-2026",
+    "planner-token-2026",
+    "viewer-token-2026",
+    "restricted-token-2026",
+    # Trivial / weak default secrets
+    "admin",
+    "administrator",
+    "password",
+    "secret",
+    "changeme",
+    "default",
+    "test",
+    "testing",
+    "123456",
+    "12345678",
+    "123456789",
+    "root",
+}
+
+MIN_PRODUCTION_TOKEN_LENGTH = 16
 
 
 class Settings(BaseSettings):
@@ -58,6 +87,51 @@ class Settings(BaseSettings):
                 f"Invalid environment '{v}'. Permitted environments are: {', '.join(sorted(VALID_ENVIRONMENTS))}."
             )
         return clean
+
+    @model_validator(mode="after")
+    def validate_production_tokens(self) -> "Settings":
+        """Reject weak, default, or example authentication tokens in production or staging at startup."""
+        if not self.is_production:
+            return self
+
+        tokens = {
+            "AUTH_ADMIN_TOKEN": self.AUTH_ADMIN_TOKEN,
+            "AUTH_APPROVER_TOKEN": self.AUTH_APPROVER_TOKEN,
+            "AUTH_PLANNER_TOKEN": self.AUTH_PLANNER_TOKEN,
+            "AUTH_VIEWER_TOKEN": self.AUTH_VIEWER_TOKEN,
+        }
+
+        seen_tokens: dict[str, str] = {}
+        for token_name, token_val in tokens.items():
+            if token_val is None:
+                continue
+
+            cleaned = token_val.strip()
+            if not cleaned:
+                raise ValueError(
+                    f"{token_name} in production must not be empty or whitespace-only."
+                )
+
+            if cleaned.lower() in PROHIBITED_PRODUCTION_TOKENS:
+                raise ValueError(
+                    f"{token_name} in production cannot use default, demo, or example token '{token_val}'. "
+                    f"A secure, unique production token is required."
+                )
+
+            if len(cleaned) < MIN_PRODUCTION_TOKEN_LENGTH:
+                raise ValueError(
+                    f"{token_name} in production is too weak ({len(cleaned)} characters). "
+                    f"Minimum required length is {MIN_PRODUCTION_TOKEN_LENGTH} characters."
+                )
+
+            if cleaned in seen_tokens:
+                raise ValueError(
+                    f"Configured production tokens must be unique across roles. "
+                    f"{token_name} has the same token as {seen_tokens[cleaned]}."
+                )
+            seen_tokens[cleaned] = token_name
+
+        return self
 
     @property
     def cors_allowed_origins(self) -> list[str]:

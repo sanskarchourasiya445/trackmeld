@@ -36,10 +36,19 @@ class ScenarioRepository(BaseRepository[OperationalScenarioModel]):
             res = result.scalar_one_or_none()
             if hasattr(res, "__await__"):
                 res = await res
-            if res and getattr(getattr(res, "__class__", None), "__name__", "") == "AsyncMock" and not hasattr(res, "scenario_id"):
-                return await self.get_by_id(scenario_id)
             return res
         return await self.get_by_id(scenario_id)
+
+    async def get_snapshot(self, scenario_id: str) -> Optional[Any]:
+        """Construct canonical PlanningSnapshot from currently persisted operational data."""
+        from backend.app.services.planning_service import PlanningScenarioService
+        from backend.app.domain.planning_snapshot import PlanningSnapshot
+
+        scenario_service = PlanningScenarioService(self.session)
+        bundle = await scenario_service.get_planning_bundle(scenario_id)
+        if not bundle:
+            return None
+        return PlanningSnapshot.from_bundle(bundle)
 
     async def upsert(self, scenario: OperationalScenarioModel) -> OperationalScenarioModel:
         existing = await self.get_by_id(scenario.scenario_id)

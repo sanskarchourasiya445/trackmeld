@@ -35,6 +35,7 @@ from backend.app.services.plan_governance_service import (
     is_scenario_approval_unique_violation,
 )
 from backend.app.services.validation.validator import IndependentScheduleValidator
+from backend.app.domain.planning_snapshot import PlanningSnapshot
 
 
 # =============================================================================
@@ -53,6 +54,15 @@ VALID_SCHEDULE_IDENTITY = IndependentScheduleValidator.compute_schedule_identity
     snapshot_id="SNAP-TEST-001",
     scenario_id="SCN-REAL-OPERATIONAL-001",
 )
+
+
+def _build_mock_snapshot(plan, run=None):
+    snap = MagicMock(spec=PlanningSnapshot)
+    snap.scenario_id = plan.scenario_id
+    snap.snapshot_id = getattr(run, "snapshot_id", "SNAP-TEST-001") if run else "SNAP-TEST-001"
+    snap.compute_snapshot_hash = MagicMock(return_value=plan.snapshot_hash)
+    snap.compute_input_hash = MagicMock(return_value=plan.input_hash)
+    return snap
 
 
 def _build_test_plan(
@@ -170,6 +180,7 @@ async def test_concurrent_independent_approvals_exactly_one_succeeds():
     service_1.run_repo.get_by_run_id = AsyncMock(return_value=run)
     service_1.scenario_repo.get_by_id = AsyncMock(return_value=scen)
     service_1.scenario_repo.get_by_id_for_update = AsyncMock(return_value=scen)
+    service_1.scenario_repo.get_snapshot = AsyncMock(return_value=_build_mock_snapshot(plan, run))
 
     async def _commit_1():
         # Releasing row lock on commit simulating database transaction commit
@@ -198,6 +209,7 @@ async def test_concurrent_independent_approvals_exactly_one_succeeds():
     service_2.run_repo.get_by_run_id = AsyncMock(return_value=run)
     service_2.scenario_repo.get_by_id = AsyncMock(return_value=scen)
     service_2.scenario_repo.get_by_id_for_update = AsyncMock(return_value=scen)
+    service_2.scenario_repo.get_snapshot = AsyncMock(return_value=_build_mock_snapshot(plan, run))
 
     async def _commit_2():
         if row_lock.locked():
@@ -264,14 +276,18 @@ async def test_creator_cannot_approve_concurrently():
     session_approver = AsyncMock()
 
     service_creator = PlanGovernanceService(session_creator)
+    service_creator.plan_repo.get_by_plan_version_id = AsyncMock(return_value=plan)
     service_creator.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
     service_creator.run_repo.get_by_run_id = AsyncMock(return_value=run)
+    service_creator.scenario_repo.get_by_id_for_update = AsyncMock(return_value=scen)
     service_creator.scenario_repo.get_by_id = AsyncMock(return_value=scen)
 
     service_approver = PlanGovernanceService(session_approver)
+    service_approver.plan_repo.get_by_plan_version_id = AsyncMock(return_value=plan)
     service_approver.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
     service_approver.plan_repo.get_latest_approved = AsyncMock(return_value=None)
     service_approver.run_repo.get_by_run_id = AsyncMock(return_value=run)
+    service_approver.scenario_repo.get_by_id_for_update = AsyncMock(return_value=scen)
     service_approver.scenario_repo.get_by_id = AsyncMock(return_value=scen)
 
     # Creator attempt must immediately fail with FourEyesViolationError
@@ -301,10 +317,12 @@ async def test_failed_approval_leaves_no_partial_metadata_and_rolls_back():
     session = AsyncMock()
     service = PlanGovernanceService(session)
 
+    service.plan_repo.get_by_plan_version_id = AsyncMock(return_value=plan)
     service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
     service.plan_repo.add_audit_event = AsyncMock()
     service.plan_repo.add_review_comment = AsyncMock()
     service.run_repo.get_by_run_id = AsyncMock(return_value=run)
+    service.scenario_repo.get_by_id_for_update = AsyncMock(return_value=scen)
     service.scenario_repo.get_by_id = AsyncMock(return_value=scen)
 
     with pytest.raises(PlanFingerprintMismatchError):
@@ -331,6 +349,7 @@ async def test_failed_approval_leaves_no_partial_metadata_and_rolls_back():
 async def test_post_lock_re_read_rejects_ineligible_plan_states(terminal_status):
     """When lock is acquired on an already-terminal plan, approval is cleanly rejected with stable error."""
     plan = _build_test_plan()
+    scen = _build_test_scenario()
     plan.status = terminal_status
     if terminal_status == PlanVersionStatus.APPROVED.value:
         plan.approved_by = "prior_approver"
@@ -340,7 +359,10 @@ async def test_post_lock_re_read_rejects_ineligible_plan_states(terminal_status)
 
     session = AsyncMock()
     service = PlanGovernanceService(session)
+    service.plan_repo.get_by_plan_version_id = AsyncMock(return_value=plan)
     service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
+    service.scenario_repo.get_by_id_for_update = AsyncMock(return_value=scen)
+    service.scenario_repo.get_by_id = AsyncMock(return_value=scen)
 
     if terminal_status == PlanVersionStatus.APPROVED.value:
         with pytest.raises(PlanVersionImmutableError, match="already APPROVED"):
@@ -389,6 +411,7 @@ async def test_scenario_lock_acquired_before_plan_lock():
     service.plan_repo.add_review_comment = AsyncMock()
     service.plan_repo.add_audit_event = AsyncMock()
     service.run_repo.get_by_run_id = AsyncMock(return_value=run)
+    service.scenario_repo.get_snapshot = AsyncMock(return_value=_build_mock_snapshot(plan, run))
 
     await service.approve_plan(plan.plan_version_id, approver)
 
@@ -520,6 +543,7 @@ async def test_scenario_identity_normalized_matching_proceeds_to_approval():
     service.run_repo.get_by_run_id = AsyncMock(return_value=run)
     service.plan_repo.add_review_comment = AsyncMock()
     service.plan_repo.add_audit_event = AsyncMock()
+    service.scenario_repo.get_snapshot = AsyncMock(return_value=_build_mock_snapshot(plan, run))
 
     result = await service.approve_plan(plan.plan_version_id, approver)
     assert result.status == PlanVersionStatus.APPROVED.value
@@ -585,6 +609,7 @@ async def test_concurrent_approvals_of_different_plan_versions_for_same_scenario
             scenario_lock.release()
 
     service_1.scenario_repo.get_by_id_for_update = _lock_scen_1
+    service_1.scenario_repo.get_snapshot = AsyncMock(return_value=_build_mock_snapshot(plan_a, run_a))
     service_1.plan_repo.get_by_plan_version_id = AsyncMock(return_value=plan_a)
     service_1.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan_a)
     service_1.plan_repo.get_latest_approved = AsyncMock(side_effect=lambda sid, for_update=False: approved_store.get(sid))
@@ -612,6 +637,7 @@ async def test_concurrent_approvals_of_different_plan_versions_for_same_scenario
             scenario_lock.release()
 
     service_2.scenario_repo.get_by_id_for_update = _lock_scen_2
+    service_2.scenario_repo.get_snapshot = AsyncMock(return_value=_build_mock_snapshot(plan_b, run_b))
     service_2.plan_repo.get_by_plan_version_id = AsyncMock(return_value=plan_b)
     service_2.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan_b)
     service_2.plan_repo.get_latest_approved = AsyncMock(side_effect=lambda sid, for_update=False: approved_store.get(sid))
@@ -653,6 +679,7 @@ async def test_db_uniqueness_conflict_raises_plan_approval_conflict_error():
     service.run_repo.get_by_run_id = AsyncMock(return_value=run)
     service.plan_repo.add_review_comment = AsyncMock()
     service.plan_repo.add_audit_event = AsyncMock()
+    service.scenario_repo.get_snapshot = AsyncMock(return_value=_build_mock_snapshot(plan, run))
 
     # Simulate Postgres unique violation on commit
     pg_err = IntegrityError(
@@ -688,6 +715,7 @@ async def test_db_unrelated_23505_violation_reraises_integrity_error():
     service.run_repo.get_by_run_id = AsyncMock(return_value=run)
     service.plan_repo.add_review_comment = AsyncMock()
     service.plan_repo.add_audit_event = AsyncMock()
+    service.scenario_repo.get_snapshot = AsyncMock(return_value=_build_mock_snapshot(plan, run))
 
     # Driver diagnostic indicating unrelated constraint
     asyncpg_orig = MagicMock()

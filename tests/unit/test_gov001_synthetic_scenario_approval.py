@@ -31,6 +31,12 @@ from backend.app.repositories.plan_version_repo import (
     FourEyesViolationError,
 )
 from backend.app.services.plan_governance_service import PlanGovernanceService
+from backend.app.domain.planning_snapshot import PlanningSnapshot
+
+
+VALID_SCHEDULE_IDENTITY = "a" * 64
+VALID_SNAPSHOT_HASH = "b" * 64
+VALID_INPUT_HASH = "c" * 64
 
 
 def _build_mock_plan(
@@ -51,20 +57,42 @@ def _build_mock_plan(
     plan.validation_status = validation_status
     plan.is_approvable = is_approvable
     plan.validation_findings_summary = {"error_count": error_count, "warning_count": 0}
-    plan.schedule_identity = "FP_SHA256_TEST_001"
-    plan.snapshot_hash = "SNAP_HASH_TEST_001"
-    plan.input_hash = "IN_HASH_TEST_001"
+    plan.schedule_identity = VALID_SCHEDULE_IDENTITY
+    plan.snapshot_hash = VALID_SNAPSHOT_HASH
+    plan.input_hash = VALID_INPUT_HASH
+    plan.dataset_version = "v1.0"
     plan.created_by = created_by
     plan.previous_plan_version_id = None
+    plan.approved_at = None
+    plan.approved_by = None
+    plan.review_comment = None
+    plan.schedule_result = {
+        "schedule_id": "SCHED-TEST-001",
+        "scenario_id": scenario_id,
+        "snapshot_id": "SNAP-TEST-001",
+        "status": "OPTIMAL",
+        "validation": {
+            "status": "VALID",
+            "is_approvable": True,
+            "schedule_identity": VALID_SCHEDULE_IDENTITY,
+        },
+    }
     return plan
 
 
 def _build_mock_run(plan: PlanVersionModel) -> PlanningRunModel:
     run = MagicMock(spec=PlanningRunModel)
     run.run_id = plan.planning_run_id
-    run.validation_fingerprint = plan.schedule_identity
+    run.scenario_id = plan.scenario_id
+    run.snapshot_id = "SNAP-TEST-001"
     run.snapshot_hash = plan.snapshot_hash
     run.input_hash = plan.input_hash
+    run.validation_fingerprint = plan.schedule_identity
+    run.validation_status = "VALID"
+    run.is_approvable = True
+    run.dataset_version = "v1.0"
+    run.schedule_result = plan.schedule_result
+    run.status = "COMPLETED"
     return run
 
 
@@ -75,6 +103,29 @@ def _build_approver_actor(username: str = "approver_officer") -> AuthUser:
         role=UserRole.OPERATOR,
         permissions=["read:reference", "read:operational", "plan:review", "plan:approve", "plan:reject"],
     )
+
+
+def _configure_service_mocks(
+    service: PlanGovernanceService,
+    plan: PlanVersionModel = None,
+    run: PlanningRunModel = None,
+    scenario: OperationalScenarioModel = None,
+) -> None:
+    if plan is not None:
+        service.plan_repo.get_by_plan_version_id = AsyncMock(return_value=plan)
+        service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
+    if scenario is not None:
+        service.scenario_repo.get_by_id_for_update = AsyncMock(return_value=scenario)
+        service.scenario_repo.get_by_id = AsyncMock(return_value=scenario)
+    if run is not None:
+        service.run_repo.get_by_run_id = AsyncMock(return_value=run)
+    if plan is not None:
+        snap = MagicMock(spec=PlanningSnapshot)
+        snap.scenario_id = plan.scenario_id
+        snap.snapshot_id = getattr(run, "snapshot_id", "SNAP-TEST-001") if run else "SNAP-TEST-001"
+        snap.compute_snapshot_hash = MagicMock(return_value=plan.snapshot_hash)
+        snap.compute_input_hash = MagicMock(return_value=plan.input_hash)
+        service.scenario_repo.get_snapshot = AsyncMock(return_value=snap)
 
 
 # =============================================================================
@@ -94,10 +145,9 @@ async def test_synthetic_scenario_approval_blocked():
     mock_scenario = MagicMock(spec=OperationalScenarioModel)
     mock_scenario.scenario_id = "SCN-DEMO-001"
     mock_scenario.classification = DataClass.SYNTHETIC
+    mock_scenario.dataset_version = "v1.0"
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
-    service.scenario_repo.get_by_id = AsyncMock(return_value=mock_scenario)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=mock_scenario)
     service.plan_repo.add_audit_event = AsyncMock()
 
     with pytest.raises(PlanVersionApprovalBlockedError) as exc_info:
@@ -130,10 +180,9 @@ async def test_assumed_scenario_approval_blocked():
     mock_scenario = MagicMock(spec=OperationalScenarioModel)
     mock_scenario.scenario_id = "SCN-ASSUMED-001"
     mock_scenario.classification = DataClass.ASSUMED
+    mock_scenario.dataset_version = "v1.0"
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
-    service.scenario_repo.get_by_id = AsyncMock(return_value=mock_scenario)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=mock_scenario)
 
     with pytest.raises(PlanVersionApprovalBlockedError) as exc_info:
         await service.approve_plan(plan.plan_version_id, actor)
@@ -155,10 +204,9 @@ async def test_derived_scenario_approval_blocked():
     mock_scenario = MagicMock(spec=OperationalScenarioModel)
     mock_scenario.scenario_id = "SCN-DERIVED-001"
     mock_scenario.classification = DataClass.DERIVED
+    mock_scenario.dataset_version = "v1.0"
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
-    service.scenario_repo.get_by_id = AsyncMock(return_value=mock_scenario)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=mock_scenario)
 
     with pytest.raises(PlanVersionApprovalBlockedError) as exc_info:
         await service.approve_plan(plan.plan_version_id, actor)
@@ -181,9 +229,8 @@ async def test_missing_scenario_fails_closed():
     run = _build_mock_run(plan)
     actor = _build_approver_actor()
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
-    # Scenario not found
+    _configure_service_mocks(service, plan=plan, run=run)
+    service.scenario_repo.get_by_id_for_update = AsyncMock(return_value=None)
     service.scenario_repo.get_by_id = AsyncMock(return_value=None)
 
     with pytest.raises(PlanVersionApprovalBlockedError) as exc_info:
@@ -207,10 +254,9 @@ async def test_missing_scenario_classification_fails_closed():
     mock_scenario = MagicMock(spec=OperationalScenarioModel)
     mock_scenario.scenario_id = "SCN-NULL-CLASS-001"
     mock_scenario.classification = None
+    mock_scenario.dataset_version = "v1.0"
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
-    service.scenario_repo.get_by_id = AsyncMock(return_value=mock_scenario)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=mock_scenario)
 
     with pytest.raises(PlanVersionApprovalBlockedError) as exc_info:
         await service.approve_plan(plan.plan_version_id, actor)
@@ -237,14 +283,12 @@ async def test_eligible_real_scenario_approval_succeeds():
     mock_scenario = MagicMock(spec=OperationalScenarioModel)
     mock_scenario.scenario_id = "SCN-REAL-OPERATIONAL-001"
     mock_scenario.classification = DataClass.REAL
+    mock_scenario.dataset_version = "v1.0"
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
-    service.scenario_repo.get_by_id = AsyncMock(return_value=mock_scenario)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=mock_scenario)
     service.plan_repo.get_latest_approved = AsyncMock(return_value=None)
     service.plan_repo.add_review_comment = AsyncMock()
     service.plan_repo.add_audit_event = AsyncMock()
-    service.plan_repo.get_by_plan_version_id = AsyncMock(return_value=plan)
 
     approved = await service.approve_plan(
         plan_version_id=plan.plan_version_id,
@@ -288,10 +332,9 @@ async def test_eligible_real_scenario_still_enforces_four_eyes():
     mock_scenario = MagicMock(spec=OperationalScenarioModel)
     mock_scenario.scenario_id = "SCN-REAL-001"
     mock_scenario.classification = DataClass.REAL
+    mock_scenario.dataset_version = "v1.0"
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
-    service.scenario_repo.get_by_id = AsyncMock(return_value=mock_scenario)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=mock_scenario)
 
     with pytest.raises(FourEyesViolationError, match="Separation of duties violation"):
         await service.approve_plan(plan.plan_version_id, same_actor)
@@ -311,10 +354,9 @@ async def test_eligible_real_scenario_still_enforces_validation_evidence():
     mock_scenario = MagicMock(spec=OperationalScenarioModel)
     mock_scenario.scenario_id = "SCN-REAL-001"
     mock_scenario.classification = DataClass.REAL
+    mock_scenario.dataset_version = "v1.0"
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
-    service.scenario_repo.get_by_id = AsyncMock(return_value=mock_scenario)
+    _configure_service_mocks(service, plan=plan, run=run, scenario=mock_scenario)
 
     with pytest.raises(PlanVersionApprovalBlockedError, match="unresolved hard validation errors"):
         await service.approve_plan(plan.plan_version_id, actor)
@@ -338,14 +380,12 @@ async def test_eligible_real_scenario_supersedes_prior_approved_plan():
     mock_scenario = MagicMock(spec=OperationalScenarioModel)
     mock_scenario.scenario_id = "SCN-REAL-001"
     mock_scenario.classification = DataClass.REAL
+    mock_scenario.dataset_version = "v1.0"
 
-    service.plan_repo.get_by_id_for_update = AsyncMock(return_value=new_plan)
-    service.run_repo.get_by_run_id = AsyncMock(return_value=run)
-    service.scenario_repo.get_by_id = AsyncMock(return_value=mock_scenario)
+    _configure_service_mocks(service, plan=new_plan, run=run, scenario=mock_scenario)
     service.plan_repo.get_latest_approved = AsyncMock(return_value=prior_plan)
     service.plan_repo.add_review_comment = AsyncMock()
     service.plan_repo.add_audit_event = AsyncMock()
-    service.plan_repo.get_by_plan_version_id = AsyncMock(return_value=new_plan)
 
     await service.approve_plan(new_plan.plan_version_id, actor)
 

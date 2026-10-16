@@ -33,6 +33,28 @@ def _to_utc_dt(val: Any) -> datetime:
     return dt
 
 
+def _is_missing_hash(h: Any) -> bool:
+    if h is None:
+        return True
+    if not isinstance(h, str):
+        return True
+    return len(h.strip()) == 0
+
+
+def _is_valid_sha256(h: Any) -> bool:
+    if not isinstance(h, str) or len(h) != 64:
+        return False
+    try:
+        int(h, 16)
+        return True
+    except ValueError:
+        return False
+
+
+def _is_malformed_hash(h: Any) -> bool:
+    return not _is_valid_sha256(h)
+
+
 class ScheduleCheckRunner:
     """Runs independent verification checks against a PlanningSnapshot and ScheduleResult."""
 
@@ -47,6 +69,7 @@ class ScheduleCheckRunner:
         self.checked_section_count = 0
         self.checked_resource_count = 0
         self.checked_train_movement_count = 0
+        self.computed_snapshot_hash: Optional[str] = None
 
     def run_all_checks(self) -> List[ValidationFinding]:
         """Execute all independent checks in deterministic order."""
@@ -993,8 +1016,12 @@ class ScheduleCheckRunner:
 
         # Index resource availability
         avail_by_res = defaultdict(list)
+        res_with_records = set()
         for a in self.snapshot.resource_availabilities:
             rid = a.get("resource_id") if isinstance(a, dict) else getattr(a, "resource_id", None)
+            if not rid:
+                continue
+            res_with_records.add(rid)
             status = a.get("availability_status", "AVAILABLE") if isinstance(a, dict) else getattr(a, "availability_status", "AVAILABLE")
             if hasattr(status, "value"):
                 status = status.value
@@ -1018,8 +1045,8 @@ class ScheduleCheckRunner:
                 )
 
             # 8.2 Availability window check
-            if r_id in avail_by_res:
-                windows = avail_by_res[r_id]
+            if r_id in res_with_records:
+                windows = avail_by_res.get(r_id, [])
                 for st in task_list:
                     # Task work interval must be enclosed in at least one available window
                     contained = any(w_start <= st.interval.start and st.interval.end <= w_end for w_start, w_end in windows)
@@ -1043,20 +1070,32 @@ class ScheduleCheckRunner:
             res_obj = self.snapshot.resources_map.get(r_id, {})
             capacity = res_obj.get("capacity", 1) if isinstance(res_obj, dict) else getattr(res_obj, "capacity", 1)
 
+            def _get_task_demand(task_id: str, res_id: str) -> int:
+                t_data = self.snapshot.tasks_map.get(task_id, {})
+                reqs = t_data.get("resource_requirements", []) if isinstance(t_data, dict) else getattr(t_data, "resource_requirements", [])
+                for req in reqs:
+                    req_res = req.get("resource_id") if isinstance(req, dict) else getattr(req, "resource_id", None)
+                    if req_res == res_id:
+                        q = req.get("quantity", 1) if isinstance(req, dict) else getattr(req, "quantity", 1)
+                        if q is not None and q > 0:
+                            return q
+                return 1
+
             # Create event points: (time, +demand, task_id), (time, -demand, task_id)
             events = []
             for st in task_list:
-                events.append((st.interval.start, 1, st.task_id))
-                events.append((st.interval.end, -1, st.task_id))
+                demand = _get_task_demand(st.task_id, r_id)
+                events.append((st.interval.start, demand, st.task_id))
+                events.append((st.interval.end, -demand, st.task_id))
 
-            # Half-open: end events processed BEFORE start events at the exact same timestamp!
-            events.sort(key=lambda x: (x[0], x[1]))
+            # Half-open: end events (delta < 0) processed BEFORE start events (delta > 0) at the exact same timestamp!
+            events.sort(key=lambda x: (x[0], -1 if x[1] < 0 else 1))
 
             curr_load = 0
             active_tasks = set()
             for t_time, delta, t_id in events:
                 if delta > 0:
-                    curr_load += 1
+                    curr_load += delta
                     active_tasks.add(t_id)
                     if curr_load > capacity:
                         self.findings.append(
@@ -1075,7 +1114,7 @@ class ScheduleCheckRunner:
                             )
                         )
                 else:
-                    curr_load -= 1
+                    curr_load += delta
                     active_tasks.discard(t_id)
 
     # -------------------------------------------------------------------------
@@ -1281,3 +1320,103 @@ class ScheduleCheckRunner:
                     message="Evaluated PlanningSnapshot is missing mandatory scenario_id.",
                 )
             )
+
+        # 13.4 Snapshot hash computation and integrity verification
+        if not hasattr(self.snapshot, "compute_snapshot_hash") or not callable(self.snapshot.compute_snapshot_hash):
+            self.computed_snapshot_hash = None
+            self.findings.append(
+                ValidationFinding(
+                    code="SNAPSHOT_HASH_MISSING",
+                    severity=ValidationSeverity.ERROR,
+                    category=ValidationCategory.PROVENANCE,
+                    message="PlanningSnapshot lacks callable compute_snapshot_hash method. Missing snapshot integrity capability fails closed.",
+                )
+            )
+        else:
+            try:
+                computed_hash = self.snapshot.compute_snapshot_hash()
+            except Exception as exc:
+                self.computed_snapshot_hash = None
+                self.findings.append(
+                    ValidationFinding(
+                        code="SNAPSHOT_HASH_COMPUTATION_FAILED",
+                        severity=ValidationSeverity.ERROR,
+                        category=ValidationCategory.PROVENANCE,
+                        message=f"Planning snapshot hash computation failed with exception: {exc}.",
+                        evidence={"error": str(exc), "error_type": type(exc).__name__},
+                    )
+                )
+                computed_hash = None
+
+            if computed_hash is not None:
+                if _is_missing_hash(computed_hash):
+                    self.computed_snapshot_hash = None
+                    self.findings.append(
+                        ValidationFinding(
+                            code="SNAPSHOT_HASH_MISSING",
+                            severity=ValidationSeverity.ERROR,
+                            category=ValidationCategory.PROVENANCE,
+                            message="Computed snapshot hash is empty or missing.",
+                        )
+                    )
+                elif _is_malformed_hash(computed_hash):
+                    self.computed_snapshot_hash = None
+                    self.findings.append(
+                        ValidationFinding(
+                            code="SNAPSHOT_HASH_MALFORMED",
+                            severity=ValidationSeverity.ERROR,
+                            category=ValidationCategory.PROVENANCE,
+                            message=f"Computed snapshot hash '{computed_hash}' is malformed. Must be a 64-character hexadecimal SHA-256 hash.",
+                            actual=str(computed_hash),
+                            expected="64-character hexadecimal SHA-256 hash",
+                        )
+                    )
+                else:
+                    self.computed_snapshot_hash = computed_hash
+
+        # 13.5 Expected snapshot hash provenance and match (if provided on schedule)
+        expected_hash = (
+            getattr(self.schedule, "snapshot_hash", None)
+            or getattr(self.schedule, "expected_snapshot_hash", None)
+            or (getattr(self.schedule, "configuration", None) or {}).get("snapshot_hash")
+            or (getattr(self.schedule, "configuration", None) or {}).get("expected_snapshot_hash")
+            or (getattr(self.schedule, "validation", None) or {}).get("input_snapshot_hash")
+        )
+
+        if expected_hash is not None:
+            if _is_missing_hash(expected_hash):
+                self.findings.append(
+                    ValidationFinding(
+                        code="SNAPSHOT_HASH_MISSING",
+                        severity=ValidationSeverity.ERROR,
+                        category=ValidationCategory.PROVENANCE,
+                        message="Expected snapshot hash on schedule is empty or missing.",
+                    )
+                )
+            elif _is_malformed_hash(expected_hash):
+                self.findings.append(
+                    ValidationFinding(
+                        code="SNAPSHOT_HASH_MALFORMED",
+                        severity=ValidationSeverity.ERROR,
+                        category=ValidationCategory.PROVENANCE,
+                        message=f"Expected snapshot hash '{expected_hash}' on schedule is malformed. Must be a 64-character hexadecimal SHA-256 hash.",
+                        actual=str(expected_hash),
+                        expected="64-character hexadecimal SHA-256 hash",
+                    )
+                )
+            elif self.computed_snapshot_hash is not None:
+                if self.computed_snapshot_hash != expected_hash:
+                    self.findings.append(
+                        ValidationFinding(
+                            code="SNAPSHOT_HASH_MISMATCH",
+                            severity=ValidationSeverity.ERROR,
+                            category=ValidationCategory.PROVENANCE,
+                            message=(
+                                f"Schedule expected snapshot hash '{expected_hash}' does not match "
+                                f"computed snapshot hash '{self.computed_snapshot_hash}'. "
+                                f"Snapshot data has mutated or was tampered."
+                            ),
+                            expected=expected_hash,
+                            actual=self.computed_snapshot_hash,
+                        )
+                    )

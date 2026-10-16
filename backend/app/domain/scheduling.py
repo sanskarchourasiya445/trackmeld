@@ -160,7 +160,7 @@ class ScheduleMetrics(BaseModel):
     mandatory_unscheduled: int
     mandatory_completion_rate: float = Field(
         ...,
-        description="mandatory_scheduled / mandatory_tasks (1.0 if 0 mandatory tasks)"
+        description="mandatory_scheduled / mandatory_tasks (1.0 if 0 mandatory tasks and scheduled > 0; 0.0 if 0 scheduled tasks)"
     )
     total_scheduled_duration_minutes: int
     total_possession_duration_minutes: int
@@ -198,6 +198,10 @@ class ScheduleResult(BaseModel):
     validation: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Independent post-solve validation result and safety audit certification"
+    )
+    snapshot_hash: Optional[str] = Field(
+        default=None,
+        description="Authoritative 64-character SHA-256 planning snapshot hash for provenance verification"
     )
 
 

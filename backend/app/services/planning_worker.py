@@ -197,6 +197,7 @@ class PlanningRunWorker:
                 await repo.mark_validating(run_id)
 
             logger.info(f"[{self.worker_id}] Running Phase 7 Independent Validator for run '{run_id}'...")
+            schedule_result.snapshot_hash = snap_hash
             val_start = time.perf_counter()
             validation_res = await asyncio.to_thread(
                 IndependentScheduleValidator.validate,
