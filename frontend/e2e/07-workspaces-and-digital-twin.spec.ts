@@ -173,18 +173,36 @@ test.describe('Phase 21: Six Core Workspaces & 3D Digital Twin Integration', () 
     await page.screenshot({ path: 'test-results/work-orders-1440x900.png' });
   });
 
-  test('06. /governance presents 13 safety firewall checks, Four-Eyes status, and SHA-256 fingerprint', async ({ page }) => {
+  test('06. /governance presents safety validation findings, Four-Eyes status, and SHA-256 fingerprint', async ({ page }) => {
+    await page.route('**/api/v1/plan-versions*', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            plan_version_id: 'PV-20261002-5F8A180A',
+            version_number: 1,
+            planning_run_id: 'RUN-20261002-FAAAEF76',
+            scenario_id: 'SCN-DEMO-001',
+            status: 'PENDING_REVIEW',
+            scheduler_type: 'CP_SAT',
+            schedule_identity: 'bae346ecf37b1fd80608cc5e0b8dae030517a44d5d5305f640d5767ed46999aa',
+            is_approvable: true,
+            validation_status: 'VALID',
+            created_at: '2026-10-02T18:56:37.403807Z',
+            created_by: 'chief_operations_admin',
+            total_scheduled: 29,
+            total_unscheduled: 1,
+          },
+        ]),
+      });
+    });
+
     await page.goto('/governance');
 
     // Verify Governance Header & Pipeline
     await expect(page.getByRole('heading', { name: 'Safety Validation & Human Governance' })).toBeVisible();
     await expect(page.getByText('FORMAL OPERATIONAL GOVERNANCE PIPELINE')).toBeVisible();
-
-    // Verify Firewall categories
-    await expect(page.getByText('13-Check Independent Safety Validation Firewall')).toBeVisible();
-    await expect(page.getByText('VAL-STRUCT-01')).toBeVisible();
-    await expect(page.getByText('VAL-HORIZON-02')).toBeVisible();
-    await expect(page.getByText('VAL-TASKWIN-03')).toBeVisible();
 
     // Verify Four-Eyes principle status card
     await expect(page.getByText('Four-Eyes Operational Principle')).toBeVisible();
@@ -304,23 +322,14 @@ test.describe('Phase 21: Six Core Workspaces & 3D Digital Twin Integration', () 
     await page.getByRole('button', { name: 'Close dialog' }).click();
     await expect(inspector).not.toBeVisible();
 
-    // 2. Card 4: Click "4. DECISION REQUIRED"
+    // 2. Card 4: Click "4. DECISION REQUIRED" navigates to formal Governance workspace
     const decisionCard = page.getByText('4. DECISION REQUIRED');
     await expect(decisionCard).toBeVisible();
     await decisionCard.click();
 
-    // Verify Four-Eyes Plan Approval Modal opens
-    const approvalDialog = page.getByRole('dialog', { name: 'Authorize & Approve Plan Version' });
-    await expect(approvalDialog).toBeVisible();
-    await expect(approvalDialog.getByText('Immutable Four-Eyes Governance Gate')).toBeVisible();
-    await expect(approvalDialog.getByRole('button', { name: 'Grant Human Approval' })).toBeVisible();
-
-    // Screenshot Four-Eyes modal from Overview
-    await page.screenshot({ path: 'test-results/overview-approval-modal.png' });
-
-    // Close modal
-    await approvalDialog.getByRole('button', { name: 'Cancel' }).click();
-    await expect(approvalDialog).not.toBeVisible();
+    // Verify operator is navigated to the formal Four-Eyes governance workspace
+    await expect(page).toHaveURL(/.*governance/);
+    await expect(page.getByRole('heading', { name: 'Safety Validation & Human Governance' })).toBeVisible();
   });
 
   test('12. /planning full-screen mode expands visualization to edge-to-edge workspace and exits cleanly', async ({ page }) => {

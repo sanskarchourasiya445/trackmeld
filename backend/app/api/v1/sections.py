@@ -5,7 +5,7 @@ from backend.app.db.session import get_db_session
 from backend.app.repositories.section_repo import SectionRepository
 from backend.app.schemas.responses import SectionResponse
 from backend.app.schemas.common import ErrorResponse
-from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.auth import require_permission, AuthUser
 
 router = APIRouter(prefix="/sections", tags=["Sections"])
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/sections", tags=["Sections"])
 async def get_section_by_code(
     section_code: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> SectionResponse:
     """Retrieve section topology by hyphenated section code (e.g. NDLS-GZB) or section ID (e.g. SEC-NDLS-GZB)."""
     repo = SectionRepository(session)
@@ -45,7 +45,7 @@ async def list_sections(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> List[SectionResponse]:
     """List block sections with pagination, filtering, and total count metadata."""
     repo = SectionRepository(session)

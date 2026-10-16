@@ -12,7 +12,7 @@ from backend.app.schemas.operational_responses import (
 )
 from backend.app.schemas.common import ErrorResponse
 from backend.app.domain.enums import ResourceType, WorkDepartment
-from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.auth import require_permission, AuthUser
 
 router = APIRouter(prefix="/resources", tags=["Maintenance Resources"])
 
@@ -26,7 +26,7 @@ async def list_resources(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> List[MaintenanceResourceResponse]:
     """List maintenance resources with filtering and pagination metadata."""
     repo = ResourceRepository(session)
@@ -58,7 +58,7 @@ async def list_resources(
 async def get_resource(
     resource_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> MaintenanceResourceResponse:
     """Retrieve maintenance resource by ID or resource code."""
     repo = ResourceRepository(session)
@@ -85,7 +85,7 @@ async def get_resource_availability(
     resource_id: str,
     scenario_id: Optional[str] = Query(None, description="Filter by scenario ID"),
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> List[ResourceAvailabilityResponse]:
     """Retrieve availability intervals for a specific resource."""
     res_repo = ResourceRepository(session)

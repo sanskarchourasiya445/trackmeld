@@ -129,7 +129,9 @@ export default function GovernancePage() {
   }, []);
 
   useEffect(() => {
-    loadVersion();
+    queueMicrotask(() => {
+      void loadVersion();
+    });
   }, [loadVersion]);
 
   const handleLoadDemo = () => {

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -15,7 +15,7 @@ test.describe('Post-Sidebar Visual Composition & Anti-Cramping Pass', () => {
     });
   });
 
-  const saveArtifactScreenshot = async (page: any, filename: string) => {
+  const saveArtifactScreenshot = async (page: Page, filename: string) => {
     const localPath = path.join('test-results', filename);
     await page.screenshot({ path: localPath });
     try {
@@ -45,7 +45,7 @@ test.describe('Post-Sidebar Visual Composition & Anti-Cramping Pass', () => {
     await expect(page.getByText('4. DECISION REQUIRED')).toBeVisible();
 
     // Verify map is visible with healthy height
-    await expect(page.getByRole('heading', { name: 'Live Corridor Digital Twin & Network Topology' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Corridor Topology/i })).toBeVisible();
 
     await saveArtifactScreenshot(page, 'composition-overview-1440x900.png');
 

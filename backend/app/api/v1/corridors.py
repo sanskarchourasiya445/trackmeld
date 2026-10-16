@@ -5,7 +5,7 @@ from backend.app.db.session import get_db_session
 from backend.app.repositories.corridor_repo import CorridorRepository
 from backend.app.schemas.responses import CorridorResponse
 from backend.app.schemas.common import ErrorResponse
-from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.auth import require_permission, AuthUser
 
 router = APIRouter(prefix="/corridors", tags=["Corridors"])
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/corridors", tags=["Corridors"])
 async def get_corridor_by_id(
     corridor_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> CorridorResponse:
     """Retrieve corridor details by ID."""
     repo = CorridorRepository(session)
@@ -44,7 +44,7 @@ async def list_corridors(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> List[CorridorResponse]:
     """List trunk railway corridors with pagination and zone/division filtering."""
     repo = CorridorRepository(session)

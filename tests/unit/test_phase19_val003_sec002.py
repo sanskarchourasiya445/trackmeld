@@ -397,30 +397,73 @@ def test_sec002_restricted_viewer_forbidden_on_operational_reads(test_client):
     restricted_headers = {"Authorization": "Bearer restricted-token-2026"}
 
     routes_to_test = [
-        ("GET", "/api/v1/tasks"),
-        ("GET", "/api/v1/tasks/TSK-01"),
-        ("GET", "/api/v1/scenarios"),
-        ("GET", "/api/v1/scenarios/SCN-01"),
-        ("GET", "/api/v1/scenarios/SCN-01/manifest"),
-        ("GET", "/api/v1/scenarios/SCN-01/bundle"),
-        ("GET", "/api/v1/scenarios/SCN-01/traversals"),
-        ("GET", "/api/v1/work-orders"),
-        ("GET", "/api/v1/work-orders/WO-01"),
-        ("GET", "/api/v1/planning-runs"),
-        ("GET", "/api/v1/planning-runs/RUN-01"),
-        ("GET", "/api/v1/planning-runs/RUN-01/result"),
-        ("POST", "/api/v1/planning/validate"),
-        ("POST", "/api/v1/planning/diagnostics"),
+        ("GET", "/api/v1/tasks", None),
+        ("GET", "/api/v1/tasks/TSK-01", None),
+        ("GET", "/api/v1/scenarios", None),
+        ("GET", "/api/v1/scenarios/SCN-01", None),
+        ("GET", "/api/v1/scenarios/SCN-01/manifest", None),
+        ("GET", "/api/v1/scenarios/SCN-01/bundle", None),
+        ("GET", "/api/v1/scenarios/SCN-01/traversals", None),
+        ("GET", "/api/v1/work-orders", None),
+        ("GET", "/api/v1/work-orders/WO-01", None),
+        ("GET", "/api/v1/planning-runs", None),
+        ("GET", "/api/v1/planning-runs/RUN-01", None),
+        ("GET", "/api/v1/planning-runs/RUN-01/result", None),
+        ("GET", "/api/v1/movements", None),
+        ("GET", "/api/v1/movements/MOV-01", None),
+        ("GET", "/api/v1/resources", None),
+        ("GET", "/api/v1/resources/RES-01", None),
+        ("GET", "/api/v1/resources/RES-01/availability", None),
+        ("POST", "/api/v1/planning/validate", {"scenario_id": "SCN-01"}),
+        ("POST", "/api/v1/planning/diagnostics", {"scenario_id": "SCN-01"}),
+        ("POST", "/api/v1/compatibility/evaluate-task", {"task_id": "TSK-01"}),
+        ("POST", "/api/v1/copilot/explain", {"prompt": "Why was task delayed?"}),
     ]
 
-    for method, path in routes_to_test:
+    for method, path, payload in routes_to_test:
         if method == "GET":
             resp = test_client.get(path, headers=restricted_headers)
         else:
-            resp = test_client.post(path, json={"scenario_id": "SCN-01"}, headers=restricted_headers)
+            resp = test_client.post(path, json=payload or {}, headers=restricted_headers)
         assert resp.status_code == 403, f"Expected 403 on {method} {path}, got {resp.status_code}"
         assert resp.json()["error"]["code"] == "FORBIDDEN"
         assert "read:operational" in resp.json()["error"]["message"]
+
+
+def test_sec002_restricted_viewer_permitted_on_reference_reads(test_client):
+    """SEC-002: Restricted token (possessing read:reference) is authorized for reference and tooling endpoints."""
+    restricted_headers = {"Authorization": "Bearer restricted-token-2026"}
+
+    # 1. Tooling endpoint has no database dependency and returns HTTP 200
+    resp = test_client.get("/api/v1/copilot/tools", headers=restricted_headers)
+    assert resp.status_code == 200
+
+    # 2. Reference routes succeed with 200 without 403 Forbidden
+    async def _mock_db():
+        mock_s = AsyncMock()
+        mock_res = MagicMock()
+        mock_res.scalars.return_value.all.return_value = []
+        mock_res.scalar.return_value = 0
+        mock_s.execute.return_value = mock_res
+        yield mock_s
+
+    app.dependency_overrides[get_db_session] = _mock_db
+    try:
+        reference_routes = [
+            "/api/v1/corridors",
+            "/api/v1/sections",
+            "/api/v1/stations",
+            "/api/v1/rules",
+            "/api/v1/tracks",
+            "/api/v1/topology/nodes",
+            "/api/v1/trains",
+        ]
+
+        for path in reference_routes:
+            r = test_client.get(path, headers=restricted_headers)
+            assert r.status_code == 200, f"Expected 200 for reference route {path}, got {r.status_code}"
+    finally:
+        app.dependency_overrides.pop(get_db_session, None)
 
 
 @pytest.mark.asyncio
@@ -444,7 +487,7 @@ async def test_sec002_role_permission_resolution():
         await write_check(approver)
     assert exc_app.value.status_code == 403
 
-    # Read permissions
+    # Operational Read permissions
     read_check = require_permission("read:operational")
     assert await read_check(planner) == planner
     assert await read_check(admin) == admin
@@ -453,3 +496,11 @@ async def test_sec002_role_permission_resolution():
     with pytest.raises(HTTPException) as exc_restr:
         await read_check(restricted)
     assert exc_restr.value.status_code == 403
+
+    # Reference Read permissions (all roles including restricted viewer have read:reference)
+    ref_check = require_permission("read:reference")
+    assert await ref_check(planner) == planner
+    assert await ref_check(admin) == admin
+    assert await ref_check(viewer) == viewer
+    assert await ref_check(approver) == approver
+    assert await ref_check(restricted) == restricted

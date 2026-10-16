@@ -11,7 +11,7 @@ from backend.app.schemas.responses import (
     TrackTopologyResponse,
 )
 from backend.app.schemas.common import ErrorResponse
-from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.auth import require_permission, AuthUser
 
 router = APIRouter(prefix="/topology", tags=["Infrastructure Topology"])
 
@@ -27,7 +27,7 @@ async def list_topology_nodes(
     limit: int = Query(100, ge=1, le=500, description="Maximum items to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> List[TopologyNodeResponse]:
     """List topology junction and boundary nodes with pagination and filtering."""
     repo = TopologyRepository(session)
@@ -55,7 +55,7 @@ async def list_topology_nodes(
 async def get_topology_node(
     node_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> TopologyNodeResponse:
     """Retrieve a single topology node by ID."""
     repo = TopologyRepository(session)
@@ -84,7 +84,7 @@ async def list_track_endpoints(
     limit: int = Query(100, ge=1, le=500, description="Maximum items to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> List[TrackEndpointResponse]:
     """List track boundary endpoints with pagination and filtering."""
     repo = TopologyRepository(session)
@@ -112,7 +112,7 @@ async def list_track_endpoints(
 async def get_track_endpoint(
     endpoint_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> TrackEndpointResponse:
     """Retrieve a single track boundary endpoint by ID."""
     repo = TopologyRepository(session)
@@ -143,7 +143,7 @@ async def list_topology_connections(
     limit: int = Query(100, ge=1, le=500, description="Maximum items to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> List[TopologyConnectionResponse]:
     """List physical rail connections between endpoints across nodes."""
     repo = TopologyRepository(session)
@@ -175,7 +175,7 @@ async def list_topology_connections(
 async def get_topology_connection(
     connection_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> TopologyConnectionResponse:
     """Retrieve a single topology connection by ID."""
     repo = TopologyRepository(session)
@@ -204,7 +204,7 @@ async def get_topology_connection(
 async def get_track_topology(
     track_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> TrackTopologyResponse:
     """Retrieve complete topology context for a track including boundary endpoints and connections."""
     repo = TopologyRepository(session)

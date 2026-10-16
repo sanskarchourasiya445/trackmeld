@@ -24,6 +24,12 @@ interface SimulationProviderProps {
   initialX?: number;
 }
 
+declare global {
+  interface Window {
+    __trackmeld_sim_clock?: SimulationClock;
+  }
+}
+
 export const SimulationProvider: React.FC<SimulationProviderProps> = ({
   children,
   speedKmh,
@@ -48,9 +54,11 @@ export const SimulationProvider: React.FC<SimulationProviderProps> = ({
     clockRef.current.isPlaying = isPlaying;
   }, [isPlaying]);
 
-  if (typeof window !== 'undefined') {
-    (window as any).__trackmeld_sim_clock = clockRef.current;
-  }
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__trackmeld_sim_clock = clockRef.current;
+    }
+  }, []);
 
   return (
     <SimulationContext.Provider value={{ clockRef }}>
@@ -70,11 +78,15 @@ export const useSimulationClock = (): React.MutableRefObject<SimulationClock> =>
     isPlaying: true,
   });
 
-  // Ensure singleton synchronization across Three.js fiber tree and components
-  if (typeof window !== 'undefined' && (window as any).__trackmeld_sim_clock) {
-    fallbackRef.current = (window as any).__trackmeld_sim_clock;
-    return fallbackRef;
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.__trackmeld_sim_clock) {
+      fallbackRef.current = window.__trackmeld_sim_clock;
+    }
+  }, []);
+
+  if (ctx) {
+    return ctx.clockRef;
   }
 
-  return ctx ? ctx.clockRef : fallbackRef;
+  return fallbackRef;
 };

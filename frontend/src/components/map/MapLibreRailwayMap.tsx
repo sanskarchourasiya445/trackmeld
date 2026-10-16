@@ -69,7 +69,7 @@ export const MapLibreRailwayMap: React.FC<MapLibreRailwayMapProps> = ({
         // Dark Railway Vector Style Schema
         // If NEXT_PUBLIC_MAPTILER_KEY is available, stream high-res tiles.
         // Otherwise, render clean vector GeoJSON layers directly on the dark canvas without broken external tiles or watermarks.
-        const sourcesConfig: Record<string, any> = {
+        const sourcesConfig: Record<string, unknown> = {
           'railway-corridor': {
             type: 'geojson',
             data: {

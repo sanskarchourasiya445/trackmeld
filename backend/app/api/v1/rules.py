@@ -5,7 +5,7 @@ from backend.app.db.session import get_db_session
 from backend.app.repositories.rule_repo import RailwayRuleRepository
 from backend.app.schemas.responses import RuleResponse
 from backend.app.schemas.common import ErrorResponse
-from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.auth import require_permission, AuthUser
 
 router = APIRouter(prefix="/rules", tags=["Rules"])
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/rules", tags=["Rules"])
 async def get_rule_by_id(
     rule_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> RuleResponse:
     """Retrieve verbatim rule details by rule ID (e.g. RULE-STAT-RBP-1502C)."""
     repo = RailwayRuleRepository(session)
@@ -42,7 +42,7 @@ async def list_rules(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> List[RuleResponse]:
     """List all extracted statutory and operating rules with pagination headers."""
     repo = RailwayRuleRepository(session)

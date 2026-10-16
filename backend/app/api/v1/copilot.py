@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.db.session import get_db_session
-from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.auth import require_permission, AuthUser
 from backend.app.core.rate_limit import enforce_compute_rate_limit
 from backend.app.schemas.common import ErrorResponse
 from backend.app.schemas.copilot import (
@@ -39,7 +39,7 @@ router = APIRouter(prefix="/copilot", tags=["AI Copilot & Decision Support"])
 async def explain_decision(
     request: CopilotQueryRequest,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
     _rate_limit: None = Depends(enforce_compute_rate_limit),
 ) -> CopilotQueryResponse:
     """Submit natural language inquiry and receive evidence-grounded explanation.
@@ -96,7 +96,7 @@ async def explain_decision(
     status_code=status.HTTP_200_OK,
 )
 async def list_copilot_tools(
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> List[CopilotToolSpec]:
     """Retrieve specifications of all typed read-only tools available to the Copilot."""
     return CopilotToolRegistry.list_tools()

@@ -40,7 +40,10 @@ export const LandingHero3D: React.FC<LandingHero3DProps> = ({ onRequestDemo }) =
   const [hasWebGLError, setHasWebGLError] = useState<boolean>(false);
 
   useEffect(() => {
-    setMounted(true);
+    const handle = requestAnimationFrame(() => {
+      setMounted(true);
+    });
+    return () => cancelAnimationFrame(handle);
   }, []);
 
   // Digital Twin Telemetry Markers in 3D Space

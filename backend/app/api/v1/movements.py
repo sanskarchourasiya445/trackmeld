@@ -5,7 +5,7 @@ from backend.app.db.session import get_db_session
 from backend.app.repositories.movement_repo import TrainMovementRepository
 from backend.app.schemas.responses import TrainMovementResponse
 from backend.app.schemas.common import ErrorResponse
-from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.auth import require_permission, AuthUser
 
 router = APIRouter(prefix="/movements", tags=["Movements"])
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/movements", tags=["Movements"])
 async def get_movement_by_id(
     movement_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> TrainMovementResponse:
     """Retrieve train movement / timetable entry by ID."""
     repo = TrainMovementRepository(session)
@@ -44,7 +44,7 @@ async def list_movements(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> List[TrainMovementResponse]:
     """List train movement records with filtering by train/station and pagination."""
     repo = TrainMovementRepository(session)

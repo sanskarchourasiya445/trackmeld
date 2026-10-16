@@ -9,7 +9,7 @@ from backend.app.domain.temporal import PlanningHorizon
 from backend.app.domain.compatibility import CompatibilityResult
 from backend.app.schemas.operational_responses import TaskEvaluationRequest
 from backend.app.schemas.common import ErrorResponse
-from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.auth import require_permission, AuthUser
 
 router = APIRouter(prefix="/compatibility", tags=["Compatibility & Feasibility"])
 
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/compatibility", tags=["Compatibility & Feasibility"]
 async def evaluate_task_placement(
     request: TaskEvaluationRequest,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:operational")),
 ) -> CompatibilityResult:
     """Deterministically evaluate feasibility and constraint compatibility for a candidate task placement.
     

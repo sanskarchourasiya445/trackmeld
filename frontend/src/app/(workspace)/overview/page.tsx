@@ -195,7 +195,7 @@ export default function OverviewPage() {
             <div className="flex items-center justify-between">
               <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1.5">
                 <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                <span>3. IS THE PLAN FEASIBLE?</span>
+                <span>3. IS THE PLAN SAFE?</span>
               </div>
               <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold">
                 DEMO BASELINE

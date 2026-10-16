@@ -5,7 +5,7 @@ from backend.app.db.session import get_db_session
 from backend.app.repositories.track_repo import TrackRepository
 from backend.app.schemas.responses import TrackResponse
 from backend.app.schemas.common import ErrorResponse
-from backend.app.core.auth import get_current_user, AuthUser
+from backend.app.core.auth import require_permission, AuthUser
 
 router = APIRouter(prefix="/tracks", tags=["Tracks"])
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/tracks", tags=["Tracks"])
 async def get_track_by_id(
     track_id: str,
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> TrackResponse:
     """Retrieve track line infrastructure by track ID."""
     repo = TrackRepository(session)
@@ -44,7 +44,7 @@ async def list_tracks(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_db_session),
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_permission("read:reference")),
 ) -> List[TrackResponse]:
     """List running tracks with pagination, filtering, and total count metadata."""
     repo = TrackRepository(session)
