@@ -110,6 +110,9 @@ class AuditEventResponse(BaseModel):
     snapshot_hash: Optional[str] = None
     input_hash: Optional[str] = None
     event_metadata: Optional[Dict[str, Any]] = None
+    sequence_number: Optional[int] = None
+    previous_event_hash: Optional[str] = None
+    event_hash: Optional[str] = None
 
 
 class PlanVersionSummary(BaseModel):

@@ -1,13 +1,6 @@
 import { test, expect, TEST_CONFIG, authenticateViaUi, waitForRunCompleted } from './fixtures';
 
 test.describe('Phase 15E: Negative Paths, Integrity & State Machine E2E', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.evaluate(() => {
-      sessionStorage.clear();
-      localStorage.clear();
-    });
-  });
 
   test('Four-Eyes principle strictly prevents creator from approving own plan', async ({ request, page }) => {
     // 1. Create run and candidate version as planner

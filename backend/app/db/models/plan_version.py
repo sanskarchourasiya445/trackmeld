@@ -6,6 +6,7 @@ from sqlalchemy import (
     String,
     Text,
     Integer,
+    BigInteger,
     Boolean,
     DateTime,
     ForeignKey,
@@ -168,10 +169,26 @@ class GovernanceAuditEventModel(Base):
     snapshot_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     input_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     event_metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    sequence_number: Mapped[int] = mapped_column(BigInteger, unique=True, index=True, nullable=False)
+    previous_event_hash: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    event_hash: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
 
     __table_args__ = (
         Index("ix_audit_events_entity", "entity_type", "entity_id"),
         Index("ix_audit_events_actor", "actor_id"),
         Index("ix_audit_events_timestamp", "timestamp"),
         Index("ix_audit_events_type", "event_type"),
+        Index("ix_audit_events_event_hash", "event_hash"),
+        Index("ix_audit_events_previous_event_hash", "previous_event_hash"),
     )
+
+
+class AuditChainHeadModel(Base):
+    """Singleton tracking the latest tip of the cryptographic audit chain."""
+    __tablename__ = "audit_chain_head"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    last_sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    last_event_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    last_event_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

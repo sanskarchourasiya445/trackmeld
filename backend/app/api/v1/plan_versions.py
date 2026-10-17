@@ -557,6 +557,9 @@ async def get_plan_audit_trail(
             snapshot_hash=e.snapshot_hash,
             input_hash=e.input_hash,
             event_metadata=e.event_metadata,
+            sequence_number=e.sequence_number,
+            previous_event_hash=e.previous_event_hash,
+            event_hash=e.event_hash,
         )
         for e in events
     ]

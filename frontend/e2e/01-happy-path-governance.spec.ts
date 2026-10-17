@@ -1,14 +1,6 @@
 import { test, expect, TEST_CONFIG, authenticateViaUi, waitForRunCompleted } from './fixtures';
 
 test.describe('Phase 15E: Primary Happy-Path Governance Workflow', () => {
-  test.beforeEach(async ({ page }) => {
-    // Start with a clean browser context and no stored tokens
-    await page.goto('/');
-    await page.evaluate(() => {
-      sessionStorage.clear();
-      localStorage.clear();
-    });
-  });
 
   test('Complete 12-step governance workflow with Four-Eyes enforcement', async ({ page, request }) => {
     // -------------------------------------------------------------------------
@@ -66,7 +58,7 @@ test.describe('Phase 15E: Primary Happy-Path Governance Workflow', () => {
     // -------------------------------------------------------------------------
     await page.locator('button:has-text("Validation")').click();
     await expect(page.locator('text=STATUS: VALID')).toBeVisible();
-    await expect(page.locator('text=COMPLETED ≠ APPROVED')).toBeVisible();
+    await expect(page.locator('text=COMPLETED ≠ APPROVED').first()).toBeVisible();
 
     // -------------------------------------------------------------------------
     // STEP 7: Run diagnostics

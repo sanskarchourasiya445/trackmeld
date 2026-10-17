@@ -25,24 +25,18 @@ test.describe('Task 10 (F10): Authentication Token Storage Consistency', () => {
 
   test.describe('Browser Storage Behavior', () => {
     test.beforeEach(async ({ page }) => {
-      await page.goto('/');
-      await page.evaluate(() => {
+      await page.addInitScript(() => {
         sessionStorage.clear();
         localStorage.clear();
       });
     });
 
     test('Legacy token in localStorage only is strictly ignored by application', async ({ page }) => {
-      await page.goto('/planning');
-
-      // Seed a legacy token only into localStorage
-      await page.evaluate(() => {
+      await page.addInitScript(() => {
         localStorage.setItem('trackmeld_auth_token', 'stale-legacy-token-2025');
         sessionStorage.removeItem('trackmeld_auth_token');
       });
-
-      // Reload page to re-initialize application state
-      await page.reload();
+      await page.goto('/planning');
 
       // Verify AuthWidget reflects unauthenticated state ("Sign In")
       const authBtn = page.locator('button[aria-label^="Authentication:"]');
@@ -55,16 +49,11 @@ test.describe('Task 10 (F10): Authentication Token Storage Consistency', () => {
     });
 
     test('Valid session token in sessionStorage is read and recognized by application', async ({ page }) => {
-      await page.goto('/planning');
-
-      // Seed valid token into sessionStorage
-      await page.evaluate((tok) => {
+      await page.addInitScript((tok) => {
         sessionStorage.setItem('trackmeld_auth_token', tok);
         localStorage.removeItem('trackmeld_auth_token');
       }, TEST_CONFIG.plannerToken);
-
-      // Reload page so AuthWidget re-reads storage on mount
-      await page.reload();
+      await page.goto('/planning');
 
       // Verify AuthWidget is recognized as Authenticated
       const authBtn = page.locator('button[aria-label="Authentication: Authenticated"]');
@@ -80,13 +69,10 @@ test.describe('Task 10 (F10): Authentication Token Storage Consistency', () => {
           body: JSON.stringify({ items: [] }),
         });
       });
-
-      await page.goto('/planning');
-
-      // Plant an obsolete legacy token in localStorage before user signs in
-      await page.evaluate(() => {
+      await page.addInitScript(() => {
         localStorage.setItem('trackmeld_auth_token', 'stale-obsolete-legacy-token');
       });
+      await page.goto('/planning');
 
       // User performs sign in via AuthWidget
       await authenticateViaUi(page, TEST_CONFIG.plannerToken);
@@ -100,25 +86,21 @@ test.describe('Task 10 (F10): Authentication Token Storage Consistency', () => {
     });
 
     test('Logout clears both sessionStorage and localStorage while preserving unrelated preferences', async ({ page }) => {
-      await page.goto('/planning');
-
-      // Seed both token stores plus an unrelated application preference in localStorage
-      await page.evaluate((tok) => {
+      await page.addInitScript((tok) => {
         sessionStorage.setItem('trackmeld_auth_token', tok);
         localStorage.setItem('trackmeld_auth_token', 'legacy-local-token');
         localStorage.setItem('trackmeld_sidebar_collapsed', 'true');
       }, TEST_CONFIG.plannerToken);
-
-      await page.reload();
+      await page.goto('/planning');
 
       // Verify authenticated
-      await expect(page.locator('button[aria-label="Authentication: Authenticated"]')).toBeVisible();
+      await expect(page.locator('button[aria-label="Authentication: Authenticated"]')).toBeVisible({ timeout: 10000 });
 
       // Sign out via UI
       await clearAuthViaUi(page);
 
       // Verify AuthWidget shows Sign In
-      await expect(page.locator('button[aria-label="Authentication: Sign In"]')).toBeVisible();
+      await expect(page.locator('button[aria-label="Authentication: Sign In"]')).toBeVisible({ timeout: 10000 });
 
       // Check storage
       const sessionToken = await page.evaluate(() => sessionStorage.getItem('trackmeld_auth_token'));

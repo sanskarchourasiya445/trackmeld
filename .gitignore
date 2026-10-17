@@ -5,6 +5,7 @@
 
 # PostgreSQL Local Cluster & Logs
 data/pg_cluster/
+data/pg_test_cluster/
 *.log
 *.sqlite
 *.db
@@ -41,12 +42,14 @@ ENV/
 htmlcov/
 test-results/
 playwright-report/
+.early.coverage/
 
 # IDE & Editor
 .vscode/
 .idea/
 *.swp
 *.swo
+.kilo/
 
 # OS
 Thumbs.db

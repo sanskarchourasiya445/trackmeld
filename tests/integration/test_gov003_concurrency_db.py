@@ -14,7 +14,7 @@ Note: Clearly marked BLOCKED if PostgreSQL at 127.0.0.1:5434 is unreachable.
 import socket
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import pytest
 import pytest_asyncio
 from sqlalchemy import select, delete, text
@@ -35,6 +35,7 @@ from backend.app.db.models.plan_version import (
 from backend.app.schemas.plan_version import PlanVersionStatus, GovernanceEventType
 from backend.app.services.plan_governance_service import PlanGovernanceService
 from backend.app.repositories.plan_version_repo import PlanApprovalConflictError, PlanVersionImmutableError
+from backend.app.repositories.scenario_repo import ScenarioRepository
 from backend.app.services.validation.validator import IndependentScheduleValidator
 
 
@@ -68,18 +69,16 @@ async def test_session_factory():
 
 @pytest_asyncio.fixture
 async def clean_database(db_session: AsyncSession):
-    await db_session.execute(delete(GovernanceAuditEventModel))
     await db_session.execute(delete(PlanReviewCommentModel))
     await db_session.execute(delete(PlanVersionModel))
-    await db_session.execute(delete(PlanningRunModel))
-    await db_session.execute(delete(OperationalScenarioModel))
+    await db_session.execute(delete(PlanningRunModel).where(PlanningRunModel.scenario_id.like("SCN-INT-%")))
+    await db_session.execute(delete(OperationalScenarioModel).where(OperationalScenarioModel.scenario_id.like("SCN-INT-%")))
     await db_session.commit()
     yield
-    await db_session.execute(delete(GovernanceAuditEventModel))
     await db_session.execute(delete(PlanReviewCommentModel))
     await db_session.execute(delete(PlanVersionModel))
-    await db_session.execute(delete(PlanningRunModel))
-    await db_session.execute(delete(OperationalScenarioModel))
+    await db_session.execute(delete(PlanningRunModel).where(PlanningRunModel.scenario_id.like("SCN-INT-%")))
+    await db_session.execute(delete(OperationalScenarioModel).where(OperationalScenarioModel.scenario_id.like("SCN-INT-%")))
     await db_session.commit()
 
 
@@ -99,12 +98,22 @@ async def test_dual_session_concurrent_approval_serialization(test_session_facto
             name="Real Operational Scenario",
             description="Testing dual-session concurrency",
             planning_start=now,
-            planning_end=now,
+            planning_end=now + timedelta(hours=24),
             generation_seed=12345,
             dataset_version="v1.0",
             classification=DataClass.REAL,
+            created_at=now.replace(tzinfo=None),
+            updated_at=now.replace(tzinfo=None),
         )
         seed_session.add(scen)
+        await seed_session.flush()
+
+        # Compute authoritative snapshot and input hashes from real scenario data
+        snap = await ScenarioRepository(seed_session).get_snapshot(scenario_id)
+        assert snap is not None, "Scenario snapshot must be available"
+        snap_id = snap.snapshot_id
+        snap_hash = snap.compute_snapshot_hash()
+        input_hash = snap.compute_input_hash({}, seed=0)
 
         # Seed two planning runs and two candidate plan versions
         run_1_id = f"RUN-1-{uuid.uuid4().hex[:6].upper()}"
@@ -113,38 +122,40 @@ async def test_dual_session_concurrent_approval_serialization(test_session_facto
         run_1 = PlanningRunModel(
             run_id=run_1_id,
             scenario_id=scenario_id,
-            snapshot_id="SNAP-INT-001",
-            snapshot_hash="a" * 64,
-            input_hash="b" * 64,
+            snapshot_id=snap_id,
+            snapshot_hash=snap_hash,
+            input_hash=input_hash,
             validation_fingerprint="c" * 64,
             validation_status="VALID",
             is_approvable=True,
             dataset_version="v1.0",
-            schedule_result={"scenario_id": scenario_id, "snapshot_id": "SNAP-INT-001"},
+            schedule_result={"scenario_id": scenario_id, "snapshot_id": snap_id},
             status="COMPLETED",
             scheduler_type="CP_SAT",
             scheduler_version="1.0.0",
             solver_name="OR-Tools",
             solver_version="9.8",
             configuration_snapshot={},
+            random_seed=0,
         )
         run_2 = PlanningRunModel(
             run_id=run_2_id,
             scenario_id=scenario_id,
-            snapshot_id="SNAP-INT-001",
-            snapshot_hash="a" * 64,
-            input_hash="b" * 64,
+            snapshot_id=snap_id,
+            snapshot_hash=snap_hash,
+            input_hash=input_hash,
             validation_fingerprint="d" * 64,
             validation_status="VALID",
             is_approvable=True,
             dataset_version="v1.0",
-            schedule_result={"scenario_id": scenario_id, "snapshot_id": "SNAP-INT-001"},
+            schedule_result={"scenario_id": scenario_id, "snapshot_id": snap_id},
             status="COMPLETED",
             scheduler_type="CP_SAT",
             scheduler_version="1.0.0",
             solver_name="OR-Tools",
             solver_version="9.8",
             configuration_snapshot={},
+            random_seed=0,
         )
         seed_session.add(run_1)
         seed_session.add(run_2)
@@ -159,9 +170,9 @@ async def test_dual_session_concurrent_approval_serialization(test_session_facto
             version_number=1,
             status=PlanVersionStatus.PENDING_REVIEW.value,
             schedule_identity="c" * 64,
-            snapshot_hash="a" * 64,
-            input_hash="b" * 64,
-            schedule_result={"scenario_id": scenario_id, "snapshot_id": "SNAP-INT-001"},
+            snapshot_hash=snap_hash,
+            input_hash=input_hash,
+            schedule_result={"scenario_id": scenario_id, "snapshot_id": snap_id},
             result_summary={},
             validation_status="VALID",
             is_approvable=True,
@@ -182,9 +193,9 @@ async def test_dual_session_concurrent_approval_serialization(test_session_facto
             version_number=2,
             status=PlanVersionStatus.PENDING_REVIEW.value,
             schedule_identity="d" * 64,
-            snapshot_hash="a" * 64,
-            input_hash="b" * 64,
-            schedule_result={"scenario_id": scenario_id, "snapshot_id": "SNAP-INT-001"},
+            snapshot_hash=snap_hash,
+            input_hash=input_hash,
+            schedule_result={"scenario_id": scenario_id, "snapshot_id": snap_id},
             result_summary={},
             validation_status="VALID",
             is_approvable=True,

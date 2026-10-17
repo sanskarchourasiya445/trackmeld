@@ -255,10 +255,9 @@ class PlanVersionRepository(BaseRepository[PlanVersionModel]):
         return result.scalars().all()
 
     async def add_audit_event(self, event: GovernanceAuditEventModel) -> GovernanceAuditEventModel:
-        """Append an immutable governance audit event."""
-        self.session.add(event)
-        await self.session.flush()
-        return event
+        """Append an immutable governance audit event with cryptographic chaining."""
+        from backend.app.services.audit_chain_service import append_chained_audit_event
+        return await append_chained_audit_event(self.session, event)
 
     async def list_audit_events(
         self,
@@ -279,6 +278,7 @@ class PlanVersionRepository(BaseRepository[PlanVersionModel]):
                 )
             )
             .order_by(
+                GovernanceAuditEventModel.sequence_number.asc(),
                 GovernanceAuditEventModel.timestamp.asc(),
                 GovernanceAuditEventModel.event_id.asc(),
             )

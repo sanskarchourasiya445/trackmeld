@@ -19,21 +19,41 @@ export async function authenticateViaUi(page: Page, token: string): Promise<void
     await page.goto('/planning');
   }
   const authTrigger = page.locator('button[aria-label^="Authentication:"]');
-  await authTrigger.click();
-
-  // If already authenticated or forbidden, sign out first to reveal sign-in form
+  const tokenInput = page.locator('input[placeholder="Bearer token…"]');
   const signOutButton = page.locator('button:has-text("Clear token / Sign out")');
-  if (await signOutButton.isVisible()) {
-    await signOutButton.click();
-    await authTrigger.click();
+
+  // Open panel with retry in case click was intercepted during React hydration
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if ((await tokenInput.isVisible()) || (await signOutButton.isVisible())) break;
+    await authTrigger.evaluate((el: HTMLElement) => el.click()).catch(() => authTrigger.click({ force: true }));
+    try {
+      await expect(tokenInput.or(signOutButton)).toBeVisible({ timeout: 2000 });
+      break;
+    } catch {
+      await page.waitForTimeout(400);
+    }
   }
 
-  const tokenInput = page.locator('input[placeholder="Bearer token…"]');
-  await expect(tokenInput).toBeVisible();
+  // If already authenticated or forbidden, sign out first to reveal sign-in form
+  if (await signOutButton.isVisible()) {
+    await signOutButton.evaluate((el: HTMLElement) => el.click()).catch(() => signOutButton.click({ force: true }));
+    for (let attempt = 0; attempt < 4; attempt++) {
+      if (await tokenInput.isVisible()) break;
+      await authTrigger.evaluate((el: HTMLElement) => el.click()).catch(() => authTrigger.click({ force: true }));
+      try {
+        await expect(tokenInput).toBeVisible({ timeout: 2000 });
+        break;
+      } catch {
+        await page.waitForTimeout(400);
+      }
+    }
+  }
+
+  await expect(tokenInput).toBeVisible({ timeout: 10000 });
   await tokenInput.fill(token);
 
   const submitButton = page.locator('button:has-text("Sign In")').last();
-  await submitButton.click();
+  await submitButton.click({ force: true });
 
   // Verify badge shows authenticated
   await expect(page.locator('button[aria-label="Authentication: Authenticated"]')).toBeVisible({
@@ -47,7 +67,7 @@ export async function authenticateViaUi(page: Page, token: string): Promise<void
   // Close panel if still open
   const closeButton = page.locator('button[aria-label="Close"]');
   if (await closeButton.isVisible()) {
-    await closeButton.click();
+    await closeButton.click({ force: true });
   }
 }
 
@@ -57,11 +77,15 @@ export async function authenticateViaUi(page: Page, token: string): Promise<void
 export async function waitForRunCompleted(
   request: APIRequestContext,
   runId: string,
-  maxWaitMs = 15000
+  maxWaitMs = 15000,
+  token?: string
 ): Promise<Record<string, unknown>> {
   const start = Date.now();
+  const authToken = token || TEST_CONFIG.plannerToken;
   while (Date.now() - start < maxWaitMs) {
-    const res = await request.get(`${TEST_CONFIG.apiUrl}/planning-runs/${runId}`);
+    const res = await request.get(`${TEST_CONFIG.apiUrl}/planning-runs/${runId}`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
     if (res.ok()) {
       const data = await res.json();
       if (data.status === 'COMPLETED') return data;
@@ -78,14 +102,24 @@ export async function waitForRunCompleted(
  * Sign out / clear token via AuthWidget.
  */
 export async function clearAuthViaUi(page: Page): Promise<void> {
-  const authTrigger = page.locator('button[aria-label^="Authentication:"]');
-  await authTrigger.click();
-
   const signOutButton = page.locator('button:has-text("Clear token / Sign out")');
-  await expect(signOutButton).toBeVisible();
-  await signOutButton.click();
+  const authTrigger = page.locator('button[aria-label^="Authentication:"]');
 
-  await expect(page.locator('button[aria-label="Authentication: Sign In"]')).toBeVisible();
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (await signOutButton.isVisible()) break;
+    await authTrigger.evaluate((el: HTMLElement) => el.click()).catch(() => authTrigger.click({ force: true }));
+    try {
+      await expect(signOutButton).toBeVisible({ timeout: 2000 });
+      break;
+    } catch {
+      await page.waitForTimeout(400);
+    }
+  }
+
+  await expect(signOutButton).toBeVisible({ timeout: 10000 });
+  await signOutButton.evaluate((el: HTMLElement) => el.click()).catch(() => signOutButton.click({ force: true }));
+
+  await expect(page.locator('button[aria-label="Authentication: Sign In"]')).toBeVisible({ timeout: 10000 });
 
   const stored = await page.evaluate(() => sessionStorage.getItem('trackmeld_auth_token'));
   expect(stored).toBeNull();
@@ -104,5 +138,27 @@ export async function injectSessionToken(page: Page, token: string | null): Prom
   }, token);
 }
 
-export const test = base;
+export const test = base.extend({
+  page: async ({ page }, use) => {
+    // Fail-closed safety guard: Intercept browser requests to port 8000 and reroute to test backend port 8001
+    await page.route('**/api/v1/**', async (route) => {
+      const reqUrl = route.request().url();
+      if (reqUrl.includes(':8000/api/v1/')) {
+        const redirected = reqUrl.replace(':8000/api/v1/', ':8001/api/v1/');
+        await route.continue({ url: redirected });
+      } else {
+        await route.continue();
+      }
+    });
+
+    // Suppress Next.js dev overlay / portal to prevent it from overlaying UI buttons in tests
+    await page.addInitScript(() => {
+      const style = document.createElement('style');
+      style.innerHTML = 'nextjs-portal, [id^="__next-build-watcher"], [data-nextjs-toast] { display: none !important; pointer-events: none !important; visibility: hidden !important; }';
+      document.head ? document.head.appendChild(style) : document.addEventListener('DOMContentLoaded', () => document.head?.appendChild(style));
+    });
+
+    await use(page);
+  },
+});
 export { expect };

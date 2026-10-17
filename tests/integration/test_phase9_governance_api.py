@@ -22,13 +22,11 @@ settings = get_settings()
 @pytest_asyncio.fixture(autouse=True)
 async def clean_governance_tables(db_session: AsyncSession):
     """Clean all governance and planning run tables before and after each test."""
-    await db_session.execute(delete(GovernanceAuditEventModel))
     await db_session.execute(delete(PlanReviewCommentModel))
     await db_session.execute(delete(PlanVersionModel))
     await db_session.execute(delete(PlanningRunModel))
     await db_session.commit()
     yield
-    await db_session.execute(delete(GovernanceAuditEventModel))
     await db_session.execute(delete(PlanReviewCommentModel))
     await db_session.execute(delete(PlanVersionModel))
     await db_session.execute(delete(PlanningRunModel))

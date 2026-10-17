@@ -18,6 +18,10 @@ if (!process.env.NEXT_PUBLIC_API_URL) {
   process.env.NEXT_PUBLIC_API_URL = `${backendUrl}/api/v1`;
 }
 
+if (databaseUrl.includes(':5433')) {
+  throw new Error('CRITICAL SAFETY GUARD VIOLATION: Playwright databaseUrl cannot target development port 5433!');
+}
+
 const webServers = [];
 
 if (!skipBackendServer) {
@@ -29,6 +33,7 @@ if (!skipBackendServer) {
     timeout: 30000,
     env: {
       DATABASE_URL: databaseUrl,
+      DATABASE_URL_SYNC: 'postgresql+psycopg2://postgres:postgres@localhost:5434/trackmeld',
       APP_PORT: backendPort,
       AUTH_PLANNER_TOKEN: process.env.TEST_PLANNER_TOKEN || 'e2e-planner-token-2026',
       AUTH_APPROVER_TOKEN: process.env.TEST_APPROVER_TOKEN || 'e2e-approver-token-2026',
@@ -51,6 +56,7 @@ webServers.push({
 
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: ['**/.kilo/**', '**/node_modules/**'],
   timeout: 60000,
   expect: {
     timeout: 10000,

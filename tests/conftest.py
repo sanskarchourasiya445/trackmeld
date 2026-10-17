@@ -1,3 +1,4 @@
+import os
 import pytest
 import pytest_asyncio
 from typing import AsyncGenerator
@@ -10,11 +11,31 @@ from backend.app.db.session import get_db_session
 
 settings = get_settings()
 
+TEST_DB_URL_DEFAULT = "postgresql+asyncpg://postgres:postgres@localhost:5434/trackmeld"
+
+
+def get_test_database_url() -> str:
+    url = os.environ.get("TEST_DATABASE_URL") or os.environ.get("DATABASE_URL") or TEST_DB_URL_DEFAULT
+    # Fail-closed safety guard: Never allow destructive or test connections to dev database on port 5433
+    if ":5433" in url:
+        raise RuntimeError(
+            f"CRITICAL SAFETY GUARD VIOLATION: Test suite attempted to connect to development database on port 5433 ({url}). "
+            "Tests must run exclusively against the isolated test database on port 5434."
+        )
+    return url
+
+
+# Ensure settings.DATABASE_URL points to safe test database URL if not already explicitly set to 5434
+_safe_test_url = get_test_database_url()
+if settings.DATABASE_URL != _safe_test_url:
+    settings.DATABASE_URL = _safe_test_url
+
 
 @pytest_asyncio.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    test_db_url = get_test_database_url()
     engine = create_async_engine(
-        settings.DATABASE_URL,
+        test_db_url,
         poolclass=NullPool,
     )
     session_factory = async_sessionmaker(
