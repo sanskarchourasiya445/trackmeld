@@ -63,7 +63,7 @@ export const BenchmarkComparisonModal: React.FC<BenchmarkComparisonModalProps> =
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-[#0B101C] border border-[#1E2D4A] text-[#F8FAFC] sm:max-w-3xl p-6 font-sans select-none">
+      <DialogContent className="bg-[#0B101C] border border-[#1E2D4A] text-[#F8FAFC] sm:max-w-3xl p-6 font-sans">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

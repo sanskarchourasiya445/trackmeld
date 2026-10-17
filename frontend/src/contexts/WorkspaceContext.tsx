@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
 
 export interface WorkspaceTelemetry {
   activeScenarioId: string;
@@ -52,13 +52,22 @@ export function WorkspaceProvider({
     ...initialTelemetry,
   });
 
-  const updateTelemetry = (partial: Partial<WorkspaceTelemetry>) => {
-    setTelemetry((prev) => ({ ...prev, ...partial }));
-  };
+  const updateTelemetry = useCallback((partial: Partial<WorkspaceTelemetry>) => {
+    setTelemetry((prev) => {
+      let hasChange = false;
+      for (const [key, val] of Object.entries(partial)) {
+        if (prev[key as keyof WorkspaceTelemetry] !== val) {
+          hasChange = true;
+          break;
+        }
+      }
+      return hasChange ? { ...prev, ...partial } : prev;
+    });
+  }, []);
 
   const value = useMemo(
     () => ({ telemetry, setTelemetry, updateTelemetry }),
-    [telemetry]
+    [telemetry, updateTelemetry]
   );
 
   return (

@@ -245,7 +245,7 @@ export default function GovernancePage() {
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 space-y-3.5 max-w-[1920px] w-full mx-auto font-sans select-none">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 space-y-3.5 max-w-[1920px] w-full mx-auto font-sans">
         {/* ============================================================== */}
         {/* 1. GOVERNANCE COMMAND HEADER                                   */}
         {/* ============================================================== */}

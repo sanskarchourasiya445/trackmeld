@@ -26,8 +26,6 @@ import {
   Search,
   Eye,
   PanelRight,
-  Maximize2,
-  Minimize2,
   RefreshCw,
   X,
 } from 'lucide-react';
@@ -58,7 +56,6 @@ function NetworkPageContent() {
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
   const [selectedOHEId, setSelectedOHEId] = useState<string | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(false);
-  const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
   const [isDigitalTwinOpen, setIsDigitalTwinOpen] = useState<boolean>(false);
   const [digitalTwinSection, setDigitalTwinSection] = useState<string>('SEC-08');
   const [searchFilter, setSearchFilter] = useState('');
@@ -76,17 +73,6 @@ function NetworkPageContent() {
     const queryString = params.toString() ? `?${params.toString()}` : '';
     router.push(`${pathname}${queryString}`);
   };
-
-  // ESC to exit full screen
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFullScreen) {
-        setIsFullScreen(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFullScreen]);
 
   const selectedSection: BlockSection | null =
     DEMO_CORRIDOR.sections?.find((s) => s.code === selectedSectionCode || s.section_id === selectedSectionCode) || null;
@@ -235,18 +221,6 @@ function NetworkPageContent() {
           </div>
 
           <div className="flex items-center gap-2">
-            {activeSubTab === 'MAP' && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setIsFullScreen((prev) => !prev)}
-                className="border-[#1A263D] hover:bg-[#162238] text-[#CBD5E1] hover:text-white text-xs font-semibold h-7.5 px-2.5"
-                title={isFullScreen ? 'Exit Full Screen (Esc)' : 'Expand Map to Full Viewport'}
-              >
-                {isFullScreen ? <Minimize2 className="w-3.5 h-3.5 mr-1 text-[#38BDF8]" /> : <Maximize2 className="w-3.5 h-3.5 mr-1 text-[#38BDF8]" />}
-                <span>{isFullScreen ? 'Exit Full' : 'Expand Map'}</span>
-              </Button>
-            )}
             <Button
               size="sm"
               variant="outline"
@@ -362,48 +336,15 @@ function NetworkPageContent() {
         <div className="flex-1 min-h-0 overflow-hidden flex gap-2">
           <div className="flex-1 min-w-0 h-full overflow-hidden flex flex-col">
             {activeSubTab === 'MAP' && (
-              <div className={isFullScreen ? "fixed inset-0 z-50 bg-[#070D18] p-4 sm:p-6 flex flex-col" : "flex-1 w-full h-full min-h-0 relative"}>
-                {isFullScreen && (
-                  <div className="flex items-center justify-between pb-3 mb-2 border-b border-[#1A263D] shrink-0">
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#2563EB]/20 text-[#38BDF8] border border-[#2563EB]/40">
-                        FULL-SCREEN INFRASTRUCTURE MAP
-                      </span>
-                      <span className="text-sm font-bold text-[#F8FAFC]">Northern Trunk Corridor Topology (440 km)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setIsInspectorOpen((prev) => !prev)}
-                        className={`border-[#1A263D] text-xs font-semibold h-8 px-3 ${
-                          isInspectorOpen ? 'bg-[#162238] text-white border-[#2563EB]' : 'text-[#CBD5E1] hover:bg-[#162238] hover:text-white'
-                        }`}
-                      >
-                        <PanelRight className="w-3.5 h-3.5 mr-1.5 text-[#38BDF8]" />
-                        <span>Inspector</span>
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => setIsFullScreen(false)}
-                        className="bg-[#162238] hover:bg-[#1A263D] text-[#F8FAFC] border border-[#1A263D] text-xs font-semibold h-8 flex items-center gap-1.5"
-                      >
-                        <Minimize2 className="w-3.5 h-3.5 text-[#38BDF8]" />
-                        <span>Exit Full Screen (ESC)</span>
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                <div className="flex-1 w-full h-full min-h-0 relative">
-                  <MapLibreRailwayMap
-                    selectedSectionCode={selectedSectionCode}
-                    selectedTrainId={selectedTrainId}
-                    onSelectSection={(code) => handleSelectAsset('SECTION', code)}
-                    onSelectStation={(code) => handleSelectAsset('STATION', code)}
-                    onSelectTrain={(id) => handleSelectAsset('TRAIN', id)}
-                    onOpenDigitalTwin={handleOpenDigitalTwin}
-                  />
-                </div>
+              <div className="flex-1 w-full h-full min-h-0 relative">
+                <MapLibreRailwayMap
+                  selectedSectionCode={selectedSectionCode}
+                  selectedTrainId={selectedTrainId}
+                  onSelectSection={(code) => handleSelectAsset('SECTION', code)}
+                  onSelectStation={(code) => handleSelectAsset('STATION', code)}
+                  onSelectTrain={(id) => handleSelectAsset('TRAIN', id)}
+                  onOpenDigitalTwin={handleOpenDigitalTwin}
+                />
               </div>
             )}
 

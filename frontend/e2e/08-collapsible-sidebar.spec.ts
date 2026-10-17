@@ -38,7 +38,7 @@ test.describe('Requirement 42: Collapsible / Sliding Sidebar Navigation', () => 
     await expect(sidebar.getByRole('link', { name: /planning/i })).toBeVisible();
     await expect(sidebar.getByRole('link', { name: /network/i })).toBeVisible();
     await expect(sidebar.getByRole('link', { name: /work orders/i })).toBeVisible();
-    await expect(sidebar.getByRole('link', { name: /validation & governance/i })).toBeVisible();
+    await expect(sidebar.getByRole('link', { name: /governance & sign-off/i })).toBeVisible();
     await expect(sidebar.getByRole('link', { name: /copilot/i })).toBeVisible();
 
     // Verify active corridor footer card

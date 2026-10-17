@@ -110,7 +110,7 @@ export const ComparePlansModal: React.FC<ComparePlansModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-[#0B101C] border border-[#1E2D4A] text-[#F8FAFC] max-w-4xl sm:max-w-4xl max-h-[90vh] flex flex-col p-5 sm:p-6 font-sans select-none overflow-hidden">
+      <DialogContent className="bg-[#0B101C] border border-[#1E2D4A] text-[#F8FAFC] max-w-4xl sm:max-w-4xl max-h-[90vh] flex flex-col p-5 sm:p-6 font-sans overflow-hidden">
         {/* 1. Modal Header */}
         <DialogHeader className="shrink-0 pb-3 border-b border-[#1E2D4A]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

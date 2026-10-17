@@ -49,18 +49,10 @@ test.describe('Post-Sidebar Visual Composition & Anti-Cramping Pass', () => {
 
     await saveArtifactScreenshot(page, 'composition-overview-1440x900.png');
 
-    // Test Full Screen Map toggle
-    const fullScreenBtn = page.getByRole('button', { name: /Full Screen/i });
-    await expect(fullScreenBtn).toBeVisible();
-    await fullScreenBtn.click();
-
-    // Verify Exit Full Screen button appears
-    await expect(page.getByRole('button', { name: /Exit Full Screen/i })).toBeVisible();
-    await saveArtifactScreenshot(page, 'composition-overview-map-fullscreen.png');
-
-    // Press Escape to exit full screen
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('button', { name: /^Full Screen$/i })).toBeVisible();
+    // Verify Explore Network Map navigation link
+    const exploreNetworkBtn = page.getByRole('button', { name: /Explore Network Map/i });
+    await expect(exploreNetworkBtn).toBeVisible();
+    await saveArtifactScreenshot(page, 'composition-overview-macro-map.png');
   });
 
   test('02. /work-orders: Full-width table workbench + Slide-in drawer on row click', async ({ page }) => {

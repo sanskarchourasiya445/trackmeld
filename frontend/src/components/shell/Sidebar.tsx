@@ -114,12 +114,12 @@ const NAV_GROUPS: NavGroup[] = [
         icon: <ClipboardList className="w-4 h-4 shrink-0" />,
       },
       {
-        label: 'Validation & Governance',
+        label: 'Governance & Sign-Off',
         href: '/governance',
         icon: <ShieldCheck className="w-4 h-4 shrink-0" />,
       },
       {
-        label: 'Audit & Governance',
+        label: 'Audit Trail & Ledger',
         href: '/audit',
         icon: <FileCheck2 className="w-4 h-4 shrink-0" />,
       },

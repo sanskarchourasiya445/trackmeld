@@ -37,7 +37,7 @@ export const TimelineScheduleView: React.FC<TimelineScheduleViewProps> = ({
 
   return (
     <div
-      className={`flex flex-col h-full bg-[#0B1120] select-none font-sans text-xs ${
+      className={`flex flex-col h-full bg-[#0B1120] font-sans text-xs ${
         isEmbedded ? '' : 'border border-[#1A263D] rounded-lg overflow-hidden'
       } ${className}`}
     >

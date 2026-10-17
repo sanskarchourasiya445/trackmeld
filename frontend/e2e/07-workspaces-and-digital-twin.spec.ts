@@ -20,7 +20,7 @@ test.describe('Phase 21: Six Core Workspaces & 3D Digital Twin Integration', () 
     await expect(navSidebar.getByRole('link', { name: /planning/i })).toBeVisible();
     await expect(navSidebar.getByRole('link', { name: /network/i })).toBeVisible();
     await expect(navSidebar.getByRole('link', { name: /work orders/i })).toBeVisible();
-    await expect(navSidebar.getByRole('link', { name: /validation & governance/i })).toBeVisible();
+    await expect(navSidebar.getByRole('link', { name: /governance & sign-off/i })).toBeVisible();
     await expect(navSidebar.getByRole('link', { name: /copilot/i })).toBeVisible();
 
     // Verify Active Corridor Telemetry link in sidebar footer
@@ -332,23 +332,15 @@ test.describe('Phase 21: Six Core Workspaces & 3D Digital Twin Integration', () 
     await expect(page.getByRole('heading', { name: 'Safety Validation & Human Governance' })).toBeVisible();
   });
 
-  test('12. /planning full-screen mode expands visualization to edge-to-edge workspace and exits cleanly', async ({ page }) => {
+  test('12. /planning operates as unified full-workspace layout without Expand modal obstruction', async ({ page }) => {
     await page.goto('/planning');
 
-    // 1. Expand to Full-Screen Workspace
+    // 1. Verify Expand button does NOT exist
     const expandBtn = page.getByRole('button', { name: 'Expand', exact: true });
-    await expect(expandBtn).toBeVisible();
-    await expandBtn.click();
+    await expect(expandBtn).not.toBeVisible();
 
-    // Verify Full-Screen container and banner
-    await expect(page.getByText('FULL-SCREEN WORKSPACE')).toBeVisible();
-    await expect(page.getByText('Corridor Railway Map (MapLibre Engine)')).toBeVisible();
-
-    // Screenshot Full-Screen Planning Workspace
-    await page.screenshot({ path: 'test-results/planning-fullscreen.png' });
-
-    // 2. Exit Full-Screen via Escape key or button
-    await page.keyboard.press('Escape');
-    await expect(page.getByText('FULL-SCREEN WORKSPACE')).not.toBeVisible();
+    // 2. Verify corridor workspace is directly rendered
+    await expect(page.getByText('NDLS → CNB (440 km Trunk)').first()).toBeVisible();
+    await page.screenshot({ path: 'test-results/planning-unified-workspace.png' });
   });
 });

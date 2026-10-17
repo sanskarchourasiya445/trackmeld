@@ -152,7 +152,7 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({
   return (
     <aside
       aria-label="Contextual Entity Inspector"
-      className={`h-full bg-[#0B1120] flex flex-col overflow-hidden select-none font-sans text-xs transition-all duration-200 ${
+      className={`h-full bg-[#0B1120] flex flex-col overflow-hidden font-sans text-xs transition-all duration-200 ${
         isDrawer
           ? 'w-full'
           : isExpanded

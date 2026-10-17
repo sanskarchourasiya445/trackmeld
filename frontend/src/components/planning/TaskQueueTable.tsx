@@ -75,7 +75,7 @@ export const TaskQueueTable: React.FC<TaskQueueTableProps> = ({
 
   return (
     <div
-      className={`bg-[#0B1120] flex flex-col h-full select-none font-sans text-xs ${
+      className={`bg-[#0B1120] flex flex-col h-full font-sans text-xs ${
         isEmbedded ? '' : 'border border-[#1A263D] rounded-lg overflow-hidden'
       } ${className}`}
     >

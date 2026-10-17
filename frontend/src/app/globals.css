@@ -110,10 +110,6 @@
 }
 
 @layer utilities {
-  /* ============================================================== */
-  /* TRACKMELD TYPOGRAPHY SCALE & SEMANTIC TOKENS                  */
-  /* ============================================================== */
-
   /* Operational Page & Modal Titles (Inter Bold / SemiBold) */
   .text-page-title {
     font-family: var(--font-sans);

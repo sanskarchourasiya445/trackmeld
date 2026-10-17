@@ -72,7 +72,6 @@ import {
   Map as MapIcon,
   Activity,
   Maximize2,
-  Minimize2,
   LayoutGrid,
   Database,
 } from 'lucide-react';
@@ -137,7 +136,6 @@ function PlanningPageContent() {
 
   // Layout & UI State (Docked Inspector open on wide desktop screens only)
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
-  const [isFullScreen, setIsFullScreen] = useState(false);
   const [isDigitalTwinOpen, setIsDigitalTwinOpen] = useState(false);
   const [digitalTwinSection, setDigitalTwinSection] = useState<string>('SEC-12');
 
@@ -179,17 +177,6 @@ function PlanningPageContent() {
       setIsInspectorOpen(false);
     }
   };
-
-  // Handle ESC key for Full-Screen Mode
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFullScreen) {
-        setIsFullScreen(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFullScreen]);
 
   // Operations / Solver State
   const [isSolving, setIsSolving] = useState(false);
@@ -564,7 +551,7 @@ function PlanningPageContent() {
 
   return (
     <>
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-2 sm:p-2.5 lg:p-3 gap-2 bg-[#04070D] font-sans max-w-[1920px] w-full mx-auto">
+      <div className="flex-1 overflow-y-auto p-2 sm:p-2.5 lg:p-3 space-y-2.5 bg-[#04070D] font-sans max-w-[1920px] w-full mx-auto">
         {/* ============================================================== */}
         {/* ============================================================== */}
         {/* TOP BAR: TRACKMELD PLANNING OPERATIONAL METADATA & ACTIONS     */}
@@ -833,20 +820,6 @@ function PlanningPageContent() {
                 <PanelRight className="w-3.5 h-3.5 text-[#38BDF8]" />
                 <span className="hidden sm:inline">Inspector</span>
               </button>
-
-              <button
-                type="button"
-                onClick={() => setIsFullScreen((prev) => !prev)}
-                className="px-2.5 py-1 text-xs font-medium text-[#CBD5E1] hover:text-white hover:bg-[#162238] rounded-md transition-colors flex items-center gap-1.5 cursor-pointer"
-                title={isFullScreen ? 'Exit Full-Screen (Esc)' : 'Expand to Full-Screen Workspace'}
-              >
-                {isFullScreen ? (
-                  <Minimize2 className="w-3.5 h-3.5 text-[#38BDF8]" />
-                ) : (
-                  <Maximize2 className="w-3.5 h-3.5 text-[#38BDF8]" />
-                )}
-                <span className="hidden sm:inline">{isFullScreen ? 'Exit' : 'Expand'}</span>
-              </button>
             </div>
           </div>
         </div>
@@ -1058,63 +1031,14 @@ function PlanningPageContent() {
         {/* ============================================================== */}
         {/* MAIN OPERATING SURFACE                                         */}
         {/* ============================================================== */}
-        <div
-          className={
-            isFullScreen
-              ? 'fixed inset-0 z-50 bg-[#070B14] flex flex-col p-2.5 sm:p-3.5 overflow-hidden select-none'
-              : 'flex-1 min-h-0 overflow-hidden flex gap-2.5'
-          }
-        >
-          {isFullScreen && (
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#1E2D4A] shrink-0">
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#2563EB]/20 text-[#38BDF8] border border-[#2563EB]/40">
-                  FULL-SCREEN WORKSPACE
-                </span>
-                <h2 className="text-sm font-bold text-[#F8FAFC]">
-                  {activeViewMode === 'INTEGRATED' && 'Corridor Railway Map (MapLibre Engine)'}
-                  {activeViewMode === 'MAP' && 'Corridor Railway Map (MapLibre Engine)'}
-                  {activeViewMode === 'TIMESPACE' && 'Corridor Time-Space Diagram'}
-                  {activeViewMode === 'TIMELINE' && 'Corridor Gantt Schedule Timeline'}
-                  {activeViewMode === 'TASKS' && 'Full Maintenance Task Queue'}
-                  {activeViewMode === 'CONFLICTS' && 'Operational Conflict Resolution Engine'}
-                  {activeViewMode === 'VALIDATION' && 'Independent Feasibility Validation Matrix'}
-                  {activeViewMode === 'DIAGNOSTICS' && 'CP-SAT Solver Diagnostics & Bottlenecks'}
-                  {activeViewMode === 'COPILOT' && 'Decision Support Copilot Workspace'}
-                </h2>
-                <span className="text-xs text-[#64748B] hidden sm:inline">• NDLS → CNB (440 km Trunk)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsInspectorOpen((prev) => !prev)}
-                  className={`border-[#2D436D] text-xs font-semibold h-8 cursor-pointer ${
-                    isInspectorOpen ? 'bg-[#141F36] text-white border-[#2563EB]' : 'text-[#CBD5E1] hover:text-white'
-                  }`}
-                >
-                  <PanelRight className="w-3.5 h-3.5 text-[#3B82F6] mr-1.5" />
-                  <span>Inspector</span>
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => setIsFullScreen(false)}
-                  className="bg-[#141F36] hover:bg-[#1E2D4A] text-[#F8FAFC] border border-[#2D436D] text-xs font-semibold h-8 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Minimize2 className="w-3.5 h-3.5 text-[#38BDF8]" />
-                  <span>Exit Full Screen (ESC)</span>
-                </Button>
-              </div>
-            </div>
-          )}
-
+        <div className="flex gap-2.5 w-full min-h-[680px] lg:min-h-[720px]">
           {/* Central Workspace Container */}
-          <div className="flex-1 min-w-0 h-full overflow-hidden flex flex-col">
+          <div className="flex-1 min-w-0 min-h-[680px] lg:min-h-[720px] flex flex-col">
             {/* VIEW MODE 0: INTEGRATED 3-PANEL WORKSTATION (MASTER REFERENCE) */}
             {activeViewMode === 'INTEGRATED' && (
-              <div className="flex-1 w-full h-full min-h-0 flex flex-col gap-2.5 overflow-hidden">
-                {/* TOP 48%: Railway View Card */}
-                <div className="h-[48%] min-h-[280px] w-full bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden flex flex-col relative shrink-0">
+              <div className="flex-1 w-full flex flex-col gap-2.5">
+                {/* TOP: Railway View Card */}
+                <div className="h-[300px] lg:h-[340px] min-h-[280px] w-full bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden flex flex-col relative shrink-0">
                   <div className="h-8.5 px-3 bg-[#070D18] border-b border-[#1A263D] flex items-center justify-between shrink-0 select-none">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-xs text-[#F8FAFC]">Railway View</span>
@@ -1149,10 +1073,10 @@ function PlanningPageContent() {
                   </div>
                 </div>
 
-                {/* BOTTOM 52%: Split Tasks (50%) + Timeline/Time-Space (50%) */}
-                <div className="flex-1 min-h-[300px] w-full flex flex-col lg:flex-row gap-2.5 overflow-hidden">
+                {/* BOTTOM: Split Tasks (50%) + Timeline/Time-Space (50%) */}
+                <div className="flex-1 min-h-[360px] w-full flex flex-col lg:flex-row gap-2.5">
                   {/* Bottom-Left 50%: Task Overview */}
-                  <div className="w-full lg:w-1/2 h-full bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden flex flex-col">
+                  <div className="w-full lg:w-1/2 min-h-[360px] bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden flex flex-col">
                     <TaskQueueTable
                       tasks={tasks}
                       scheduleResult={scheduleResult}
@@ -1163,7 +1087,7 @@ function PlanningPageContent() {
                   </div>
 
                   {/* Bottom-Right 50%: Timeline / Time-Space Workspace */}
-                  <div className="w-full lg:w-1/2 h-full bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden flex flex-col">
+                  <div className="w-full lg:w-1/2 min-h-[360px] bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden flex flex-col">
                     <div className="h-8.5 px-3 bg-[#070D18] border-b border-[#1A263D] flex items-center justify-between shrink-0 select-none">
                       <div className="flex items-center gap-1 text-xs">
                         <button
@@ -1358,7 +1282,7 @@ function PlanningPageContent() {
 
           {/* Docked Contextual Entity Inspector (Desktop Only) */}
           {isInspectorOpen && (activeViewMode === 'INTEGRATED' || activeViewMode === 'MAP') && (
-            <div className="hidden xl:flex w-[360px] 2xl:w-[400px] shrink-0 h-full bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden shadow-xl flex-col">
+            <div className="hidden xl:flex w-[360px] 2xl:w-[400px] shrink-0 min-h-[680px] lg:min-h-[720px] bg-[#0B1120] border border-[#1A263D] rounded-xl overflow-hidden shadow-xl flex-col">
               <EntityInspector
                 task={selectedTask}
                 scheduledInterval={selectedScheduled}

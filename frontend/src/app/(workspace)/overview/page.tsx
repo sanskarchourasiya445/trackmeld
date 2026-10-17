@@ -16,8 +16,6 @@ import {
   Activity,
   FileCheck,
   Eye,
-  Maximize2,
-  Minimize2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EntityInspector } from '@/components/planning/EntityInspector';
@@ -42,7 +40,6 @@ export default function OverviewPage() {
   const [isDigitalTwinOpen, setIsDigitalTwinOpen] = useState<boolean>(false);
   const [digitalTwinSection, setDigitalTwinSection] = useState<string>('SEC-12');
   const [isConflictDrawerOpen, setIsConflictDrawerOpen] = useState<boolean>(false);
-  const [isMapFullScreen, setIsMapFullScreen] = useState<boolean>(false);
   const [lastUpdated] = useState('18 Oct 2026, 06:00 UTC');
   const [planVersion, setPlanVersion] = useState<PlanVersion | null>(null);
   const [provenance, setProvenance] = useState<DataProvenance>('synthetic');
@@ -64,16 +61,6 @@ export default function OverviewPage() {
     };
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isMapFullScreen) {
-        setIsMapFullScreen(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isMapFullScreen]);
-
   const handleOpenDigitalTwin = (secCode: string) => {
     setDigitalTwinSection(secCode);
     setIsDigitalTwinOpen(true);
@@ -81,7 +68,7 @@ export default function OverviewPage() {
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 space-y-3.5 max-w-[1920px] w-full mx-auto font-sans bg-[#070D18] select-none">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 space-y-3.5 max-w-[1920px] w-full mx-auto font-sans bg-[#070D18]">
         {/* ============================================================== */}
         {/* 1. OPERATIONAL SITUATION BRIEFING HEADER                       */}
         {/* ============================================================== */}
@@ -246,11 +233,7 @@ export default function OverviewPage() {
         {/* ============================================================== */}
         {/* 3. CURRENT CORRIDOR STATE: LARGE SPATIAL VISUALIZATION         */}
         {/* ============================================================== */}
-        <div
-          className={`bg-[#0B1120] border border-[#1A263D] rounded-lg p-3 sm:p-4 flex flex-col shadow-xs space-y-2.5 transition-all ${
-            isMapFullScreen ? 'fixed inset-0 z-50 rounded-none border-0 p-3 bg-[#070D18]' : ''
-          }`}
-        >
+        <div className="bg-[#0B1120] border border-[#1A263D] rounded-lg p-3 sm:p-4 flex flex-col shadow-xs space-y-2.5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-[#1A263D]">
             <div>
               <div className="flex items-center gap-2">
@@ -276,42 +259,27 @@ export default function OverviewPage() {
                 <Eye className="w-3.5 h-3.5 mr-1" />
                 <span>3D Twin View</span>
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setIsMapFullScreen(!isMapFullScreen)}
-                className="text-xs border-[#1A263D] text-[#94A3B8] hover:bg-[#162238] hover:text-white h-7.5 px-2.5"
-                title={isMapFullScreen ? 'Exit Full Screen (Esc)' : 'Expand to Full Screen'}
-              >
-                {isMapFullScreen ? (
-                  <>
-                    <Minimize2 className="w-3.5 h-3.5 mr-1" />
-                    <span>Exit Full Screen</span>
-                  </>
-                ) : (
-                  <>
-                    <Maximize2 className="w-3.5 h-3.5 mr-1" />
-                    <span>Full Screen</span>
-                  </>
-                )}
-              </Button>
-              {!isMapFullScreen && (
-                <Link href="/planning">
-                  <Button size="sm" variant="ghost" className="text-xs text-[#38BDF8] hover:text-white h-7.5 px-2.5">
-                    <span>Interactive Workspace</span>
-                    <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                  </Button>
-                </Link>
-              )}
+              <Link href="/network">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs border-[#1A263D] text-[#38BDF8] hover:bg-[#162238] hover:text-white h-7.5 px-2.5"
+                >
+                  <span>Explore Network Map</span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              </Link>
+              <Link href="/planning">
+                <Button size="sm" variant="ghost" className="text-xs text-[#94A3B8] hover:text-[#38BDF8] h-7.5 px-2.5">
+                  <span>Interactive Workspace</span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              </Link>
             </div>
           </div>
 
           {/* Large Map Workspace */}
-          <div
-            className={`w-full rounded-md overflow-hidden border border-[#1A263D] relative ${
-              isMapFullScreen ? 'flex-1 min-h-0' : 'h-[360px] sm:h-[400px] lg:h-[450px]'
-            }`}
-          >
+          <div className="w-full h-[360px] sm:h-[400px] lg:h-[450px] rounded-md overflow-hidden border border-[#1A263D] relative">
             <MapLibreRailwayMap
               selectedSectionCode={selectedSectionCode}
               selectedTaskId={selectedTaskId}

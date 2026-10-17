@@ -79,7 +79,7 @@ export const ConflictsWorkspace: React.FC<ConflictsWorkspaceProps> = ({
   onNavigateToDiagnostics,
 }) => {
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0B1120] p-3 sm:p-4 gap-2.5 overflow-hidden select-none font-sans text-xs">
+    <div className="flex-1 flex flex-col h-full bg-[#0B1120] p-3 sm:p-4 gap-2.5 overflow-hidden font-sans text-xs">
       {/* 1. Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F172A] border border-[#1A263D] rounded-lg p-3 sm:p-3.5 shrink-0">
         <div>

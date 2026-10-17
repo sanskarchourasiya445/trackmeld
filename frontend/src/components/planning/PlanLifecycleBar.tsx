@@ -123,7 +123,7 @@ export const PlanLifecycleBar: React.FC<PlanLifecycleBarProps> = ({
   const activeIndex = getStageIndex(currentStage);
 
   return (
-    <div className="bg-[#141418] border border-[#202024] rounded-md p-2.5 font-mono select-none">
+    <div className="bg-[#141418] border border-[#202024] rounded-md p-2.5 font-mono">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase text-[#71717A] tracking-wider font-semibold">

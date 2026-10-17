@@ -211,7 +211,7 @@ In adherence to Indian Railways decision support boundaries, the Copilot cannot 
   );
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0A0E17] p-2 sm:p-2.5 gap-2 overflow-hidden select-none font-sans text-xs min-h-0">
+    <div className="flex-1 flex flex-col h-full bg-[#0A0E17] p-2 sm:p-2.5 gap-2 overflow-hidden font-sans text-xs min-h-0">
       {/* 1. Header */}
       {!hideHeader && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-[#0F172A] border border-[#1E2D4A] rounded-lg p-2.5 sm:p-3 shrink-0">

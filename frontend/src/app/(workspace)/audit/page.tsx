@@ -331,7 +331,7 @@ export default function AuditPage() {
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 max-w-7xl mx-auto w-full bg-[#070D18] font-sans text-xs">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 space-y-3.5 max-w-[1920px] mx-auto w-full bg-[#070D18] font-sans text-xs">
         {/* Top Header Block */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
           <div>

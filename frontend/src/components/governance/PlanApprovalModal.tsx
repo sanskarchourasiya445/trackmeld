@@ -91,7 +91,7 @@ export const PlanApprovalModal: React.FC<PlanApprovalModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-[#0B101C] border border-[#1E2D4A] text-[#F8FAFC] sm:max-w-lg p-6 font-sans select-none shadow-2xl">
+      <DialogContent className="bg-[#0B101C] border border-[#1E2D4A] text-[#F8FAFC] sm:max-w-lg p-6 font-sans shadow-2xl">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">

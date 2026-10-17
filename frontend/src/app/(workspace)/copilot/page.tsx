@@ -7,7 +7,7 @@ import { Bot, ShieldAlert } from 'lucide-react';
 export default function CopilotPage() {
   return (
     <>
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-2 sm:p-2.5 lg:p-3 gap-2 bg-[#04070D] font-sans max-w-[1920px] w-full mx-auto select-none">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-2 sm:p-2.5 lg:p-3 gap-2 bg-[#04070D] font-sans max-w-[1920px] w-full mx-auto">
         {/* Workspace Operational Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-[#0B101C] border border-[#1E2D4A] rounded-lg px-3.5 py-2 shrink-0 shadow-sm">
           <div>
